@@ -60,15 +60,16 @@ a { color:inherit; }
   padding:22px 14px; display:flex; flex-direction:column; gap:6px;
   position:sticky; top:0; height:100vh; overflow-y:auto;
 }
-.brand { padding:0 10px 16px; }
-.brand .dot { width:30px;height:30px;border-radius:9px;background:var(--lime);display:grid;place-items:center;font-weight:800;color:#3d4a16;margin-bottom:10px; }
+.brand { padding:0 10px 16px; text-align:center; }
+.brand .dot { width:34px;height:34px;border-radius:10px;background:var(--lime);display:grid;place-items:center;font-weight:800;color:#3d4a16;margin:0 auto 10px; }
 .brand h1 { font-size:16.5px; line-height:1.3; }
 .brand p  { margin:4px 0 0; font-size:13px; color:var(--ink-3); }
 
 .nav { display:flex; flex-direction:column; gap:3px; }
 .nav button {
-  all:unset; cursor:pointer; padding:9px 12px; border-radius:var(--r-s);
-  font-size:15px; color:var(--ink-2); display:flex; align-items:center; gap:9px;
+  all:unset; cursor:pointer; padding:10px 12px; border-radius:var(--r-s);
+  font-size:15px; color:var(--ink-2); display:flex; align-items:center;
+  justify-content:center; gap:9px; text-align:center;
 }
 .nav button:hover { background:var(--panel-2); color:var(--ink); }
 .nav button[aria-selected="true"] { background:var(--lime-soft); color:var(--ink); font-weight:600; }
@@ -105,10 +106,15 @@ a { color:inherit; }
 
 /* ---- KPI --------------------------------------------------------------- */
 .kpi { text-align:center; }
-.kpi .v { font-size:32px; font-weight:700; letter-spacing:-.01em; line-height:1.15; }
-.kpi .k { font-size:13.5px; color:var(--ink-3); margin-top:5px; }
-.kpi .bar { max-width:200px; margin-left:auto; margin-right:auto; height:5px; border-radius:99px; background:var(--line); margin-top:11px; overflow:hidden; }
-.kpi .bar i { display:block; height:100%; background:var(--lime); border-radius:99px; }
+.kpi { justify-content:center; padding:22px 20px; }
+.kpi .v { font-size:46px; font-weight:700; letter-spacing:-.02em; line-height:1.05; }
+.kpi .k { font-size:15px; color:var(--ink-2); margin-top:9px; font-weight:600;
+          text-transform:uppercase; letter-spacing:.06em; }
+.kpi .bar { max-width:240px; margin-left:auto; margin-right:auto; height:9px; border-radius:99px;
+            background:rgba(0,0,0,.07); margin-top:15px; overflow:hidden; }
+.kpi .bar i { display:block; height:100%; border-radius:99px;
+              background:linear-gradient(90deg,var(--lime),var(--green));
+              transition:width .5s cubic-bezier(.4,0,.2,1); }
 
 /* ---- donut ------------------------------------------------------------- */
 .donut-wrap { display:flex; align-items:center; gap:22px; flex-wrap:wrap; }
@@ -369,13 +375,57 @@ table.plain td { padding:9px 10px 9px 0; border-top:1px solid var(--line); verti
 }
 
 /* status breakdown rendered inside a top-row KPI-sized card */
-.stat-tile { display:flex; flex-direction:column; }
-.stat-tile > h3 { font-size:12px; margin-bottom:10px; color:var(--ink-2); }
-.stat-tile .donut-wrap { gap:14px; justify-content:center; }
-.stat-tile .donut { width:84px; height:84px; flex:0 0 84px; }
-.stat-tile .donut svg { width:84px; height:84px; }
-.stat-tile .donut .mid b { font-size:16px; }
-.stat-tile .donut .mid span { font-size:9px; }
-.stat-tile .legend { font-size:11px; gap:4px; }
-.stat-tile .legend i { width:9px; height:9px; }
+.stat-tile { display:flex; flex-direction:column; justify-content:center; padding:22px 20px; }
+.stat-tile > h3 { font-size:15px; margin-bottom:16px; color:var(--ink); font-weight:700;
+                  text-transform:uppercase; letter-spacing:.06em; }
+/* donut kartin SAGINDA, aciklama solda */
+.stat-tile .donut-wrap { gap:18px; justify-content:flex-start;
+                         align-items:center; flex-wrap:nowrap; }
+.stat-tile .donut { width:92px; height:92px; flex:0 0 92px; }
+.stat-tile .donut svg { width:92px; height:92px; }
+.stat-tile .donut .mid { display:none; }   /* halkanin icindeki yazi kaldirildi */
+.stat-tile .legend { font-size:13.5px; gap:10px; text-align:left; flex:1; min-width:0; }
+.stat-tile .legend > div { white-space:nowrap; display:flex; align-items:center; }
+.stat-tile .legend .n { margin-left:auto; padding-left:8px; }
+.stat-tile .legend i { width:12px; height:12px; border-radius:4px; }
+.stat-tile .legend .n { font-weight:700; color:var(--ink); }
 @media (max-width:1080px){ .stat-tile .donut-wrap { justify-content:flex-start; } }
+
+/* ---- kapatilabilir kenar cubugu ------------------------------------------ */
+.side-toggle {
+  all:unset; cursor:pointer; position:absolute; top:14px; right:10px;
+  width:30px; height:30px; border-radius:9px; display:grid; place-items:center;
+  font-size:15px; color:var(--ink-3); line-height:1;
+}
+.side-toggle:hover { background:var(--panel-2); color:var(--ink); }
+.side { position:sticky; }
+
+/* daraltilmis hal: ikon serisi kalir, metin gider */
+body.side-collapsed .side { width:62px; flex:0 0 62px; padding-left:8px; padding-right:8px; overflow:hidden; }
+body.side-collapsed .side-toggle { right:50%; transform:translateX(50%); }
+body.side-collapsed .brand h1,
+body.side-collapsed .brand p,
+body.side-collapsed .nav .lbl,
+body.side-collapsed #meBox,
+body.side-collapsed #syncBox { display:none; }
+body.side-collapsed .brand { padding:34px 0 12px; }
+body.side-collapsed .nav button { padding:11px 0; }
+body.side-collapsed .nav .ico { font-size:17px; }
+
+@media (max-width:720px){
+  .side-toggle { position:static; margin-left:auto; }
+  body.side-collapsed .side { width:auto; flex:none; }
+  body.side-collapsed .nav .lbl { display:inline; }
+  body.side-collapsed #meBox, body.side-collapsed #syncBox { display:block; }
+}
+
+/* sutun basligina gorev ekleme butonu */
+.col h4 .addcol, .mini-board .mcol h5 .addcol {
+  all:unset; cursor:pointer; width:20px; height:20px; border-radius:6px;
+  display:grid; place-items:center; font-size:15px; line-height:1;
+  color:var(--ink-3); margin-left:8px;
+}
+.col h4 .addcol:hover { background:var(--panel); color:var(--ink); }
+.col h4 { align-items:center; }
+.mini-board .more.link { cursor:pointer; color:var(--teal); font-weight:700; }
+.mini-board .more.link:hover { text-decoration:underline; }

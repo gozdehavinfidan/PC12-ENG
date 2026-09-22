@@ -359,14 +359,14 @@
       var n = counts[k] || 0; if (!n) return;
       var len = C * (n / total);
       segs += '<circle cx="66" cy="66" r="52" fill="none" stroke="' + STATUS[k].color +
-              '" stroke-width="18" stroke-dasharray="' + len.toFixed(2) + ' ' + (C - len).toFixed(2) +
+              '" stroke-width="26" stroke-dasharray="' + len.toFixed(2) + ' ' + (C - len).toFixed(2) +
               '" stroke-dashoffset="' + (-off).toFixed(2) + '"></circle>';
       off += len;
       leg += '<div><i style="background:' + STATUS[k].color + '"></i>' + STATUS[k].label +
              '<span class="n">' + n + '</span></div>';
     });
     return '<div class="donut-wrap"><div class="donut"><svg width="132" height="132" viewBox="0 0 132 132">' +
-      '<circle cx="66" cy="66" r="52" fill="none" stroke="rgba(0,0,0,.08)" stroke-width="18"></circle>' + segs +
+      '<circle cx="66" cy="66" r="52" fill="none" stroke="rgba(0,0,0,.08)" stroke-width="26"></circle>' + segs +
       '</svg><div class="mid"><div><b>' + doneCount() + '/' + STATE.tasks.length + '</b><span>görev bitti</span></div></div></div>' +
       '<div class="legend">' + leg + '</div></div>';
   }
@@ -424,7 +424,8 @@
           '<div class="pb"><i style="width:' + pct + '%;background:' + ownerBg(t.owner) + '"></i></div>' +
           '<span class="pv">%' + pct + '</span></div></div>';
       }).join('') || '<div class="more">-</div>';
-      var extra = items.length > 3 ? '<div class="more">+' + (items.length - 3) + ' tane daha</div>' : '';
+      var extra = items.length > 3
+        ? '<div class="more link" data-goboard="1">+' + (items.length - 3) + ' tane daha - hepsini gor</div>' : '';
       return '<div class="mcol"><h5>' + STATUS[k].label + '<span>' + items.length + '</span></h5>' + cards + extra + '</div>';
     }).join('') + '</div>';
   }
@@ -528,7 +529,9 @@
             (t.notes.length ? '<span class="nb" title="not">' + t.notes.length + ' not</span>' : '') + '</div>' +
           (t.note ? '<div class="note">' + esc(t.note) + '</div>' : '') + '</div>';
       }).join('') || '<div class="empty">-</div>';
-      return '<div class="col" data-col="' + c + '"><h4>' + STATUS[c].label + '<span>' + items.length + '</span></h4>' + cards + '</div>';
+      return '<div class="col" data-col="' + c + '"><h4>' + STATUS[c].label +
+        '<span>' + items.length + '<button class="addcol" data-add="' + c + '" title="Bu sutuna gorev ekle">+</button></span>' +
+        '</h4>' + cards + '</div>';
     }).join('');
     return '<div class="exportbar"><button class="btn" id="addTaskBtn">+ Görev ekle</button>' +
       '<span class="hint">Karta tıklayın: durum değiştirin, kendinizi ekleyin, not düşün. Sürüklemek de çalışır.</span></div>' +
@@ -611,7 +614,7 @@
     $('#noteIn').onkeydown = function (e) { if (e.key === 'Enter') $('#noteBtn').click(); };
   }
 
-  function openAddTask() {
+  function openAddTask(initialStatus) {
     var ips = (D.ips || []).map(function (i) { return '<option value="' + esc(i.id) + '">' + esc(i.label) + '</option>'; }).join('');
     var ppl = (D.people || []).map(function (p) { return '<option value="' + esc(p.code) + '"' + (p.code === ME ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('');
     $('#drawer').innerHTML = '<div class="dw-back"></div><div class="dw">' +
@@ -631,6 +634,9 @@
       if (b < a) b = a;
       var id = 'Y' + newId().slice(0, 4).toUpperCase();
       addEvent('task', id, [$('#ntIp').value, title.replace(/;/g, ','), $('#ntOwner').value, a, b].join(';'));
+      // yeni gorev varsayilan olarak 'todo' dogar; baska bir sutuna eklendiyse
+      // durumunu ikinci bir olayla tasiyoruz (olay gunlugu boyle calisiyor)
+      if (initialStatus && initialStatus !== 'todo') addEvent('status', id, initialStatus);
       closeDrawer();
     };
     $('#ntTitle').focus();
@@ -738,7 +744,13 @@
         openTask(el.getAttribute('data-task'));
       });
     });
-    if ($('#addTaskBtn')) $('#addTaskBtn').onclick = openAddTask;
+    if ($('#addTaskBtn')) $('#addTaskBtn').onclick = function () { openAddTask('todo'); };
+    all('.addcol').forEach(function (b) {
+      b.onclick = function (e) { e.stopPropagation(); openAddTask(b.getAttribute('data-add')); };
+    });
+    all('[data-goboard]').forEach(function (el) {
+      el.onclick = function () { location.hash = 'board'; };
+    });
     if (k === 'board') wireDrag();
     renderSyncBox();
   }
@@ -776,6 +788,15 @@
     });
     window.addEventListener('hashchange', render);
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDrawer(); });
+    // kenar cubugu ac/kapat - tercih taraycida hatirlanir
+    var st = $('#sideToggle');
+    if (st) {
+      if (lsGet('pc12.side', 'open') === 'closed') document.body.classList.add('side-collapsed');
+      st.addEventListener('click', function () {
+        var closed = document.body.classList.toggle('side-collapsed');
+        lsSet('pc12.side', closed ? 'closed' : 'open');
+      });
+    }
     renderMeBox();
     recompute(); render();
     loadRemote().then(function () { recompute(); render(); });

@@ -12,6 +12,8 @@
 <div class="shell">
 
   <aside class="side">
+    <button id="sideToggle" class="side-toggle" type="button"
+            aria-label="Kenar cubugunu ac/kapat" title="Kenar cubugunu ac/kapat">&#9776;</button>
     <div class="brand">
       <div class="dot">PC</div>
       <h1 id="projName">PC12 Morfoloji Analizi</h1>
@@ -19,11 +21,11 @@
     </div>
 
     <nav class="nav" role="tablist" aria-label="Görünümler">
-      <button data-v="overview" role="tab" aria-selected="true"><span class="ico">◧</span>Genel bakış</button>
-      <button data-v="gantt"    role="tab" aria-selected="false"><span class="ico">▤</span>Zaman çizelgesi</button>
-      <button data-v="board"    role="tab" aria-selected="false"><span class="ico">▥</span>Görev panosu</button>
-      <button data-v="sunum"    role="tab" aria-selected="false"><span class="ico">◈</span>Sunum planı</button>
-      <button data-v="risk"     role="tab" aria-selected="false"><span class="ico">⚑</span>Risk &amp; karar</button>
+      <button data-v="overview" role="tab" aria-selected="true"><span class="ico">◧</span><span class="lbl">Genel bakış</span></button>
+      <button data-v="gantt"    role="tab" aria-selected="false"><span class="ico">▤</span><span class="lbl">Zaman çizelgesi</span></button>
+      <button data-v="board"    role="tab" aria-selected="false"><span class="ico">▥</span><span class="lbl">Görev panosu</span></button>
+      <button data-v="sunum"    role="tab" aria-selected="false"><span class="ico">◈</span><span class="lbl">Sunum planı</span></button>
+      <button data-v="risk"     role="tab" aria-selected="false"><span class="ico">⚑</span><span class="lbl">Risk &amp; karar</span></button>
     </nav>
 
     <!-- who am I: sets the author of every event appended to data.txt -->
