@@ -1,5 +1,5 @@
 # =========================================================================
-# PC12 ENG400 — OLAY GUNLUGU (veritabani)
+# PC12 ENG401 — OLAY GUNLUGU (veritabani)
 # =========================================================================
 #
 # Bu dosya sitenin veritabanidir. SADECE SONA EKLENIR, hicbir satir
@@ -18,7 +18,7 @@
 #
 #   ZAMAN : ISO 8601, orn. 2026-09-22T10:30:00Z
 #   KISI  : ML (Gozde) | BM (Berke)
-#   EYLEM : status | pct | join | note | task | del
+#   EYLEM : status | pct | join | note | task | del | msg | read
 #   HEDEF : gorev id (T1.1 gibi), 'task' icin yeni id
 #   DEGER : eyleme gore degisir
 #   ID    : 8 hex karakter, olaya ozel kimlik.
@@ -34,9 +34,19 @@
 #   note   | T1.1 | serbest metin       | a1b2c3d7
 #   task   | Y1   | IP2;Baslik;ML;5;6   | a1b2c3d8   (ip;baslik;sahip;basl;bitis)
 #   del    | Y1   |                     | a1b2c3d9   (gizler, gecmis korunur)
+#   msg    | BM   | serbest metin       | a1b2c3da   (HEDEF = alici: ML ya da BM)
+#   read   | a1b2c3da |                 | a1b2c3db   (HEDEF = okunan mesajin ID'si)
+#
+# MESAJLAR: 'msg' bir kisiden digerine not birakir; olayin kendi ID'si ayni
+# zamanda mesajin kimligidir. "Okundu" demek mesaji SILMEZ - sadece o ID'ye
+# bir 'read' olayi ekler. Boylece yazisma gecmisi korunur ve bir okundu isareti
+# ayni anda yazilan bir mesaji hicbir kosulda ezemez.
 #
 # NOT: Deger icinde | karakteri varsa %7C yazin. Satir sonu kullanilamaz.
 #
 # BU DOSYAYI ELLE DUZENLEMEYIN diye bir kural yok - ama sadece SONA ekleyin.
 # Siteden "kaydet" dediginizde satirlar buraya otomatik eklenir.
 # =========================================================================
+2026-09-22T18:40:00Z|ML|note|T0.2|6 paralel literatür arastirmasi bitti (R1-R6, birincil kaynaklar) - 16-ARCHITECTURE-RESEARCH yazildi; D13 kabul edildi (iki-kollu mimari + soft-clDice + 5-seed ensemble); 04/05/08/13/14/15/README guncellendi|a3f7c2e1
+2026-09-22T21:30:00Z|ML|note|T3.5|D14: konsept kanonu = TUSEB 2026 NTI basvurusu (bolumler) - 02 yeniden yazildi, 00/03/04/06/07/08/12/13/README uym edildi, T3.5 NTI modulu eklendi, O1 acik (metadata sorusu T1.1)|8d41a2c7
+2026-09-22T22:10:00Z|ML|note|T0.2|KLAVUZ.html yazildi - beyaz arka planli tek dosya proje klavuzu (konsept + TUSEB raporu + pipeline + bizim tasarim noktalarimiz), tarayiciyla dogrulandi; README + gitignore guncellendi|b9e3f7a2

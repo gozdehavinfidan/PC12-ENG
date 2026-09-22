@@ -1,4 +1,4 @@
-/* PC12 ENG400 dashboard — design tokens + layout
+/* PC12 ENG401 dashboard — design tokens + layout
    Palette: soft off-white ground, lime accent, teal secondary. */
 
 :root {
@@ -56,7 +56,7 @@ a { color:inherit; }
 .shell { display:flex; min-height:100vh; }
 
 .side {
-  width:252px; flex:0 0 252px; background:var(--panel); border-right:1px solid var(--line);
+  width:280px; flex:0 0 280px; background:var(--panel); border-right:1px solid var(--line);
   padding:22px 14px; display:flex; flex-direction:column; gap:6px;
   position:sticky; top:0; height:100vh; overflow-y:auto;
 }
@@ -65,15 +65,93 @@ a { color:inherit; }
 .brand h1 { font-size:16.5px; line-height:1.3; }
 .brand p  { margin:4px 0 0; font-size:13px; color:var(--ink-3); }
 
-.nav { display:flex; flex-direction:column; gap:3px; }
+.nav { display:flex; flex-direction:column; gap:5px; }
 .nav button {
-  all:unset; cursor:pointer; padding:10px 12px; border-radius:var(--r-s);
-  font-size:15px; color:var(--ink-2); display:flex; align-items:center;
-  justify-content:center; gap:9px; text-align:center;
+  all:unset; cursor:pointer; padding:14px 12px; border-radius:var(--r-s);
+  font-size:17.5px; color:var(--ink-2); display:flex; align-items:center;
+  justify-content:center; gap:12px; text-align:center;
 }
 .nav button:hover { background:var(--panel-2); color:var(--ink); }
 .nav button[aria-selected="true"] { background:var(--lime-soft); color:var(--ink); font-weight:600; }
-.nav .ico { width:16px; text-align:center; opacity:.8; }
+.nav .ico { width:24px; font-size:21px; line-height:1; text-align:center; opacity:.85; }
+
+/* ---- notifications ---- */
+#msgBox { margin-top:10px; }
+#msgBox .mini-label { display:flex; align-items:center; gap:7px; }
+#msgBox .badge { background:var(--lime); color:#3d4a16; border-radius:99px;
+                 padding:1px 7px; font-size:11px; font-weight:800; }
+.msgs { list-style:none; margin:6px 0 8px; padding:0; display:flex; flex-direction:column; gap:6px;
+        max-height:210px; overflow-y:auto; }
+.msgs .msg { background:var(--panel-2); border-radius:var(--r-s); padding:7px 9px; }
+.msgs .msg p { margin:4px 0 0; font-size:12.5px; line-height:1.45; color:var(--ink);
+               word-break:break-word; }
+.msg-h { display:flex; align-items:center; gap:7px; }
+.msg-t { font-size:10.5px; color:var(--ink-3); }
+/* pushes the dismiss button to the right edge whatever the timestamp width */
+.msg-x { all:unset; cursor:pointer; margin-left:auto; padding:0 4px; font-size:12px;
+         color:var(--ink-3); border-radius:5px; }
+.msg-x:hover { background:rgba(0,0,0,.07); color:var(--ink); }
+.msgs .empty { font-size:12px; color:var(--ink-3); padding:2px 2px 0; }
+.msg-new { display:flex; gap:6px; }
+.msg-new input { flex:1; min-width:0; border:1px solid var(--line); border-radius:var(--r-s);
+                 padding:7px 9px; font:inherit; font-size:12.5px; background:#fff; color:var(--ink); }
+.msg-new button { all:unset; cursor:pointer; background:var(--lime-soft); color:var(--ink);
+                  padding:7px 11px; border-radius:var(--r-s); font-size:12.5px; font-weight:600; }
+.msg-new button:hover { background:var(--lime); }
+
+/* Planning note carried by a task in data.js (not a user-written note). Amber
+   rather than grey: these are warnings - critical path, data leakage, schedule
+   anomalies - and grey body text is exactly how the old invisible field read. */
+.dw-note { background:#fdf4e3; border-left:3px solid #e0b060; border-radius:8px;
+           padding:10px 12px; font-size:12.5px; line-height:1.55; color:var(--ink); }
+
+/* Data freshness. Normal is quiet; stale is amber, because the whole point is
+   that a dashboard nobody updated should not look like one that is current. */
+.sync .fresh { font-size:11px; color:var(--ink-3); }
+.sync .fresh.stale { color:#8a5a12; font-weight:600; }
+
+/* ---- work-package detail panel ---- */
+.ip-btn { all:unset; cursor:pointer; display:inline-block; padding:2px 8px;
+          border-radius:7px; font:inherit; color:inherit; }
+.ip-btn:hover { background:rgba(31,39,36,.08); }
+.ip-btn:focus-visible { outline:2px solid var(--teal); outline-offset:1px; }
+
+.pkg-desc { margin:0; font-size:13px; line-height:1.6; color:var(--ink-2); }
+.pb.lg { height:10px; border-radius:99px; background:var(--line); overflow:hidden; }
+.pb.lg i { display:block; height:100%; border-radius:99px; }
+.pills { display:flex; flex-wrap:wrap; gap:7px; margin-top:9px; }
+.pills .pill { display:inline-flex; align-items:center; gap:6px; font-size:11px;
+               color:var(--ink-2); background:var(--panel-2); border-radius:99px; padding:3px 9px; }
+.pills .pill i { width:8px; height:8px; border-radius:50%; }
+.pkg-tasks { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:5px; }
+.pkg-task { all:unset; box-sizing:border-box; cursor:pointer; width:100%;
+            display:grid; grid-template-columns:auto 1fr auto auto auto; gap:9px;
+            align-items:center; padding:8px 10px; border-radius:var(--r-s);
+            background:var(--panel-2); font-size:12.5px; }
+.pkg-task:hover { background:var(--lime-soft); }
+.pkg-task:focus-visible { outline:2px solid var(--teal); outline-offset:1px; }
+.pkg-task .tid { font-weight:700; font-size:11px; color:var(--ink-3); }
+/* min-width:0 or the title stretches the grid instead of wrapping in place */
+.pkg-task .ttl { min-width:0; text-align:left; color:var(--ink); line-height:1.35; }
+.pkg-task .tw  { font-size:11px; color:var(--ink-3); white-space:nowrap; }
+.pkg-task .tpc { display:inline-flex; align-items:center; gap:6px; font-size:11px;
+                 font-weight:700; color:var(--ink-2); white-space:nowrap; }
+.pkg-task .tpc::before { content:''; width:8px; height:8px; border-radius:50%;
+                         background:var(--c); box-shadow:inset 0 0 0 1px rgba(0,0,0,.12); }
+
+/* ---- LAST UPDATES activity feed ---- */
+.updates { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px; }
+.up { display:grid; grid-template-columns:auto 1fr auto; gap:11px; align-items:start;
+      padding:9px 4px; border-bottom:1px solid rgba(0,0,0,.05); }
+.up:last-child { border-bottom:none; }
+.up .av-w { display:flex; padding-top:1px; }
+/* min-width:0 so a long note wraps instead of stretching the grid */
+.up .up-t { min-width:0; font-size:13.5px; line-height:1.55; color:var(--ink-2);
+            overflow-wrap:break-word; }
+.up .up-t b { color:var(--ink); font-weight:700; }
+.up .up-t i { font-style:normal; color:var(--teal); font-weight:700; }
+.up .up-w { font-size:11.5px; color:var(--ink-3); white-space:nowrap; padding-top:2px; }
+.gate { margin:0; font-size:13px; line-height:1.55; color:var(--ink-2); }
 
 .side-foot { margin-top:auto; padding:12px 10px 0; border-top:1px solid var(--line); font-size:13px; color:var(--ink-3); }
 .side-foot a { color:var(--teal); text-decoration:none; }
@@ -91,8 +169,13 @@ a { color:inherit; }
 .stale.bad  { background:var(--red-soft);   color:#8f3838; }
 
 .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow); padding:18px 20px; }
-.card > h3 { font-size:17px; margin-bottom:16px; display:flex; align-items:center; justify-content:center; gap:8px; text-align:center; }
-.card > h3 .sub { font-weight:400; color:var(--ink-3); font-size:13.5px; }
+/* Uppercase so the big card headings match the KPI labels and TASK STATUS,
+   which were already uppercase - the mixed case was the odd one out. */
+.card > h3 { font-size:16px; text-transform:uppercase; letter-spacing:.07em;
+             margin-bottom:16px; display:flex; align-items:center;
+             justify-content:center; gap:8px; text-align:center; }
+.card > h3 .sub { font-weight:400; text-transform:none; letter-spacing:0;
+                  color:var(--ink-3); font-size:13.5px; }
 
 .grid { display:grid; gap:16px; }
 /* Grid/flex children default to min-width:auto, which lets them grow to their
@@ -165,18 +248,35 @@ a { color:inherit; }
 .gantt .unsched { color:var(--ink-3); font-style:italic; font-size:13px; }
 
 /* ---- board ------------------------------------------------------------- */
-.board { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; align-items:start; }
-.col { background:var(--panel-2); border:1px solid var(--line); border-radius:var(--r); padding:12px; min-height:120px; }
+/* Four equal stage columns plus a narrower exception column. Blocked is not
+   a stage of the process and is normally empty, so giving it an equal fifth
+   of the width was squeezing the four columns that carry the actual work -
+   card titles were wrapping to three lines at 1440px. */
+.board { display:grid; grid-template-columns:repeat(4,1fr) 0.72fr; gap:16px; align-items:start; }
+/* --c is the column's status colour, set inline by app.js from STATUS[k].
+   The 3px top rule plus the tinted heading make the stage readable at a
+   glance; the body stays neutral so the owner-coloured cards still read. */
+.col { background:var(--panel-2); border:1px solid var(--line);
+       border-top:3px solid var(--c,var(--line));
+       border-radius:var(--r); padding:15px 14px; min-height:140px; }
 .col.over { border-color:var(--teal); background:var(--teal-soft); }
-.col h4 { font-size:13.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-3); margin-bottom:11px; display:flex; justify-content:space-between; }
-.tcard { background:var(--panel); border:1px solid var(--line); border-radius:var(--r-s); padding:10px 11px; margin-bottom:9px; cursor:grab; box-shadow:0 1px 2px rgba(31,39,36,.04); text-align:center; }
+.col h4 { font-size:14.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+          color:var(--ink-2); margin-bottom:13px; display:flex; justify-content:space-between; }
+/* the dot repeats the colour for anyone who cannot separate these hues */
+.col h4::before { content:''; width:10px; height:10px; border-radius:50%;
+                  background:var(--c,var(--line)); margin-right:8px; flex:0 0 auto;
+                  box-shadow:inset 0 0 0 1px rgba(0,0,0,.12); }
+.tcard { background:var(--panel); border:1px solid var(--line); border-radius:var(--r-s);
+         padding:14px 13px; margin-bottom:11px; cursor:grab;
+         box-shadow:0 1px 2px rgba(31,39,36,.04); text-align:center; }
 .tcard:active { cursor:grabbing; }
 .tcard.drag { opacity:.4; }
-.tcard .id { font-size:12px; font-weight:700; color:var(--ink-3); }
-.tcard .t  { font-size:14px; margin:3px 0 8px; }
-.tcard .f  { display:flex; align-items:center; justify-content:center; gap:7px; font-size:12.5px; color:var(--ink-3); }
+.tcard .id { font-size:12.5px; font-weight:700; color:var(--ink-3); letter-spacing:.02em; }
+.tcard .t  { font-size:15.5px; line-height:1.4; margin:5px 0 10px; }
+.tcard .f  { display:flex; align-items:center; justify-content:center; flex-wrap:wrap;
+             gap:8px; font-size:13px; color:var(--ink-3); }
 .chip { border-radius:99px; padding:1px 8px; font-size:12px; font-weight:700; color:#22302a; }
-.note { font-size:12.5px; color:var(--amber); margin-top:6px; }
+.note { font-size:12.5px; line-height:1.5; color:var(--amber); margin-top:8px; }
 
 .exportbar { display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
 .btn { all:unset; cursor:pointer; background:var(--ink); color:var(--bg); padding:8px 15px; border-radius:99px; font-size:14px; font-weight:600; }
@@ -219,7 +319,10 @@ table.plain td { padding:9px 10px 9px 0; border-top:1px solid var(--line); verti
       display:inline-grid; place-items:center; background:var(--panel-2);
       font-size:11px; font-weight:700; color:var(--ink-2); line-height:1;
       vertical-align:middle; user-select:none; }
-.av img { width:100%; height:100%; object-fit:cover; display:block; }
+.av { position:relative; }
+.av .ini { position:absolute; inset:0; display:grid; place-items:center;
+           font-style:normal; letter-spacing:.02em; }
+.av img { position:relative; width:100%; height:100%; object-fit:cover; display:block; }
 .av.ph { letter-spacing:.02em; }                 /* fotograf yok -> bas harfler */
 .av.sm { width:23px; height:23px; font-size:9.5px; }
 .av.lg { width:38px; height:38px; font-size:14px; }
@@ -232,12 +335,29 @@ table.plain td { padding:9px 10px 9px 0; border-top:1px solid var(--line); verti
 .panel-lime { background:linear-gradient(160deg,var(--lime-soft),var(--panel)); }
 .panel-grad { background:linear-gradient(135deg,var(--lime-soft),var(--teal-soft)); border:none; }
 
-.mini-tl { display:flex; flex-direction:column; gap:0; min-width:790px; }
+/* --nm-w is the work-package label column. It was the literal 210px in four
+   places (row grid, head grid, the absolute offset of the week bands, and
+   the narrow breakpoint), so widening it meant finding all four - and the
+   names WP4/WP6 were already being ellipsised at 210px. One variable now. */
+.mini-tl { --nm-w:252px; --nm-gap:14px;
+           display:flex; flex-direction:column; gap:0;
+           min-width:calc(var(--nm-w) + var(--nm-gap) + 566px); }
 .mini-tl .body { position:relative; }
-.mini-tl .body > .cols { position:absolute; left:224px; right:0; top:0; bottom:0; }
+.mini-tl .body > .cols { position:absolute; left:calc(var(--nm-w) + var(--nm-gap)); right:0; top:0; bottom:0; }
 .mini-tl .rows { position:relative; z-index:1; display:flex; flex-direction:column; gap:6px; }
-.mini-tl .row { display:grid; grid-template-columns:210px 1fr; align-items:center; gap:14px; }
-.mini-tl .nm { font-size:14px; color:var(--ink-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mini-tl .row { display:grid; grid-template-columns:var(--nm-w) 1fr; align-items:center; gap:var(--nm-gap); }
+/* Wraps to a second line instead of ellipsising. A truncated package name is
+   worse than a tall row: the row height (44px) already fits two 14px lines,
+   so nothing below moves. */
+/* Centred, because a name that wraps to two lines reads as ragged when the
+   second line hangs left under the first. Now a button: the package opens a
+   detail panel, so it must be reachable by keyboard and look pressable. */
+.mini-tl .nm { all:unset; box-sizing:border-box; cursor:pointer; display:block;
+               width:100%; padding:4px 6px; border-radius:8px;
+               font:inherit; font-size:14px; line-height:1.3; text-align:center;
+               color:var(--ink-2); overflow-wrap:break-word; }
+.mini-tl .nm:hover { background:rgba(31,39,36,.06); color:var(--ink); }
+.mini-tl .nm:focus-visible { outline:2px solid var(--teal); outline-offset:1px; }
 
 /* week columns: one transparent card per week, exactly 1/N wide so the bars
    line up with the header labels. Margin (not gap) keeps the track widths
@@ -248,7 +368,7 @@ table.plain td { padding:9px 10px 9px 0; border-top:1px solid var(--line); verti
 .mini-tl .cols > i.vize  { background:repeating-linear-gradient(45deg,rgba(0,0,0,.10),rgba(0,0,0,.10) 5px,rgba(0,0,0,.04) 5px,rgba(0,0,0,.04) 11px); }
 .mini-tl .cols > i.final { background:rgba(214,240,245,.95); }
 
-.mini-tl .head { display:grid; grid-template-columns:210px 1fr; gap:14px; align-items:end; margin-bottom:6px; }
+.mini-tl .head { display:grid; grid-template-columns:var(--nm-w) 1fr; gap:var(--nm-gap); align-items:end; margin-bottom:6px; }
 .mini-tl .head .hcols { position:relative; height:34px; }
 .mini-tl .head .hcols .cols > i { display:grid; place-items:center; align-content:center;
     background:rgba(255,255,255,.7); box-shadow:inset 0 0 0 1px rgba(0,0,0,.05); }
@@ -268,22 +388,39 @@ table.plain td { padding:9px 10px 9px 0; border-top:1px solid var(--line); verti
 .mini-tl .seg { justify-content:flex-start; }
 .mini-tl .seg .avs { position:absolute; top:50%; transform:translate(-50%,-50%);
                      z-index:2; transition:left .45s cubic-bezier(.4,0,.2,1); }
+/* Page-load intro: a longer, decelerating travel so the walk is readable. The
+   class is added by app.js for the first paint only; afterwards the .45s rule
+   above takes over, which is the right length for a single progress change. */
+.mini-tl.tl-intro .seg .avs { transition:left 1.15s cubic-bezier(.22,.61,.36,1); }
+@media (prefers-reduced-motion: reduce) {
+  .mini-tl .seg .avs, .mini-tl.tl-intro .seg .avs { transition:none; }
+}
 .mini-tl .seg .avs .av { border-width:0; }
 .mini-tl .none { position:absolute; left:2px; top:2px; bottom:2px; display:flex; align-items:center; padding:0 12px; font-size:10.5px; color:var(--ink-3); z-index:2; background:rgba(255,255,255,.8); border-radius:99px; }
 
 .tl-key { display:flex; gap:18px; flex-wrap:wrap; justify-content:center; margin-top:12px; padding-top:11px; border-top:1px solid rgba(0,0,0,.06); font-size:11px; color:var(--ink-3); }
 .tl-key span { display:inline-flex; align-items:center; gap:7px; }
 .tl-key .k { width:16px; height:13px; border-radius:4px; display:inline-block; }
-.tl-key .k.sunum { background:#fff; box-shadow:inset 0 0 0 1px rgba(122,150,70,.45); }
+/* Must match the black W-chip the header actually paints for a presentation
+   week; a white swatch here made the legend contradict the timeline. */
+.tl-key .k.sunum { background:#1f2724; box-shadow:none; }
 .tl-key .k.vize  { background:repeating-linear-gradient(45deg,#fff,#fff 3px,rgba(0,0,0,.09) 3px,rgba(0,0,0,.09) 4px); }
 .tl-key .k.final { background:#d6f0f5; }
 
 .mini-board { display:grid; grid-template-columns:repeat(4,1fr); gap:13px; align-items:start; }
-.mini-board .mcol { background:var(--panel-2); border:1px solid var(--line); border-radius:14px; padding:11px; }
-.mini-board .mcol h5 { margin:0 0 10px; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-3); display:flex; justify-content:space-between; font-weight:700; }
-.mini-board .mc { background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:9px 10px; margin-bottom:8px; text-align:center; }
+.mini-board .mcol { background:var(--panel-2); border:1px solid var(--line);
+                    border-top:3px solid var(--c,var(--line));
+                    border-radius:14px; padding:13px 12px; }
+.mini-board .mcol h5 { margin:0 0 11px; font-size:12px; text-transform:uppercase;
+                       letter-spacing:.06em; color:var(--ink-2); display:flex;
+                       align-items:center; justify-content:space-between; font-weight:700; }
+.mini-board .mcol h5::before { content:''; width:9px; height:9px; border-radius:50%;
+                               background:var(--c,var(--line)); margin-right:7px; flex:0 0 auto;
+                               box-shadow:inset 0 0 0 1px rgba(0,0,0,.12); }
+.mini-board .mc { background:var(--panel); border:1px solid var(--line); border-radius:11px;
+                  padding:11px 11px; margin-bottom:9px; text-align:center; }
 .mini-board .mc:last-child { margin-bottom:0; }
-.mini-board .mc .tt { font-size:12px; line-height:1.35; margin-bottom:8px; }
+.mini-board .mc .tt { font-size:13px; line-height:1.4; margin-bottom:9px; }
 .mini-board .mc .bt { display:flex; align-items:center; justify-content:center; gap:8px; }
 .mini-board .mc .pb { height:4px; border-radius:99px; background:var(--line); overflow:hidden; flex:1; }
 .mini-board .mc .pb i { display:block; height:100%; border-radius:99px; }
@@ -292,11 +429,14 @@ table.plain td { padding:9px 10px 9px 0; border-top:1px solid var(--line); verti
 @media (max-width:1080px){ .mini-board { grid-template-columns:repeat(2,1fr); } }
 @media (max-width:720px){
   .mini-board { grid-template-columns:1fr; }
-  .mini-tl .row, .mini-tl .scale { grid-template-columns:104px 1fr; gap:8px; }
+  .mini-tl { --nm-w:112px; --nm-gap:8px; }
+  .mini-tl .nm { font-size:11.5px; }
 }
 
 /* ---- responsive -------------------------------------------------------- */
 @media (max-width: 1080px) { .g4 { grid-template-columns:repeat(2,1fr); } .g2 { grid-template-columns:1fr; } .board { grid-template-columns:repeat(2,1fr); } }
+/* the narrow exception column only makes sense while all five fit side by side */
+@media (max-width: 1240px) { .board { grid-template-columns:repeat(3,1fr); } }
 @media (max-width: 720px) {
   .shell { flex-direction:column; }
   .side { width:auto; flex:none; height:auto; position:static; flex-direction:row; flex-wrap:wrap; align-items:center; padding:12px; gap:8px; }
@@ -403,22 +543,23 @@ table.plain td { padding:9px 10px 9px 0; border-top:1px solid var(--line); verti
 .side { position:sticky; }
 
 /* daraltilmis hal: ikon serisi kalir, metin gider */
-body.side-collapsed .side { width:62px; flex:0 0 62px; padding-left:8px; padding-right:8px; overflow:hidden; }
+body.side-collapsed .side { width:74px; flex:0 0 74px; padding-left:8px; padding-right:8px; overflow:hidden; }
 body.side-collapsed .side-toggle { right:50%; transform:translateX(50%); }
 body.side-collapsed .brand h1,
 body.side-collapsed .brand p,
 body.side-collapsed .nav .lbl,
 body.side-collapsed #meBox,
+body.side-collapsed #msgBox,
 body.side-collapsed #syncBox { display:none; }
 body.side-collapsed .brand { padding:34px 0 12px; }
-body.side-collapsed .nav button { padding:11px 0; }
-body.side-collapsed .nav .ico { font-size:17px; }
+body.side-collapsed .nav button { padding:14px 0; }
+body.side-collapsed .nav .ico { font-size:24px; width:auto; }
 
 @media (max-width:720px){
   .side-toggle { position:static; margin-left:auto; }
   body.side-collapsed .side { width:auto; flex:none; }
   body.side-collapsed .nav .lbl { display:inline; }
-  body.side-collapsed #meBox, body.side-collapsed #syncBox { display:block; }
+  body.side-collapsed #meBox, body.side-collapsed #msgBox, body.side-collapsed #syncBox { display:block; }
 }
 
 /* sutun basligina gorev ekleme butonu */
@@ -428,6 +569,11 @@ body.side-collapsed .nav .ico { font-size:17px; }
   color:var(--ink-3); margin-left:8px;
 }
 .col h4 .addcol:hover { background:var(--panel); color:var(--ink); }
-.col h4 { align-items:center; }
+/* The count and the + button live in one span; in the narrow Blocked column
+   it was wrapping internally and stacking them on top of each other. Keep
+   the span on one line and let the LABEL shrink instead. */
+.col h4 { align-items:center; gap:8px; flex-wrap:nowrap; }
+.col h4 > span { display:inline-flex; align-items:center; gap:7px; flex:0 0 auto; }
+.col h4 { min-width:0; }
 .mini-board .more.link { cursor:pointer; color:var(--teal); font-weight:700; }
 .mini-board .more.link:hover { text-decoration:underline; }
