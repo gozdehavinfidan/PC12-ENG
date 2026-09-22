@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="tr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>PC12 Morfoloji Analizi — ENG400 Dashboard</title>
+<title>PC12 Morphology Analysis — ENG400 Dashboard</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>&#129516;</text></svg>">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
 
@@ -13,19 +13,19 @@
 
   <aside class="side">
     <button id="sideToggle" class="side-toggle" type="button"
-            aria-label="Kenar cubugunu ac/kapat" title="Kenar cubugunu ac/kapat">&#9776;</button>
+            aria-label="Toggle sidebar" title="Toggle sidebar">&#9776;</button>
     <div class="brand">
       <div class="dot">PC</div>
       <h1 id="projName">PC12 Morfoloji Analizi</h1>
       <p id="projSub">ENG400</p>
     </div>
 
-    <nav class="nav" role="tablist" aria-label="Görünümler">
-      <button data-v="overview" role="tab" aria-selected="true"><span class="ico">◧</span><span class="lbl">Genel bakış</span></button>
-      <button data-v="gantt"    role="tab" aria-selected="false"><span class="ico">▤</span><span class="lbl">Zaman çizelgesi</span></button>
-      <button data-v="board"    role="tab" aria-selected="false"><span class="ico">▥</span><span class="lbl">Görev panosu</span></button>
-      <button data-v="sunum"    role="tab" aria-selected="false"><span class="ico">◈</span><span class="lbl">Sunum planı</span></button>
-      <button data-v="risk"     role="tab" aria-selected="false"><span class="ico">⚑</span><span class="lbl">Risk &amp; karar</span></button>
+    <nav class="nav" role="tablist" aria-label="Views">
+      <button data-v="overview" role="tab" aria-selected="true"><span class="ico">◧</span><span class="lbl">Overview</span></button>
+      <button data-v="gantt"    role="tab" aria-selected="false"><span class="ico">▤</span><span class="lbl">Timeline</span></button>
+      <button data-v="board"    role="tab" aria-selected="false"><span class="ico">▥</span><span class="lbl">Task board</span></button>
+      <button data-v="sunum"    role="tab" aria-selected="false"><span class="ico">◈</span><span class="lbl">Presentations</span></button>
+      <button data-v="risk"     role="tab" aria-selected="false"><span class="ico">⚑</span><span class="lbl">Risks &amp; decisions</span></button>
     </nav>
 
     <!-- who am I: sets the author of every event appended to data.txt -->
@@ -36,10 +36,10 @@
 
   <main class="main">
     <div class="topbar">
-      <h2 id="viewTitle">Genel bakış</h2>
+      <h2 id="viewTitle">Overview</h2>
     </div>
     <div id="view"><noscript>
-      <div class="card">Bu dashboard JavaScript gerektirir.</div>
+      <div class="card">This dashboard requires JavaScript.</div>
     </noscript></div>
   </main>
 
@@ -51,7 +51,10 @@
 <!-- data.js MUST load before app.js. Classic scripts (no type="module") are
      exempt from CORS, so this works identically from file:// and from Pages.
      See llm-wiki/DECISIONS.md D7. -->
-<script src="data.js"></script>
-<script src="app.js"></script>
+<!-- ?v=N is a cache-buster. Browsers (and the GitHub Pages CDN) happily serve a
+     stale data.js for a long time, which would show Berke last week's board.
+     BUMP THIS NUMBER whenever you change data.js, app.js or styles.css. -->
+<script src="data.js?v=2"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>

@@ -15,15 +15,15 @@
   function fatal(msg) {
     var d = document.createElement('div');
     d.className = 'fatal';
-    d.innerHTML = '<b>Dashboard yüklenemedi</b>' + msg;
+    d.innerHTML = '<b>Dashboard failed to load</b>' + msg;
     document.body.insertBefore(d, document.body.firstChild);
   }
   window.addEventListener('error', function (e) {
-    fatal('Hata: ' + e.message + (e.lineno ? '\n\nSatır: ' + e.lineno : ''));
+    fatal('Error: ' + e.message + (e.lineno ? '\n\nLine: ' + e.lineno : ''));
   });
 
   var D = window.PC12_DATA;
-  if (!D) { fatal('data.js yüklenmedi veya window.PC12_DATA tanımlı değil.'); return; }
+  if (!D) { fatal('data.js did not load, or window.PC12_DATA is undefined.'); return; }
 
   /* ---------------- 1) helpers ---------------- */
   // esc() is a SECURITY control here, not formatting: note bodies and task titles
@@ -40,11 +40,11 @@
   var NOW = (D.meta && D.meta.currentWeek) || 1;
 
   var STATUS = {
-    todo:    { label: 'Başlamadı',    color: '#dfe4da' },
-    doing:   { label: 'Devam ediyor', color: '#c7d96b' },
-    review:  { label: 'İncelemede',   color: '#5eb8c9' },
-    done:    { label: 'Tamamlandı',   color: '#7dd3a0' },
-    blocked: { label: 'Engellendi',   color: '#ef8b8b' }
+    todo:    { label: 'Not started',    color: '#dfe4da' },
+    doing:   { label: 'In progress', color: '#c7d96b' },
+    review:  { label: 'In review',   color: '#5eb8c9' },
+    done:    { label: 'Done',   color: '#7dd3a0' },
+    blocked: { label: 'Blocked',   color: '#ef8b8b' }
   };
   var STATUS_ORDER = ['todo', 'doing', 'review', 'done'];
   // Kisi renkleri: Gozde yumusak mor, Berke yumusak mavi.
@@ -81,7 +81,7 @@
   function avatarHTML(code, size) {
     var p = person(code), ring = OWNER_COLOR[code] || '#ddd';
     if (code === 'EK') {
-      return '<span class="avs" title="Ekip">' +
+      return '<span class="avs" title="Team">' +
              avatarHTML('ML', size || 'sm') + avatarHTML('BM', size || 'sm') + '</span>';
     }
     var cls = 'av' + (size ? ' ' + size : '');
@@ -169,7 +169,7 @@
       if (ev.action === 'task') {
         if (t) return;
         var p = String(ev.value).split(';');
-        var nt = { id: ev.target, ip: p[0] || 'IP0', title: p[1] || '(başlıksız)',
+        var nt = { id: ev.target, ip: p[0] || 'IP0', title: p[1] || '(untitled)',
                    owner: p[2] || ev.actor,
                    w: (p[3] && p[4]) ? [parseInt(p[3], 10), parseInt(p[4], 10)] : null,
                    status: 'todo', pct: 0, ms: null, note: null, notes: [], added: true };
@@ -197,12 +197,12 @@
   /* ---------------- 3) SYNC STATE (6 states) ---------------- */
   var SYNC = 'LOCAL_ONLY';
   var SYNC_TEXT = {
-    LOCAL_ONLY:    ['warn', 'Yerel mod'],
-    SYNCED:        ['ok',   'Kayıtlı'],
-    PENDING:       ['warn', 'Kaydedilmemiş değişiklik'],
-    SYNCING:       ['warn', 'Kaydediliyor...'],
-    AUTH_REQUIRED: ['warn', 'Token gerekli'],
-    ERROR:         ['bad',  'Kaydedilemedi']
+    LOCAL_ONLY:    ['warn', 'Local only'],
+    SYNCED:        ['ok',   'Saved'],
+    PENDING:       ['warn', 'Unsaved changes'],
+    SYNCING:       ['warn', 'Saving...'],
+    AUTH_REQUIRED: ['warn', 'Token required'],
+    ERROR:         ['bad',  'Save failed']
   };
   var syncDetail = '';
   function setSync(s, detail) { SYNC = s; syncDetail = detail || ''; renderSyncBox(); }
@@ -275,7 +275,7 @@
   // at once). The outbox survives until a re-read proves the ids landed.
   function pushOutbox() {
     var cfg = repoCfg();
-    if (!cfg) { setSync('ERROR', 'data.js içinde meta.repoUrl boş'); return Promise.resolve(); }
+    if (!cfg) { setSync('ERROR', 'meta.repoUrl is empty in data.js'); return Promise.resolve(); }
     if (!token) { setSync('AUTH_REQUIRED'); return Promise.resolve(); }
     if (!outbox.length) { setSync('SYNCED'); return Promise.resolve(); }
     setSync('SYNCING');
@@ -292,8 +292,8 @@
     function round() {
       return ghGet(cfg).then(function (cur) {
         if (!cur.ok) {
-          if (cur.status === 401 || cur.status === 403) { setSync('AUTH_REQUIRED', 'Token geçersiz veya yetkisiz'); return; }
-          setSync('ERROR', 'GitHub okunamadı (' + cur.status + ')'); return;
+          if (cur.status === 401 || cur.status === 403) { setSync('AUTH_REQUIRED', 'Token invalid or unauthorized'); return; }
+          setSync('ERROR', 'Could not read from GitHub (' + cur.status + ')'); return;
         }
         var have = {}; parseLog(cur.text).forEach(function (e) { have[e.id] = 1; });
         var add = outbox.filter(function (e) { return !have[e.id]; });
@@ -303,17 +303,17 @@
         return ghPut(cfg, body, cur.sha, add.length).then(function (res) {
           if (res.ok) {
             return ghGet(cfg).then(function (chk) {          // verify before clearing
-              if (!chk.ok) { setSync('PENDING', 'Yazıldı ama doğrulanamadı'); return; }
+              if (!chk.ok) { setSync('PENDING', 'Written but could not verify'); return; }
               finish(chk.text);
             });
           }
-          if (res.status === 401 || res.status === 403) { setSync('AUTH_REQUIRED', 'Token yetkisiz'); return; }
+          if (res.status === 401 || res.status === 403) { setSync('AUTH_REQUIRED', 'Token unauthorized'); return; }
           if (res.status === 409 || res.status === 422) {
             attempt++;
-            if (attempt >= 5) { setSync('PENDING', 'Çakışma sürdü, tekrar deneyin'); return; }
+            if (attempt >= 5) { setSync('PENDING', 'Conflict persisted, try again'); return; }
             return sleep(300 * Math.pow(2, attempt) + Math.random() * 400).then(round);
           }
-          setSync('ERROR', 'GitHub yazamadı (' + res.status + ')');
+          setSync('ERROR', 'GitHub write failed (' + res.status + ')');
         });
       }).catch(function (e) { setSync('ERROR', String((e && e.message) || e)); });
     }
@@ -334,7 +334,7 @@
       // is recoverable and must NOT be reported as "you opened the file locally".
       remoteEvents = [];
       if (location.protocol === 'file:') setSync('LOCAL_ONLY');
-      else setSync('ERROR', 'data.txt okunamadi: ' + String((err && err.message) || err));
+      else setSync('ERROR', 'Could not read data.txt: ' + String((err && err.message) || err));
     });
   }
 
@@ -367,7 +367,7 @@
     });
     return '<div class="donut-wrap"><div class="donut"><svg width="132" height="132" viewBox="0 0 132 132">' +
       '<circle cx="66" cy="66" r="52" fill="none" stroke="rgba(0,0,0,.08)" stroke-width="26"></circle>' + segs +
-      '</svg><div class="mid"><div><b>' + doneCount() + '/' + STATE.tasks.length + '</b><span>görev bitti</span></div></div></div>' +
+      '</svg><div class="mid"><div><b>' + doneCount() + '/' + STATE.tasks.length + '</b><span>tasks done</span></div></div></div>' +
       '<div class="legend">' + leg + '</div></div>';
   }
 
@@ -402,11 +402,15 @@
         '<div class="track"><div class="seg" title="' + esc(ip.label) + ' W' + a + '-W' + b + ' %' + pct + '" ' +
           'style="left:' + left.toFixed(2) + '%;width:' + width.toFixed(2) + '%;background:' + ipColor(ip.id) + '">' +
           '<i class="fill" style="width:' + pct + '%"></i>' +
-          '<span class="avs">' + who + '</span></div></div></div>';
+          // Avatars sit AT the progress point, not centred: 0% -> start of the
+          // bar, 100% -> its end. clamp() keeps them inside the rounded ends so
+          // a 0% or 100% task does not hang off the edge.
+          '<span class="avs" style="left:clamp(24px,' + pct + '%,calc(100% - 24px))">' +
+            who + '</span></div></div></div>';
     }).join('');
     var key = '<div class="tl-key">' +
-      '<span><i class="k sunum"></i>Sunum haftası</span>' +
-      '<span><i class="k vize"></i>Vize — çalışma yok</span>' +
+      '<span><i class="k sunum"></i>Presentation week</span>' +
+      '<span><i class="k vize"></i>Midterm — no work</span>' +
       '<span><i class="k final"></i>Final</span></div>';
     return '<div class="scroll-x"><div class="mini-tl">' + head +
            '<div class="body">' + weekCols(false) + '<div class="rows">' + rows + '</div></div>' +
@@ -425,7 +429,7 @@
           '<span class="pv">%' + pct + '</span></div></div>';
       }).join('') || '<div class="more">-</div>';
       var extra = items.length > 3
-        ? '<div class="more link" data-goboard="1">+' + (items.length - 3) + ' tane daha - hepsini gor</div>' : '';
+        ? '<div class="more link" data-goboard="1">+' + (items.length - 3) + ' more - see all</div>' : '';
       return '<div class="mcol"><h5>' + STATUS[k].label + '<span>' + items.length + '</span></h5>' + cards + extra + '</div>';
     }).join('') + '</div>';
   }
@@ -449,38 +453,38 @@
     var sw = (D.weeks || []).filter(function (x) { return x.type === 'sunum'; }).map(function (x) { return x.w; });
     var remaining = sw.filter(function (w) { return w >= NOW; }).length;
 
-    var kpi = kpiCard('Hafta', NOW + ' / ' + TOTAL, Math.round(NOW / TOTAL * 100)) +
-      kpiCard('Genel ilerleme', pctDone() + '%', pctDone()) +
-      kpiCard('Kalan sunum', String(remaining), Math.round((sw.length - remaining) / (sw.length || 1) * 100)) +
+    var kpi = kpiCard('Week', NOW + ' / ' + TOTAL, Math.round(NOW / TOTAL * 100)) +
+      kpiCard('Overall progress', pctDone() + '%', pctDone()) +
+      kpiCard('Presentations left', String(remaining), Math.round((sw.length - remaining) / (sw.length || 1) * 100)) +
       // The status breakdown now lives in the top row instead of a separate card.
-      '<div class="card panel-grad stat-tile"><h3>Görev durumu</h3>' + donut() + '</div>';
+      '<div class="card panel-grad stat-tile"><h3>Task status</h3>' + donut() + '</div>';
 
     var nsHtml = ns ? ('<div class="card sunum-next">' +
-        '<div class="wk">Sıradaki sunum &middot; Hafta ' + ns.w + (ns.ms ? ' &middot; ' + ns.ms : '') + '</div>' +
+        '<div class="wk">Next presentation &middot; Week ' + ns.w + (ns.ms ? ' &middot; ' + ns.ms : '') + '</div>' +
         '<h4>' + esc(ns.demo) + '</h4>' +
         '<div class="claim">&ldquo;' + esc(ns.claim) + '&rdquo;</div>' +
-        '<div class="meta"><span style="display:inline-flex;align-items:center;gap:8px"><b>Sunan:</b>' + whoHTML(ns.speaker) + '</span>' +
-        '<span><b>Yedek plan:</b> ' + esc(ns.fallback) + '</span></div></div>')
-      : '<div class="card"><h3>Sunum</h3><p class="empty">Planlanmış sunum kalmadı.</p></div>';
+        '<div class="meta"><span style="display:inline-flex;align-items:center;gap:8px"><b>Speaker:</b>' + whoHTML(ns.speaker) + '</span>' +
+        '<span><b>Fallback:</b> ' + esc(ns.fallback) + '</span></div></div>')
+      : '<div class="card"><h3>Sunum</h3><p class="empty">No presentations left.</p></div>';
 
     var logs = (D.log || []).slice().reverse().slice(0, 12).map(function (l) {
       return '<li><span class="w">W' + l.w + '</span><span>' + esc(l.text) + '</span></li>';
-    }).join('') || '<li class="empty">Henüz kayıt yok.</li>';
+    }).join('') || '<li class="empty">No log entries yet.</li>';
 
     // Timeline gets the FULL width: at 1.35fr it was still scrolling on a
     // laptop, which was the user's actual complaint about it being too small.
     return '<div class="grid g4">' + kpi + '</div>' +
-      '<div class="card panel-lime" style="margin-top:16px"><h3>Proje zaman çizelgesi</h3>' + miniTimeline() + '</div>' +
-      '<div class="card" style="margin-top:16px"><h3>Görev panosu</h3>' + miniBoard() + '</div>' +
+      '<div class="card panel-lime" style="margin-top:16px"><h3>Project timeline</h3>' + miniTimeline() + '</div>' +
+      '<div class="card" style="margin-top:16px"><h3>Task board</h3>' + miniBoard() + '</div>' +
       '<div style="margin-top:16px">' + nsHtml + '</div>' +
       '<div class="grid g2" style="margin-top:16px;align-items:start">' +
-        '<div class="card"><h3>Kilometre taşları</h3>' + milestoneList() + '</div>' +
-        '<div class="card"><h3>Son kayıtlar</h3><ul class="log">' + logs + '</ul></div></div>';
+        '<div class="card"><h3>Milestones</h3>' + milestoneList() + '</div>' +
+        '<div class="card"><h3>Recent log</h3><ul class="log">' + logs + '</ul></div></div>';
   }
 
   function renderGantt() {
     var WCOL = weekColW();
-    var head = '<th class="lbl">Görev</th>';
+    var head = '<th class="lbl">Task</th>';
     for (var w = 1; w <= TOTAL; w++) {
       var m = weekMeta(w);
       var tag = m.type === 'sunum' ? 'SUNUM' : m.type === 'vize' ? 'KAPALI' : m.type === 'final' ? 'FINAL' : '';
@@ -493,7 +497,7 @@
       body += '<tr class="ip-row"><td colspan="' + (TOTAL + 1) + '">' + esc(ip.label) + '</td></tr>';
       rows.forEach(function (t) {
         body += '<tr class="task" data-task="' + esc(t.id) + '"><td class="lbl">' + esc(t.id) + ' &middot; ' + esc(t.title) +
-                (t.w ? '' : ' <span class="unsched">- tarih belirsiz</span>') + '</td>';
+                (t.w ? '' : ' <span class="unsched">- date TBD</span>') + '</td>';
         for (var w2 = 1; w2 <= TOTAL; w2++) {
           var mm = weekMeta(w2), inner = '';
           if (t.w && w2 === t.w[0]) {
@@ -511,7 +515,7 @@
     var legend = (D.people || []).map(function (p) {
       return '<span class="who">' + avatarHTML(p.code, 'sm') + '<span class="nm">' + esc(p.name) + '</span></span>';
     }).join('&nbsp;&nbsp;&middot;&nbsp;&nbsp;');
-    return '<div class="card"><h3>Zaman çizelgesi</h3><div class="tl-legend">' + legend + '</div>' +
+    return '<div class="card"><h3>Timeline</h3><div class="tl-legend">' + legend + '</div>' +
       '<div class="scroll-x"><table class="gantt"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div></div>';
   }
 
@@ -524,17 +528,17 @@
           '<div class="id">' + esc(t.id) + (t.ms ? ' &middot; ' + esc(t.ms) : '') + '</div>' +
           '<div class="t">' + esc(t.title) + '</div>' +
           '<div class="f">' + avatarHTML(t.owner, 'sm') +
-            (t.w ? '<span>W' + t.w[0] + (t.w[1] !== t.w[0] ? '-' + t.w[1] : '') + '</span>' : '<span>tarih yok</span>') +
+            (t.w ? '<span>W' + t.w[0] + (t.w[1] !== t.w[0] ? '-' + t.w[1] : '') + '</span>' : '<span>no date</span>') +
             '<span>%' + (t.status === 'done' ? 100 : (t.pct || 0)) + '</span>' +
-            (t.notes.length ? '<span class="nb" title="not">' + t.notes.length + ' not</span>' : '') + '</div>' +
+            (t.notes.length ? '<span class="nb" title="notes">' + t.notes.length + ' notes</span>' : '') + '</div>' +
           (t.note ? '<div class="note">' + esc(t.note) + '</div>' : '') + '</div>';
       }).join('') || '<div class="empty">-</div>';
       return '<div class="col" data-col="' + c + '"><h4>' + STATUS[c].label +
-        '<span>' + items.length + '<button class="addcol" data-add="' + c + '" title="Bu sutuna gorev ekle">+</button></span>' +
+        '<span>' + items.length + '<button class="addcol" data-add="' + c + '" title="Add a task to this column">+</button></span>' +
         '</h4>' + cards + '</div>';
     }).join('');
-    return '<div class="exportbar"><button class="btn" id="addTaskBtn">+ Görev ekle</button>' +
-      '<span class="hint">Karta tıklayın: durum değiştirin, kendinizi ekleyin, not düşün. Sürüklemek de çalışır.</span></div>' +
+    return '<div class="exportbar"><button class="btn" id="addTaskBtn">+ Add task</button>' +
+      '<span class="hint">Click a card to change status, join it, or add a note. Dragging works too.</span></div>' +
       '<div class="board">' + cols + '</div>';
   }
 
@@ -542,32 +546,32 @@
     var ns = nextSunum();
     return '<div class="sunum-list">' + (D.sunum || []).slice().sort(function (a, b) { return a.w - b.w; }).map(function (s) {
       var cls = 'card sunum-card' + (ns && s.w === ns.w ? ' is-next' : (s.w < NOW ? ' is-past' : ''));
-      return '<div class="' + cls + '"><div class="hd"><b>Hafta ' + s.w + '</b>' +
+      return '<div class="' + cls + '"><div class="hd"><b>Week ' + s.w + '</b>' +
         (s.ms ? '<span class="st proposed">' + esc(s.ms) + '</span>' : '') +
-        '<span style="display:inline-flex;align-items:center;gap:8px;color:var(--ink-3)">Sunan:' + whoHTML(s.speaker) + '</span>' +
-        (ns && s.w === ns.w ? '<span class="st accepted">SIRADAKİ</span>' : '') + '</div>' +
-        '<dl><dt>Ekranda</dt><dd>' + esc(s.demo) + '</dd>' +
-        '<dt>İddia</dt><dd class="claim-t">&ldquo;' + esc(s.claim) + '&rdquo;</dd>' +
-        '<dt>Yedek plan</dt><dd class="fb">' + esc(s.fallback) + '</dd></dl></div>';
+        '<span style="display:inline-flex;align-items:center;gap:8px;color:var(--ink-3)">Speaker:' + whoHTML(s.speaker) + '</span>' +
+        (ns && s.w === ns.w ? '<span class="st accepted">NEXT</span>' : '') + '</div>' +
+        '<dl><dt>On screen</dt><dd>' + esc(s.demo) + '</dd>' +
+        '<dt>Claim</dt><dd class="claim-t">&ldquo;' + esc(s.claim) + '&rdquo;</dd>' +
+        '<dt>Fallback</dt><dd class="fb">' + esc(s.fallback) + '</dd></dl></div>';
     }).join('') + '</div>';
   }
 
   function renderRisks() {
     var sev = function (p, i) { var v = (p || 0) * (i || 0); return v >= 9 ? 'h' : v >= 4 ? 'm' : 'l'; };
-    var sevT = function (p, i) { var v = (p || 0) * (i || 0); return v >= 9 ? 'yüksek' : v >= 4 ? 'orta' : 'düşük'; };
+    var sevT = function (p, i) { var v = (p || 0) * (i || 0); return v >= 9 ? 'high' : v >= 4 ? 'medium' : 'low'; };
     var rows = (D.risks || []).map(function (r) {
       return '<tr><td><b>' + esc(r.id) + '</b></td><td>' + esc(r.text) + '</td>' +
         '<td><span class="sev ' + sev(r.p, r.i) + '">' + sevT(r.p, r.i) + '</span></td>' +
         '<td>' + avatarHTML(r.owner, 'sm') + '</td><td>' + esc(r.mit) + '</td></tr>';
-    }).join('') || '<tr><td colspan="5" class="empty">Kayıtlı risk yok.</td></tr>';
+    }).join('') || '<tr><td colspan="5" class="empty">No risks recorded.</td></tr>';
     var dec = (D.decisions || []).map(function (d) {
       return '<tr><td>' + esc(d.id) + ' - ' + esc(d.title) + '</td><td style="width:56px;color:var(--ink-3)">W' + d.w +
         '</td><td style="width:104px"><span class="st ' + esc(d.status) + '">' + esc(d.status) + '</span></td></tr>';
     }).join('') || '<tr><td colspan="3" class="empty">-</td></tr>';
-    return '<div class="card"><h3>Risk kaydı</h3><table class="plain"><thead><tr><th>#</th><th>Risk</th><th>Şiddet</th><th>Sahip</th><th>Azaltma</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    return '<div class="card"><h3>Risk register</h3><table class="plain"><thead><tr><th>#</th><th>Risk</th><th>Severity</th><th>Owner</th><th>Mitigation</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '<div class="grid g2" style="margin-top:16px;align-items:start">' +
-      '<div class="card"><h3>Kararlar</h3><table class="plain"><tbody>' + dec + '</tbody></table></div>' +
-      '<div class="card"><h3>Sonuçlar</h3><p class="empty">Henüz koşu yok. Sayı uydurmuyoruz.</p></div></div>';
+      '<div class="card"><h3>Decisions</h3><table class="plain"><tbody>' + dec + '</tbody></table></div>' +
+      '<div class="card"><h3>Results</h3><p class="empty">No runs yet. We do not invent numbers.</p></div></div>';
   }
 
   /* ---------------- 6) INTERACTIONS ---------------- */
@@ -582,20 +586,20 @@
     }).join('');
     var notes = t.notes.map(function (n) {
       return '<li><span class="w">' + esc(person(n.by).short) + '</span><span>' + esc(n.text) + '</span></li>';
-    }).join('') || '<li class="empty">Not yok.</li>';
+    }).join('') || '<li class="empty">No notes.</li>';
     var joined = t.owner === 'EK' || t.owner === ME;
     $('#drawer').innerHTML =
       '<div class="dw-back"></div><div class="dw">' +
         '<div class="dw-hd"><div><div class="id">' + esc(t.id) + (t.ms ? ' &middot; ' + esc(t.ms) : '') + '</div>' +
         '<h4>' + esc(t.title) + '</h4></div><button class="x" id="dwClose">&times;</button></div>' +
-        '<div class="dw-sec"><label>Durum</label><div class="sbtns">' + statusBtns + '</div></div>' +
-        '<div class="dw-sec"><label>İlerleme <b id="pctOut">%' + pct + '</b></label>' +
+        '<div class="dw-sec"><label>Status</label><div class="sbtns">' + statusBtns + '</div></div>' +
+        '<div class="dw-sec"><label>Progress <b id="pctOut">%' + pct + '</b></label>' +
           '<input type="range" id="pctRange" min="0" max="100" step="5" value="' + pct + '"></div>' +
-        '<div class="dw-sec"><label>Kim yapıyor</label><div class="who-row">' + whoHTML(t.owner) +
-          (joined ? '<span class="hint">Bu görevdesiniz</span>'
-                  : '<button class="btn sm" id="joinBtn">Beni de ekle</button>') + '</div></div>' +
-        '<div class="dw-sec"><label>Notlar</label><ul class="log sm">' + notes + '</ul>' +
-          '<div class="row-add"><input type="text" id="noteIn" maxlength="300" placeholder="Not yazın..."><button class="btn sm" id="noteBtn">Ekle</button></div></div>' +
+        '<div class="dw-sec"><label>Assigned to</label><div class="who-row">' + whoHTML(t.owner) +
+          (joined ? '<span class="hint">You are on this task</span>'
+                  : '<button class="btn sm" id="joinBtn">Add me</button>') + '</div></div>' +
+        '<div class="dw-sec"><label>Notes</label><ul class="log sm">' + notes + '</ul>' +
+          '<div class="row-add"><input type="text" id="noteIn" maxlength="300" placeholder="Write a note..."><button class="btn sm" id="noteBtn">Add</button></div></div>' +
       '</div>';
     $('#drawer').classList.add('open');
     $('#dwClose').onclick = closeDrawer;
@@ -618,13 +622,13 @@
     var ips = (D.ips || []).map(function (i) { return '<option value="' + esc(i.id) + '">' + esc(i.label) + '</option>'; }).join('');
     var ppl = (D.people || []).map(function (p) { return '<option value="' + esc(p.code) + '"' + (p.code === ME ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('');
     $('#drawer').innerHTML = '<div class="dw-back"></div><div class="dw">' +
-      '<div class="dw-hd"><h4>Yeni görev</h4><button class="x" id="dwClose">&times;</button></div>' +
-      '<div class="dw-sec"><label>Başlık</label><input type="text" id="ntTitle" maxlength="120" placeholder="Ne yapılacak?"></div>' +
-      '<div class="dw-sec"><label>İş paketi</label><select id="ntIp">' + ips + '</select></div>' +
-      '<div class="dw-sec"><label>Kim</label><select id="ntOwner">' + ppl + '</select></div>' +
-      '<div class="dw-sec two"><div><label>Başlangıç haftası</label><input type="number" id="ntA" min="1" max="' + TOTAL + '" value="' + NOW + '"></div>' +
-        '<div><label>Bitiş haftası</label><input type="number" id="ntB" min="1" max="' + TOTAL + '" value="' + NOW + '"></div></div>' +
-      '<div class="dw-sec"><button class="btn" id="ntSave">Ekle</button></div></div>';
+      '<div class="dw-hd"><h4>New task</h4><button class="x" id="dwClose">&times;</button></div>' +
+      '<div class="dw-sec"><label>Title</label><input type="text" id="ntTitle" maxlength="120" placeholder="What needs doing?"></div>' +
+      '<div class="dw-sec"><label>Work package</label><select id="ntIp">' + ips + '</select></div>' +
+      '<div class="dw-sec"><label>Owner</label><select id="ntOwner">' + ppl + '</select></div>' +
+      '<div class="dw-sec two"><div><label>Start week</label><input type="number" id="ntA" min="1" max="' + TOTAL + '" value="' + NOW + '"></div>' +
+        '<div><label>End week</label><input type="number" id="ntB" min="1" max="' + TOTAL + '" value="' + NOW + '"></div></div>' +
+      '<div class="dw-sec"><button class="btn" id="ntSave">Add</button></div></div>';
     $('#drawer').classList.add('open');
     $('#dwClose').onclick = closeDrawer;
     $('#drawer').querySelector('.dw-back').onclick = closeDrawer;
@@ -645,7 +649,7 @@
   /* ---------------- 7) SIDEBAR BOXES ---------------- */
   function renderMeBox() {
     var box = $('#meBox'); if (!box) return;
-    box.innerHTML = '<div class="mini-label">Ben</div><div class="me-row">' +
+    box.innerHTML = '<div class="mini-label">Me</div><div class="me-row">' +
       (D.people || []).filter(function (p) { return p.code !== 'EK'; }).map(function (p) {
         return '<button class="me' + (ME === p.code ? ' on' : '') + '" data-me="' + esc(p.code) + '" title="' + esc(p.name) + '">' +
                avatarHTML(p.code, 'sm') + '<span>' + esc(p.short) + '</span></button>';
@@ -660,22 +664,22 @@
     var st = SYNC_TEXT[SYNC] || ['warn', SYNC];
     var n = outbox.length, actions = '';
     if (SYNC === 'LOCAL_ONLY') {
-      actions = '<div class="hint">Dosyadan açtığınız için paylaşım yok. GitHub Pages adresinden açın.</div>';
+      actions = '<div class="hint">Opened from a file, so nothing is shared. Open it from the GitHub Pages URL.</div>';
     } else if (SYNC === 'ERROR') {
-      actions = '<button class="btn sm w" id="retryBtn">Tekrar dene</button>';
-      if (n && !token) actions += '<button class="btn ghost sm w" id="tokBtn">Token gir</button>';
-      else if (n) actions += '<button class="btn ghost sm w" id="saveBtn">Kaydet</button>';
+      actions = '<button class="btn sm w" id="retryBtn">Retry</button>';
+      if (n && !token) actions += '<button class="btn ghost sm w" id="tokBtn">Enter token</button>';
+      else if (n) actions += '<button class="btn ghost sm w" id="saveBtn">Save</button>';
     } else if (SYNC === 'AUTH_REQUIRED' || (n && !token)) {
-      actions = '<button class="btn sm w" id="tokBtn">Token gir ve kaydet</button>';
+      actions = '<button class="btn sm w" id="tokBtn">Enter token & save</button>';
     } else if (n) {
-      actions = '<button class="btn sm w" id="saveBtn">' + n + ' değişikliği kaydet</button>';
+      actions = '<button class="btn sm w" id="saveBtn">' + n + ' changes to save</button>';
     }
-    if (n) actions += '<button class="btn ghost sm w" id="copyBtn">Satırları kopyala</button>';
+    if (n) actions += '<button class="btn ghost sm w" id="copyBtn">Copy lines</button>';
     box.innerHTML = '<div class="sync ' + st[0] + '"><b>' + esc(st[1]) + '</b>' +
-      (n ? '<span>' + n + ' bekleyen</span>' : '') +
+      (n ? '<span>' + n + ' pending</span>' : '') +
       (syncDetail ? '<span class="d">' + esc(syncDetail) + '</span>' : '') +
-      (badLines ? '<span class="d">' + badLines + ' bozuk satır atlandı</span>' : '') +
-      (dupLines ? '<span class="d">' + dupLines + ' tekrar eden satır bir kez uygulandı</span>' : '') +
+      (badLines ? '<span class="d">' + badLines + ' malformed lines skipped</span>' : '') +
+      (dupLines ? '<span class="d">' + dupLines + ' duplicate line applied once</span>' : '') +
       '</div>' + actions;
     if ($('#retryBtn')) $('#retryBtn').onclick = function () {
       setSync('SYNCING');
@@ -690,12 +694,12 @@
     var cfg = repoCfg();
     $('#drawer').innerHTML = '<div class="dw-back"></div><div class="dw">' +
       '<div class="dw-hd"><h4>GitHub token</h4><button class="x" id="dwClose">&times;</button></div>' +
-      '<div class="dw-sec"><p class="hint">Token <b>yalnızca bu sekme açıkken</b> bellekte tutulur. ' +
-      'Kaydedilmez, commit edilmez, sekmeyi kapatınca silinir. Bu bilinçli bir güvenlik tercihi.</p>' +
+      '<div class="dw-sec"><p class="hint">Token <b>only while this tab is open</b> bellekte tutulur. ' +
+      'It is never stored, never committed, and is gone when you close the tab. That is a deliberate security choice.</p>' +
       '<p class="hint">GitHub &rarr; Settings &rarr; Developer settings &rarr; Fine-grained tokens. ' +
-      'Sadece <b>' + esc(cfg ? cfg.owner + '/' + cfg.repo : 'bu depo') + '</b> için, izin: <b>Contents: Read and write</b>.</p>' +
+      'Only for <b>' + esc(cfg ? cfg.owner + '/' + cfg.repo : 'this repository') + '</b> with permission <b>Contents: Read and write</b>.</p>' +
       '<input type="password" id="tokIn" autocomplete="current-password" placeholder="github_pat_..."></div>' +
-      '<div class="dw-sec"><button class="btn" id="tokSave">Kaydet ve gönder</button></div></div>';
+      '<div class="dw-sec"><button class="btn" id="tokSave">Save & push</button></div></div>';
     $('#drawer').classList.add('open');
     $('#dwClose').onclick = closeDrawer;
     $('#drawer').querySelector('.dw-back').onclick = closeDrawer;
@@ -712,7 +716,7 @@
     var cfg = repoCfg();
     var url = cfg ? 'https://github.com/' + cfg.owner + '/' + cfg.repo + '/edit/' + cfg.branch + '/' + cfg.path : '';
     function done(ok) {
-      var b = $('#copyBtn'); if (b) b.textContent = ok ? 'Kopyalandı' : 'Kopyalanamadı';
+      var b = $('#copyBtn'); if (b) b.textContent = ok ? 'Copied' : 'Copy failed';
       setTimeout(renderSyncBox, 2500);
       if (ok && url) window.open(url, '_blank', 'noopener');
     }
@@ -723,11 +727,11 @@
 
   /* ---------------- 8) ROUTING ---------------- */
   var VIEWS = {
-    overview: { title: 'Genel bakış', render: renderOverview },
-    gantt:    { title: 'Zaman çizelgesi', render: renderGantt },
-    board:    { title: 'Görev panosu', render: renderBoard },
-    sunum:    { title: 'Sunum planı', render: renderSunum },
-    risk:     { title: 'Risk & karar', render: renderRisks }
+    overview: { title: 'Overview', render: renderOverview },
+    gantt:    { title: 'Timeline', render: renderGantt },
+    board:    { title: 'Task board', render: renderBoard },
+    sunum:    { title: 'Presentations', render: renderSunum },
+    risk:     { title: 'Risks & decisions', render: renderRisks }
   };
   function current() { var h = (location.hash || '').replace('#', ''); return VIEWS[h] ? h : 'overview'; }
 
