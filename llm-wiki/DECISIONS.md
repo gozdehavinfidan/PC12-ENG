@@ -14,8 +14,34 @@ Format:
 - Tradeoffs / confidence:
 ```
 
----
 
+
+### D14 — Konsept kanonu = TÜSEB 2026 NTI başvurusu; mimari bizim  [2026-09-22] [accepted]
+- Context: kullanıcı `TUSEB/bolumler/`'i ekledi (2026 TÜSEB başvurusu —
+  Prof. Dr. Mustafa Şen, 24 ay, 3.000.000 TL, 5 İP, **NTI** kavramı) ve
+  net konuştu: *"mimariyi değiştireceğiz ama konseptimiz ve amacımız
+  buradaki ile aynı olacak"*. Wiki'nin kanonu o zamana kadar 2025
+  "NeuroMind" PDF'i (44235, Eren B. Yıldız, 50 000 TL, 12 ay) idi.
+- Options: (a) 2025 PDF'i kanon olarak koru  (b) **2026 bolumleri konsept/
+  amaç kanonu yap; 2025 PDF'ini referans seviyesine düşür**.
+- Decision: **(b)**. Konsept ölçüm zinciri = segmentasyon → 4 morfometrik
+  parametre (nörit uzunluğu, dallanma sayısı, dallanma açısı dağılımı, soma
+  morfolojisi) → **NTI** (MTT/LDH ile kalibre, süreksiz skor) → zamansal
+  profil (0/6/24 s) → SHAP düzeyi bileşen atfı → IntelliCell masaüstü
+  uygulaması. Mimari (segmentasyon + loss) bilinçli olarak D13'ün
+  iki-kollu tasarımı — tablonun Swin/bio_prior yığını değiştirir.
+- Consequences: `02` yeniden yazıldı (`[BASE26]` etiketi yeni kanon için;
+  `[BASE]` artık 2025 NeuroMind'a götüren referans etiketi). `00`, `03`
+  (notlar), `04`, `06`, `07`, `08`, `10`, `12`, `13`, `README` uyum
+  edildi. NTI bizim teslimat setimize girdi (00 #5).
+- Tradeoffs / confidence: **Yüksek** (doğrudan kullanıcı talimatı, belge
+  elden geçti). Açık kapı **O1** `[OPEN]`: elimizdeki ≈70 görselin
+  **doz/zaman noktası/koşul metadata'sı var mı?** Var → NTI gerçek koşullar
+  üzerinde hesaplanır; yok → NTI kavramı mevcut koşullarda demo edilir,
+  kalibrasyon derinliği 24-aylık projenin kapsamı olarak kalır. O1'i
+  T1.1 data card'da sor (T1.1 notu buna göre güncellendi).
+
+---
 ### D0 — Keep the base's 2-class core (bg / cell_body / neurite)  [W2] [accepted]
 - Context: class scheme drives segmentation, metrics, and features.
 - Options: (a) bg/cell/neurite  (b) + nucleus  (c) instance-based only.
@@ -35,7 +61,8 @@ Format:
 - ⚠ **Superseded (D9, W1 session 2):** the workhorse is now specifically an
   **ImageNet-pretrained encoder + U-Net decoder** (random-init DS-UNet is out —
   it wastes scarce labels), and **TransUNet is `[IDEA]`-only, not "if on
-  schedule"** (`15-SMALL-DATA-STRATEGY` §2). nnU-Net stays gated on A6. Current
+  schedule"** (`15-SMALL-DATA-STRATEGY` §2). nnU-Net was gated on A6 — **resolved
+  (D12)** and **final model set + loss defined in D13** (`16-ARCHITECTURE-RESEARCH`).
   state of record: `05-MODELS.md`.
 
 ### D2 — Neurite geometry = skeleton + graph (Canny+Hough as fallback)  [W5] [proposed]
@@ -175,9 +202,38 @@ Format:
   - `03-SEMESTER-PLAN`: A6 → `[CONFIRMED]`; risk row "No GPU" resolved.
   - `05-MODELS`: nnU-Net is **no longer gated** — enter the W9 comparison.
   - Ensembles become credible: **the 5 CV folds are a free 5-model ensemble**
-    for uncertainty (pending `16-ARCHITECTURE-RESEARCH` XAI section).
+    for uncertainty — **refined by D13** (deploy a true 5-seed ensemble; use the
+    CV-fold ensemble only as validation benchmark).
   - Compute is **no longer a constraint** — the binding constraint remains
     **labeled data** (n≈70) and **time** (15 weeks).
+
+### D13 — Ana mimari: iki-kollu segmentasyon + topoloji-kondisyonlu loss + 5-seed ensemble  [W1] [accepted]
+- Context: `16-ARCHITECTURE-RESEARCH.md` (2026-09-22, 6 paralel literatür
+  scout'u, birincil kaynaklar) döndü. D1/D9'un model seçimini mimari düzeyde
+  netleştirmek gerekiyordu; ayrıca ensemble, morpho-stack ve XAI'nin kaynağı
+  tek dosyada toplanmalıydı.
+- Options:
+  (a) tek kollu multi-class (bg/gövde/nörit) — orijinal `04` taslağı
+  (b) **iki kollu**: gövde = SMP pretrained U-Net ailesi; nörit = düz binary
+      kol + soft-clDice; morphometrik özellikler mask→skeleton→graf'tan
+  (c) foundation model'leri ana hat olarak (Cellpose-SAM'ın nörit sınıfına fine-tune)
+- Decision: **(b)** — `16` §6 resmi v2 mimari.
+- Tradeoffs / confidence: **High.** (c) düşer: hiçbir doğrulanmış FM nörit
+  instance'ı vermiyor (star-convex/box öncülü ince dallara yapısal düşman —
+  `16` §1.2 tutarlı bulgu; R2: "use it as the cell-body engine, not the
+  neurite engine"); (a) tek-kollu versiyonu nörit kolunun shape-prior'ı
+  gövdeye bulaştırır. (b) sahnenin kanıtlı yolu (NeuroQuantify, AutoNeuriteJ,
+  SNT — hepsi mask→skeleton) ve D0 sınıf şemasıyla uyumlu. Loss: gövde
+  Dice+Tversky, nörit +soft-clDice (w 0.2–0.3, MIT) + (ablation) TopoLoss.
+  Ensemble: dağıtılan model = **5-seed derin ensemble** (tam veri); CV-fold
+  ensemble yalnız doğrulama benchmark'ı; bir fold'ın tahmini kendi
+  validasyon fold'unda asla ortalama (leakage) — Kirscher 2026,
+  arXiv:2605.18329. D9'un "pretrained encoder + U-Net" kararı **doğrulandı**,
+  decoder ailesi {U-Net, UNet3+, UNet++} + nnU-Net v2 ResEnc L olarak
+  genişledi; nnU-Net'in clDice için trainer subclass gerektirdiği not edildi.
+- Consequence: `04-PIPELINE` S2–S5, `05-MODELS` tablosu, `08-XAI` §2,
+  `13-SUNUM-PLAN` SUNUM 3/4/5, `10-IDEAS-STRETCH` shortlist — tamamı
+  2026-09-22 güncellendi.
 
 ### D11 — Dashboard veritabanı: data.txt olay günlüğü + bellekte tutulan token  [W1] [accepted]
 - Context: Berke ile ortak kullanılacak; site GitHub Pages'te statik. Kullanıcı

@@ -33,8 +33,9 @@ Every SUNUM row below has four fields, and none of them is optional:
 
 - **Demo:** this dashboard, live; the `llm-wiki`; the pipeline block diagram;
   the class scheme (D0); the small-data strategy (`15-SMALL-DATA-STRATEGY`).
-- **Claim:** *"We did not copy the TÜSEB proposal. We identified its real
-  constraint — ~70 labeled images — and redesigned the approach around it."*
+- **Claim:** *"We did not copy the TÜSEB proposal. We kept its concept — the
+  NTI measurement chain — and redesigned the architecture around our real
+  constraint: ~70 labeled images."*
 - **Artifact:** `docs/` dashboard renders; `DECISIONS.md` D0–D9.
 - **Fallback:** slides generated from the wiki markdown.
 - **Why this works as a first presentation:** most groups present a literature
@@ -59,51 +60,94 @@ Every SUNUM row below has four fields, and none of them is optional:
 
 ## SUNUM 3 — W6 · M3 · speaker: ML (Gözde)
 
+> 2026-09-22 araştırması (`16-ARCHITECTURE-RESEARCH`) bu SUNUM'u netleştirdi:
+> ana hat **iki kollu** (gövde + nörit/soft-clDice) ve **W6 = FM zero-shot kapısı**
+> (5 model: Cellpose-SAM `cpsam_v2` · μ-SAM+APG · CellSAM · StarDist · SAM zayıf
+> kontrol; metrik reçetesi = MIDL 2026 mSA/IoU-matching, arXiv:2603.17845).
+> **W6'e ek kontrol (2026-09-22):** **MedSAM2** — tıp görüntüsü SAM2'si; "tıp
+> domain'inde eğitilmiş FM bile nöriti alamaz mı?" sorusunun satırı (zayıf
+> kontrol, beklenti: gövdede SAM'den iyi, nöritte yine yok → FM öncülü tezi
+> için en güçlü karşı-argümanı denemiş oluyoruz).
+
 - **Demo:** training runs end-to-end — patch pipeline → pretrained-encoder U-Net
-  → prediction → overlay on a real image; loss curves; first fold's DSC per
-  class; plus the **Cellpose-SAM zero-shot** comparison run.
+  (gövde) + nörit kolu (soft-clDice) → prediction → overlay on a real image;
+  loss curves; first fold's DSC per class; plus the **FM zero-shot gate table**
+  (6 model × 2 modality, MedSAM2 dahil; "FM prior" satırı her tabloya girecek).
 - **Claim:** *"The pipeline is real and reproducible, and we already know
-  whether a foundation model beats training our own."*
-- **Artifact:** working training pipeline, first CV fold, one zero-shot baseline.
+  whether a foundation model beats training our own — and no foundation model
+  segments our neurites, which is why our neurite branch is classical
+  skeleton-graph morphometry."*
+- **Artifact:** working training pipeline, first CV fold, zero-shot gate table.
 - **Fallback:** deliberate overfit on 3 images — proves the pipeline is wired
   correctly even if accuracy is not there yet. This is a legitimate engineering
   result, not an excuse; say so.
 
 *(W7 — improvement week. W8 — VİZE, no work.)*
 
-## SUNUM 4 — W9 · M4 · speaker: ML (Gözde), with BM on morphometry
+## SUNUM 4 — W9 · M4 · speaker: ML (Gözde)
 
-- **Demo:** the model comparison table as **mean ± std over 5 folds** (pretrained
-  U-Net vs nnU-Net vs Cellpose-SAM); the chosen architecture and *why*;
-  morphometry v1 — skeleton→graph neurite length/count/angle compared against
-  Berke's hand measurements.
+- **Demo:** the model comparison table as **mean ± std over 5 folds** (U-Net
+  ailesi × {U-Net, UNet3+, UNet++, nnU-Net v2 ResEnc L, SA-UNet, TransUNet-negatif}
+  × loss ablations); the chosen architecture and *why*; the **post-processing
+  module (WP4.1)** turning a raw mask into separated instances, including the
+  cases it *cannot* separate; **2×2 {clDice × TopoLoss} ablation** (topoloji
+  metrikleri: clDice + Betti-1).
 - **Claim:** *"We chose this architecture because cross-validation says so, not
-  because it is fashionable — and our measurements agree with a human's."*
-- **Artifact:** feature-extraction module + comparison table + agreement plot.
-- **Fallback:** comparison table only; morphometry on 3 images.
+  because it is fashionable — we can already turn its output into countable
+  cells, and our topology ablation shows that standard Dice metrics lie about
+  broken neurites."*
+- **Artifact:** comparison table + ablation table + instance-separation overlays.
+- **Fallback:** comparison table only; instance separation on 3 images.
+
+> ⚠ **Morphometry was moved out of this week.** The updated course Gantt puts
+> **WP4.2 (feature extraction, skeleton→graph) at W11–W12** and **WP4.3
+> (metrics + error analysis, incl. Bland–Altman) at W12**. The old version of
+> this section promised measurements agreeing with Berke's hand measurements
+> two weeks before the task that produces them. Mirrored in `docs/data.js`
+> `sunum` W9 — change one, change the other (D15).
 
 ## SUNUM 5 — W11 · M5 · speaker: ML (Gözde)
 
-- **Demo:** results including the new data batch; **error analysis** — the
-  specific cases where it fails (touching cells, faint neurites, out-of-focus
-  fields) and *why*; Seg-Grad-CAM overlays showing where the model looks.
-- **Claim:** *"We know where our model fails and we can show you what it is
-  looking at when it does."*
-- **Artifact:** evaluation report + XAI figures.
-- **Fallback:** error analysis without the XAI layer — the failure taxonomy is
-  the valuable half.
+- **Demo:** results including the new data batch (**WP3.5** retrain on the
+  expanded set); the **first feature-extraction output** (**WP4.2**, which is
+  mid-package this week) — skeleton→graph neurite length/count/angle on a few
+  images; **Integrated Gradients** overlays showing where the model looks;
+  ensemble **uncertainty overlay + review queue**; the **deletion curve**
+  proving the saliency means something.
+- **Claim:** *"More data measurably moved the numbers, we can already extract
+  neurite geometry from the masks, and the model tells you when it is not
+  sure."*
+- **Artifact:** expanded-data comparison + first geometry table + XAI figures +
+  flag-vs-error AUROC number.
+- **Fallback:** expanded-data comparison + XAI overlays; feature extraction on
+  3 images.
+
+> ⚠ **Systematic error analysis was moved out of this week.** The chart puts
+> **WP4.3 (metrics + error analysis) at W12** and **WP4.4 (improvement loop) at
+> W13**, so the failure taxonomy belongs to the W13 slot. Mirrored in
+> `docs/data.js` `sunum` W11 — change one, change the other (D15).
 
 ## SUNUM 6 — W13 · M6 · speaker: ML (Gözde), EK on integration
 
-- **Demo:** the application — load a real microscopy image, run the full
-  pipeline, see overlays and the measured features, export a report.
-- **Claim:** *"A researcher with no machine-learning knowledge can analyse an
-  image and get a report, offline."*
-- **Artifact:** integrated app + ONNX-packaged model + report export.
-- **Fallback:** CLI demo driving the real pipeline + the UI shell on mock data.
-  Be explicit about which half is real.
+- **Demo:** closed improvement loop (error analysis → model revision → new
+  numbers); a report generated from a real run; validated XAI layer; NTI
+  computed for a dose series; the UI shell showing real pipeline output.
+- **Claim:** *"Every piece of the system works and produces a real report; what
+  remains is wiring them into one executable, which the schedule puts in
+  W14–15."*
+- **Artifact:** report module output + XAI validation + NTI values + UI shell on
+  real outputs.
+- **Fallback:** CLI driving the real pipeline end to end, with the UI shell on
+  mock data — stated clearly as two halves.
 
-*(W14 — end-to-end testing, bug fixing, polish.)*
+> ⚠ **Why this is weaker than it used to be.** The updated course Gantt puts
+> **WP6.3 (Pipeline ↔ UI integration + ONNX packaging) at W14–W15**, i.e. AFTER
+> the last presentation. The old claim here ("a researcher can analyse an image
+> and get a report, offline") promised an integrated app a week before the
+> schedule builds one. Mirrored in `docs/data.js` `sunum` W13 — if you change
+> one, change the other (D15).
+
+*(W14 — WP6.3 integration + ONNX packaging; end-to-end testing and polish.)*
 
 ## FINAL — W15 · speaker: EK (both)
 

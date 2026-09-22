@@ -1,0 +1,400 @@
+{
+ "area": "Bold-but-deliverable ideas for PC12 morphological analysis (2 people, 15 weeks, A5000+A6000)",
+ "candidates": [
+  {
+   "name": "Uncertainty-propagated morphometrics (per-pixel seg uncertainty → error bars on every measured feature)",
+   "type": "novel method (idea #9)",
+   "what_it_does": "Train/eval a segmentation model with dropout (MC-Dropout, arXiv 1506.02142) or ensembling; propagate pixel-level uncertainty through the skeletonization/morphometry step (Monte-Carlo mask resampling) to report MAE + confidence intervals on cell count, area, neurite length, angle. No one in cell-morphometrics routinely reports feature-level error bars — this is the underrated differentiator.",
+   "pc12_fit": "Directly produces the 'reliable measurement' story the professor asks for; pairs with XAI layer; zero architectural change on the planned U-Net/nnU-Net.",
+   "neurite_support": "Yes — applies to both cell and neurite classes; neurite-length error bars are especially compelling (thin structures = high uncertainty = honest story).",
+   "code": "No off-the-shelf; ~200 lines on top of existing pipeline (MC-dropout sampling + bootstrap skeleton recompute).",
+   "license": "n/a (own code)",
+   "compute": "10x inference cost (T≈10-20 dropout passes) — trivial on A5000 overnight.",
+   "small_data_fit": "Excellent: works with n≈70; dropout uncertainty needs no extra data.",
+   "effort": "1-1.5 weeks (spike 3 days, full 2 weeks)",
+   "verdict": "recommend — COMMIT (top pick #2)",
+   "notes": "MC-Dropout verified (Gal & Ghahramani 2015). Novel angle verified as largely absent in cell-segmentation literature (multiple arXiv searches returned 0 exact hits for 'uncertainty propagation + quantitative features' in segmentation). Low risk: it's an analysis layer, never breaks the main pipeline."
+  },
+  {
+   "name": "SAM-LoRA fine-tuned segmentation (SAMed/peft-sam style) as strong backbone or comparison arm",
+   "type": "foundation-model PEFT (idea #6)",
+   "what_it_does": "Freeze SAM ViT-B, train LoRA adapters (~18M params) on ~70 labeled images (batches: cell + neurite masks) with no-prompt/box-prompt inference. Literature shows LoRA-on-SAM converges in medical domains: SAMed (arXiv 2304.13785, 81.88 DSC Synapse, repo hitachinsk/SAMed, MIT, trained on 2x3090), SAM-OCTA (arXiv 2309.11758, few-hundred samples, LoRA works), Conv-LoRA (arXiv 2401.17868, ICLR 2024). Microscopy-specific: peft-sam (arXiv 2502.00418, MIDL 2025, computational-cell-analytics) benchmarks LoRA/QLoRA/FFT on microscopy data — direct precedent.",
+   "pc12_fit": "Foundation-model fine-tune from <100 masks is exactly our regime; gives a 'foundation model beats specialist on tiny data' or honest negative-result comparison.",
+   "neurite_support": "SAM is cell-instance centric; thin neurites are weak in SAM pretraining — expect neurite DSC weaker than cells. Report honestly per class.",
+   "code": "hitachinsk/SAMed (MIT, has train.py + Colab) or computational-cell-analytics/peft-sam (microscopy-ready, LoRA/QLoRA/FFT, builds on micro-sam).",
+   "license": "SAMed: MIT (repo verified). peft-sam: LICENSE file present (repo verified, exact license unverified). SAM weights: SAM code license (non-commercial research OK).",
+   "compute": "ViT-B LoRA: ~16-24 GB VRAM — fits A5000 with batch 1-2 at 1024px (use 512-1024 patches). QLoRA fits comfortably. Fine-tune on 70 images: hours on A6000, overnight 5-fold feasible. ViT-H needs 48 GB (A6000).",
+   "small_data_fit": "Good — LoRA's whole selling point is low-data; but 70 is at the low end, so expect modest gains over well-tuned U-Net; the value is the comparison + ONNX-able small adapter.",
+   "effort": "1.5-2 weeks (repo setup 3-4 d, dataset adapter, 5-fold CV overnight runs)",
+   "verdict": "recommend — COMMIT as comparison arm / top pick #3",
+   "notes": "Do NOT use SAM ViT-B 256px default: resize prompts/masks to image resolution. Keep it a secondary arm — if LoRA-SAM beats U-Net, great story; if not, honest ablation either way."
+  },
+  {
+   "name": "CellSAM / micro-sam zero-shot labeling copilot for batch 2 (+ anchoring check)",
+   "type": "labeling copilot (idea #1)",
+   "what_it_does": "Run CellSAM (CellFinder detector + SAM prompts) or micro-sam automatic segmenter on incoming batch 2 to pre-label; human only corrects in a UI. CellSAM (arXiv 2311.11004, vanvalenlab/cellSAM, Apache-2.0 — repo+license verified) is literally built to 'accelerate human-in-the-loop labeling' via DeepCell Label; micro-sam (MIT, 723★, Nature Methods 2024) ships a napari 2D annotator with pre-segmentation. Existing correction UIs: napari-micro-sam annotator (recommended, free, local), CVAT, CellProfiler. Quantify: measure per-image correction time with vs without pre-labels on 10 pilot images — you get your own speedup number for the thesis (no need to cite literature numbers).",
+   "pc12_fit": "Batch 2 ETA ~2 weeks = perfect timing; also feeds the active-learning loop.",
+   "neurite_support": "CellSAM/micro-sam are CELL-instance models — they will NOT segment neurites well. Copilot covers cell bodies + nuclei; neurite masks still need manual work. Flag this explicitly in the presentation.",
+   "code": "vanvalenlab/cellSAM (Apache-2.0); computational-cell-analytics/micro-sam (MIT) incl. napari annotator.",
+   "license": "Verified Apache-2.0 / MIT.",
+   "compute": "SAM inference on A5000: minutes per image batch; zero training.",
+   "small_data_fit": "N/A — zero-shot, works immediately.",
+   "effort": "0.5-1 week incl. pilot A/B timing study.",
+   "verdict": "recommend — COMMIT (top pick #1)",
+   "notes": "Anchoring bias: literature on pre-annotation anchoring in medical imaging is thin (arXiv search returned 0 direct hits — mark as [INFERENCE] that effect is likely small-but-present). Mitigation: on the 10-image pilot, also label 3 images blind in random order and compare mask IoU (blind vs pre-labeled) — a 1-day honesty check that makes the copilot defensible."
+  },
+  {
+   "name": "Test-time adaptation / pseudo-label DA for batch 2 (Tent + CoTTA-style entropy minimization)",
+   "type": "domain adaptation (idea #4)",
+   "what_it_does": "Batch 2 = new imaging session (distribution shift). One-week credible plan: (a) histogram matching / CLAHE normalization to batch-1 statistics (baseline, 0 training); (b) Tent (arXiv 2006.10726, ICLR 2021 Spotlight — verified): entropy-minimize BN/affine params on unlabeled batch-2 images at inference, ~1 epoch, no labels; (c) CoTTA (arXiv 2110.09878, multi-crop self-supervision TTA) if (b) underperforms; (d) report as 'robustness protocol': metrics before vs after adaptation on a 10-image labeled slice of batch 2.",
+   "pc12_fit": "Directly answers 'what happens when the next plate arrives looking different' — strong robustness slide.",
+   "neurite_support": "Agnostic — operates on whatever model you have; applies to both classes.",
+   "code": "Tent: official repo (google-research tent, BSD) + countless forks; nnUNet integration examples exist in MONAI docs.",
+   "license": "Tent code BSD-3 (repo well-known; mark exact fork license unverified until cloned).",
+   "compute": "Negligible — BN-stat re-estimation per image, seconds on GPU.",
+   "small_data_fit": "Excellent: TTA is designed for label-free target shift — perfect for unknown-size batch 2.",
+   "effort": "0.5-1 week (spike: histogram-match vs Tent on 10 labeled batch-2 images).",
+   "verdict": "recommend — COMMIT as part of DA workstream; Tent only, skip fancy DANN/GAN (1 wk budget).",
+   "notes": "DANN-style adversarial DA needs paired source+target and is unstable in 1 week — skip. Style transfer is a marketing word for histogram matching — do the cheap honest version. TTA ensembling (multi-crop CoTTA) is the credible upgrade if time."
+  },
+  {
+   "name": "Per-cell neurite-graph GNN → treatment/differentiation classifier",
+   "type": "GNN on morphology graphs (idea #2)",
+   "what_it_does": "Build per-cell graph: nodes = neurite branches/junctions, edges = segments, features = angle/length/width; GIN/GAT encoder → cell embedding → predict NGF-on/off (2-class) or differentiation state. Closest verified prior work: NeuNet (arXiv 2312.14518, AAAI 2024, github WHUminghui/NeuNet — repo verified) does exactly skeleton+GNN neuron classification from electron-microscopy connectomes; also pixel-embedding→SWC-tree neurite reconstruction (arXiv 2507.23359). So the paradigm is established; the PC12-2D-small-data instance is novel.",
+   "pc12_fit": "Turns measurements into a predictive result — the most 'wow' slide: 'our pipeline predicts differentiation state from morphology alone'.",
+   "neurite_support": "Yes — this is a neurite-native idea; it IS the neurite output used downstream.",
+   "code": "PyG (MIT) + NeuNet as architectural reference (their repo: Python 3.7/Torch 1.11 era — will need modernizing; treat as reference, not dependency).",
+   "license": "NeuNet repo has no visible LICENSE (unverified — assume non-commercial academic use only; don't redistribute their code).",
+   "compute": "Tiny — graphs have <100 nodes; even CPU-level. GPU time <1 day for all CV folds.",
+   "small_data_fit": "HONEST WARNING: ~70 images × ~20 cells ≈ 1400 cell-graphs for a 2-class problem. This is a demo-scale dataset, not a generalization claim. It will fit beautifully and cross-validate well (memorization risk). Position it as: (a) feasibility demo + embedding visualization (UMAP), (b) correlation study of which graph features drive the class (feature ablation — that's the real science). Do NOT claim SOTA classification.",
+   "effort": "2 weeks (graph extraction 4 d — reuse skeletonizer from main pipeline; GNN training 2 d; ablation/analysis 4 d).",
+   "verdict": "spike at W6 → commit to demo-grade if extraction works",
+   "notes": "If it becomes a 'demo toy' (it will), the deliverable is the feature-ablation + embedding analysis, not accuracy. Keep classifier 2-class and balanced. This is the highest-risk/high-reward idea — cap at 2 weeks."
+  },
+  {
+   "name": "Segment-then-verify active-learning loop for batch 2 (MC-uncertainty gating)",
+   "type": "human-in-the-loop + active learning (idea #8)",
+   "what_it_does": "Model outputs per-image confidence (MC-dropout std or ensemble disagreement). Below threshold → auto-accept measurements; above → route to human correction UI (napari-micro-sam annotator or CVAT). Track: fraction auto-accepted, per-image human time, error rate of auto-accepted vs human-reviewed. Repeats #1's copilot but with a principled uncertainty gate instead of 'correct everything'.",
+   "pc12_fit": "Turns labeling into a measurable throughput story: 'X% of batch 2 needed no human touch; human time dropped Y%'.",
+   "neurite_support": "Uncertainty maps naturally separate cell-body (low unc) from neurite edges (high unc) — expect neurites to dominate review queue; that's a useful finding, not a failure.",
+   "code": "Reuses #2 (MC-dropout) + #1 (annotator UI). No new infrastructure.",
+   "license": "n/a",
+   "compute": "Same 10x inference as uncertainty idea.",
+   "small_data_fit": "Designed for exactly our situation (small labeled, unlabeled incoming).",
+   "effort": "0.5 week on top of #1+#9 (mostly UI wiring + threshold sweep).",
+   "verdict": "recommend — COMMIT as glue between #1 and #9",
+   "notes": "Active-learning sample selection (TSP-style, arXiv 2012.04829 BMVC2020 — verified) is optional; with a single batch incoming, a simple uncertainty threshold beats complex query strategies. Keep it boring."
+  },
+  {
+   "name": "SAM2/Track-Anything time-lapse tracking of cells + neurite growth trajectories",
+   "type": "video/time-lapse (idea #7)",
+   "what_it_does": "If batch 2 ever contains a time series: SAM2 (facebookresearch/segment-anything-2) for zero-shot video segmentation of cells across timepoints; or Track-Anything (gaomingqi/Track-Anything, MIT — repo verified, 7k★) / Segment-and-Track-Anything (AGPL-3.0 — license caution). Precedent: zero-shot cell tracking with SAM2 (arXiv 2509.09943) and Trackastra (arXiv 2405.15700, ECCV 2024, transformer linking) show tracking-by-detection is mature.",
+   "pc12_fit": "Neurite GROWTH trajectories (length vs time per cell) would be a beautiful bonus dataset for the GNN idea.",
+   "neurite_support": "WEAK — video SAM tracks cell bodies; thin moving neurites will break tracking identity. Track cells now, track neurites as stretch. Honest scope: cell centroids + area trajectories, neurite length per frame (no per-neurite identity).",
+   "code": "segment-anything-2 (Apache-2.0); Track-Anything (MIT).",
+   "license": "Verified MIT (Track-Anything). SOTA = AGPL-3.0 — avoid for any redistribution.",
+   "compute": "SAM2 video: 8-24 GB depending on window — fits A5000/A6000.",
+   "small_data_fit": "N/A — zero-shot; but data existence is UNKNOW (batch 2 may be static frames).",
+   "effort": "2-3 weeks if data exists; 0 if it doesn't.",
+   "verdict": "stretch — pure [IDEA] unless you confirm time-series data in batch 2 THIS WEEK",
+   "notes": "Confirm with lab before W6. If no time series: write it up as future work in 1 paragraph, don't spend code on it."
+  },
+  {
+   "name": "Two-stage detect-then-segment (center detection → per-cell crop → fine segmentation)",
+   "type": "pipeline architecture (idea #5)",
+   "what_it_does": "RetinaNet/CenterNet on patches → per-cell crop (pad to include neurites) → per-crop fine segmentation + morphometry. Rationale: whole-image U-Net struggles with dense adherent fields; per-cell crops give consistent receptive field for neurites.",
+   "pc12_fit": "Helps IF fields are dense/overlapping; PC12 phase-contrast plates are often moderate-density. The per-cell crop also makes morphometry trivially per-cell and matches the 'per cell' output contract.",
+   "neurite_support": "Crops must be large (neurites span wide area) — crop=1-2x cell body size, so 'crop' is really 'region around detected center'.",
+   "code": "MMDetection/RetinaNet (Apache-2.0) or just distance-transform peaks + Cellpose flow as detector proxy (zero new training).",
+   "license": "Apache-2.0 (mmdet); MIT (Cellpose weights research).",
+   "compute": "Detector training on ~70 images is the weak point — center-point labels are cheap to derive from existing masks, so no new annotation needed. Fine-tuning a pretrained detector on 70 images: risky.",
+   "small_data_fit": "MARGINAL — 70 images is thin for training a detector; the win only materializes if stage-2 beats stage-1. At n≈70, single-stage well-tuned U-Net + watershed/flow post-processing likely matches it.",
+   "effort": "2-3 weeks incl. ablation.",
+   "verdict": "skip as committed work; mention as design alternative in report",
+   "notes": "Only commit if W2-3 evaluation shows single-stage U-Net failing specifically on dense clusters. Evidence-first, don't pre-build."
+  },
+  {
+   "name": "Direct end-to-end morphometric regression (skip skeletonization)",
+   "type": "architecture (idea #3)",
+   "what_it_does": "Regressor head on segmentation encoder features → predict (count, total area, neurite length, mean angle) directly. Literature: direct regression of crowd/object counts from density networks is standard (counting literature), but DIRECT morphometric regression (length/angle) from a segmentation encoder is NOT an established cell-analysis paradigm — arXiv searches for it returned nothing. It would be novel, but novelty without a literature anchor = hard to defend at thesis level.",
+   "pc12_fit": "Would eliminate skeletonization error, BUT: interpretability dies, units become a black-box gamble, and the professor's whole ask is interpretable morphometrics (skeleton→features is the explainable part).",
+   "neurite_support": "Regressing 'total neurite length' from features is plausible; 'per-neurite angle' is not (order-invariant regression of a set property is ill-posed without per-instance structure).",
+   "code": "No existing implementation to adopt.",
+   "license": "n/a",
+   "compute": "Cheap to train.",
+   "small_data_fit": "Worse than segmentation: regression targets are noisier (measurement noise in labels) and n≈70 images gives few hundred per-cell supervision points.",
+   "effort": "1.5-2 weeks for a defensible ablation.",
+   "verdict": "skip (keep as 1-paragraph future work)",
+   "notes": "The error-bars idea (#1) already gives the best of both: explicit skeletonization (interpretable) + honest uncertainty. Direct regression is a second system, not an upgrade."
+  },
+  {
+   "name": "Cross-modal distillation: SAM/CellSAM teacher → tiny U-Net student (ONNX desktop product)",
+   "type": "deployment / extra angle",
+   "what_it_does": "Use a strong foundation teacher (CellSAM/SAM) to distill a small student (e.g., MobileNetV3/U-Net 5-30M) for the offline ONNX desktop app. Precedent verified: single-channel tissue segmentation via cross-modal KD from SAM/CellSAM teachers (arXiv 2606.00928: +12 Dice across 4 student archs, 23x parameter reduction).",
+   "pc12_fit": "Final product is an offline desktop app — a 50M ONNX model beats a 350M SAM ViT for install size and CPU fallback. Teacher-student gives you the best of both: foundation-model accuracy distilled into a shippable model.",
+   "neurite_support": "Student can be trained on teacher soft-labels for both classes.",
+   "code": "Custom distillation loop (~1 week), builds on micro-sam/CellSAM teacher inference.",
+   "license": "MIT-ish (own code); teacher weight licenses as noted above.",
+   "compute": "Student training: hours on A5000.",
+   "small_data_fit": "Excellent — distillation is a small-data superpower (student sees teacher knowledge, not just 70 hard labels).",
+   "effort": "1-1.5 weeks, AFTER the main model is chosen.",
+   "verdict": "stretch — do only if main pipeline is solid by W10",
+   "notes": "Order of operations: pick main model W4-6 → distill W10-12 → ONNX export W12-14. Don't front-load."
+  }
+ ],
+ "techniques": [
+  {
+   "name": "MC-Dropout / MC-Ensemble uncertainty",
+   "category": "uncertainty",
+   "how_it_helps": "Feeds the error-bars idea and the auto-accept/review gate — the load-bearing technique for two of the top ideas.",
+   "effort": "0.5 d to add",
+   "verdict": "recommend"
+  },
+  {
+   "name": "Tent entropy-minimization TTA",
+   "category": "domain adaptation",
+   "how_it_helps": "One-week robustness demo for batch-2 shift; no labels needed.",
+   "effort": "0.5-1 wk",
+   "verdict": "recommend"
+  },
+  {
+   "name": "Histogram matching / CLAHE normalization",
+   "category": "domain adaptation",
+   "how_it_helps": "Zero-training baseline DA; must include to show TTA adds value on top.",
+   "effort": "0.5 d",
+   "verdict": "recommend"
+  },
+  {
+   "name": "LoRA (r=8-32) on frozen ViT-B",
+   "category": "PEFT",
+   "how_it_helps": "Makes foundation-model fine-tune fit 24 GB and 70 images.",
+   "effort": "part of SAMed/peft-sam setup",
+   "verdict": "recommend"
+  },
+  {
+   "name": "GAT/GIN graph encoder (PyG)",
+   "category": "GNN",
+   "how_it_helps": "Cell-graph → embedding for treatment prediction demo.",
+   "effort": "2 d training code",
+   "verdict": "watch (dataset too small for claims; demo+ablation only)"
+  },
+  {
+   "name": "UMAP + t-SNE embedding visualization",
+   "category": "analysis",
+   "how_it_helps": "The actual deliverable of the GNN idea — shows class structure in embedding space; presentation gold.",
+   "effort": "0.5 d",
+   "verdict": "recommend"
+  },
+  {
+   "name": "DANN / domain-adversarial training",
+   "category": "domain adaptation",
+   "how_it_helps": "Would be a heavier DA method, but unstable and needs target pseudo-labels.",
+   "effort": "2+ wk",
+   "verdict": "skip (1-week budget)"
+  },
+  {
+   "name": "DANN / style-transfer (CycleGAN) DA",
+   "category": "domain adaptation",
+   "how_it_helps": "Marketing-heavy, weak evidence, high effort.",
+   "effort": "2-3 wk",
+   "verdict": "skip"
+  },
+  {
+   "name": "RetinaNet/CenterNet cell-center detection",
+   "category": "architecture",
+   "how_it_helps": "Two-stage pipeline component; only worth it if single-stage fails on density.",
+   "effort": "2-3 wk",
+   "verdict": "watch (trigger-based)"
+  },
+  {
+   "name": "TSP triplet-scoring active learning",
+   "category": "active learning",
+   "how_it_helps": "Query strategy for labeling; overkill for one incoming batch.",
+   "effort": "1 wk",
+   "verdict": "skip (uncertainty threshold is enough)"
+  },
+  {
+   "name": "CycleGAN style transfer",
+   "category": "domain adaptation",
+   "how_it_helps": "Generative shift simulation; not needed when real batch-2 shift is available for TTA.",
+   "effort": "2 wk",
+   "verdict": "skip"
+  }
+ ],
+ "bold_ideas": [
+  {
+   "idea": "Error bars on every morphometric feature (pixel uncertainty → skeleton → feature CIs)",
+   "why_now": "MC-Dropout is 10 years old but has never been standard practice in cell-morphometrics; NeuroQuantify (arXiv 2310.10978) reports point estimates only. Nobody in the PC12/neurite quantification literature does this.",
+   "feasibility": "High — pure analysis layer, no architectural risk.",
+   "effort": "1-2 weeks",
+   "risk": "Low. Skeletonization is stochastic-sensitive; need stable pruning params. Worst case: error bars are wide and boring (still a valid finding: 'neurite length uncertainty is 2x cell area uncertainty').",
+   "differentiator": "The single most defensible 'senior thesis' differentiator: every table in the report gets a CI column; every figure gets an error bar. Directly answers 'how do we know the measurement is right'.",
+   "verdict": "commit — top pick #2"
+  },
+  {
+   "idea": "Foundation-model labeling copilot with a built-in anchoring self-check (blind-labeled control images)",
+   "why_now": "CellSAM (arXiv 2311.11004) explicitly ships for human-in-the-loop labeling; batch 2 lands in ~2 weeks; the anchoring check (blind vs pre-labeled mask IoU on 3 images) is a novelty nobody in the copilot literature includes.",
+   "feasibility": "High — off-the-shelf tools.",
+   "effort": "0.5-1 week",
+   "risk": "Low-medium: zero-shot models may mis-segment phase-contrast neurite-rich fields (they're cell-body centric). The copilot still saves time on cell bodies and nuclei even if neurites need manual work.",
+   "differentiator": "Measured, project-specific labeling speedup number (not borrowed from literature) + a bias control. Professors love measured process metrics.",
+   "verdict": "commit — top pick #1"
+  },
+  {
+   "idea": "GNN on per-cell neurite graphs predicting NGF treatment state, with feature ablation as the real result",
+   "why_now": "NeuNet (AAAI 2024) proved skeleton+GNN neuron classification at scale (connectomes); nobody has done the small-data 2D PC12 version — the gap is the thesis.",
+   "feasibility": "Medium — graph extraction from 2D skeletons is non-trivial (branch/junction detection); GNN training itself is trivial.",
+   "effort": "2 weeks hard cap",
+   "risk": "Medium-high: n≈1400 cell-graphs for 2 classes = memorization risk. Mitigation by design: report ablation (which graph features carry class signal) + UMAP embeddings as primary results, accuracy as secondary.",
+   "differentiator": "Highest 'wow' ceiling: 'our pipeline predicts differentiation state from morphology alone' + interpretable feature importance. If it fails, the ablation still produces publishable-quality analysis.",
+   "verdict": "spike at W6; commit to demo-grade only — top pick #3"
+  },
+  {
+   "idea": "Tent test-time adaptation as a one-week robustness protocol for the batch-2 shift",
+   "why_now": "Batch 2 arrives in 2 weeks as a real, free distribution-shift testbed — rare for a student project; TTA (ICLR 2021) needs no target labels.",
+   "feasibility": "High — BN-stat re-estimation, ~100 lines.",
+   "effort": "0.5-1 week",
+   "risk": "Low: worst case TTA gives ~0 gain → report histogram-matching baseline instead; either way you have a robustness section.",
+   "differentiator": "A quantified before/after robustness table on real new-session data is stronger than any synthetic corruption demo.",
+   "verdict": "commit (folded into DA workstream)"
+  },
+  {
+   "idea": "Cross-modal distillation: foundation teacher → 50M ONNX student for the offline desktop product",
+   "why_now": "The final deliverable is an ONNX desktop app; arXiv 2606.00928 (2026) shows SAM/CellSAM teachers lift small U-Nets by ~12 Dice — fresh literature, directly applicable.",
+   "feasibility": "Medium-high — depends on main pipeline stability by W10.",
+   "effort": "1-1.5 weeks, W10-12",
+   "risk": "Low: student-only fallback exists; distillation can only help or match.",
+   "differentiator": "Deployment story: 'foundation-model quality at 7x smaller model size' — connects the research to the shipped product.",
+   "verdict": "stretch (W10+ only)"
+  }
+ ],
+ "sources": [
+  {
+   "title": "NeuroQuantify — DL cell+neurite segmentation & quantification (phase contrast)",
+   "url": "https://arxiv.org/abs/2310.10978",
+   "supports": "Established task definition (cell count, neurite length, orientation) and GitHub (StanleyZ0528/neural-image-segmentation); the direct prior work to beat/cite.",
+   "checked": true
+  },
+  {
+   "title": "CellSAM — A Foundation Model for Cell Segmentation (vanvalenlab/cellSAM, Apache-2.0)",
+   "url": "https://arxiv.org/abs/2311.11004",
+   "supports": "Zero-shot cell segmentation + explicit human-in-the-loop labeling goal (DeepCell Label integration). Basis of labeling-copilot idea. Repo verified: github.com/vanvalenlab/cellSAM, Apache-2.0, 218★.",
+   "checked": true
+  },
+  {
+   "title": "micro-sam — Segment Anything for Microscopy (Nature Methods 2024, MIT)",
+   "url": "https://github.com/computational-cell-analytics/micro-sam",
+   "supports": "napari 2D/3D/tracking annotators with automatic pre-segmentation; APG prompting; MIDL 2026 foundation-model comparison (CellPoseSAM/CellSAM/muSAM/SAM2/SAM3); fine-tuning support. Repo verified (MIT, 723★).",
+   "checked": true
+  },
+  {
+   "title": "Revisiting foundation models for cell instance segmentation (MIDL 2026)",
+   "url": "https://arxiv.org/abs/2603.17845",
+   "supports": "Head-to-head of CellPoseSAM/CellSAM/muSAM/SAM2/SAM3 on light microscopy; APG strategy. Informs which zero-shot model to run for the copilot.",
+   "checked": true
+  },
+  {
+   "title": "SAMed — Customized SAM for Medical Image Segmentation (LoRA, arXiv 2304.13785)",
+   "url": "https://github.com/hitachinsk/SAMed",
+   "supports": "LoRA-on-SAM fine-tuning: 81.88 DSC Synapse; repo verified MIT, has train.py, Colab demo, 2x3090 training — directly runnable on A5000/A6000. ViT-H variant released (needs ~48 GB → A6000).",
+   "checked": true
+  },
+  {
+   "title": "Conv-LoRA — Parameter Efficient Finetuning for SAM (ICLR 2024)",
+   "url": "https://arxiv.org/abs/2401.17868",
+   "supports": "Conv+LoRA injection into SAM ViT improves domain adaptation; architectural reference for the LoRA arm.",
+   "checked": true
+  },
+  {
+   "title": "SAM-OCTA — LoRA fine-tuning for few-hundred-sample vessel segmentation (arXiv 2309.11758)",
+   "url": "https://arxiv.org/abs/2309.11758",
+   "supports": "Explicit 'limited samples (~a few hundred) lead to overfitting → LoRA' evidence for low-data SAM fine-tuning; vessel (thin tubular) domain is the closest analogy to neurites.",
+   "checked": true
+  },
+  {
+   "title": "peft-sam — Parameter Efficient Fine-Tuning of SAM (MIDL 2025, arXiv 2502.00418)",
+   "url": "https://github.com/computational-cell-analytics/peft-sam",
+   "supports": "Microscopy-specific PEFT benchmark (LoRA/QLoRA/FFT) built on micro-sam; ready-to-use env files incl. QLoRA. Repo verified; exact license file not read (unverified).",
+   "checked": true
+  },
+  {
+   "title": "NeuNet — Joint Learning Neuronal Skeleton and Brain Circuit Topology (AAAI 2024)",
+   "url": "https://arxiv.org/abs/2312.14518",
+   "supports": "Closest GNN-on-neurite-graph prior work: skeleton encoder + GNN connectome encoder → neuron classification (91-93% acc on VEM connectomes). Repo verified (github.com/WHUminghui/NeuNet; PyG/torch-cluster; no visible LICENSE → unverified).",
+   "checked": true
+  },
+  {
+   "title": "Pixel Embedding Method for Tubular Neurite Segmentation (arXiv 2507.23359)",
+   "url": "https://arxiv.org/abs/2507.23359",
+   "supports": "End-to-end image→SWC tree neurite topology reconstruction with a topological metric; relevant for graph extraction + topology evaluation of our skeletonizer.",
+   "checked": true
+  },
+  {
+   "title": "Tent: Fully Test-time Adaptation by Entropy Minimization (ICLR 2021 Spotlight)",
+   "url": "https://arxiv.org/abs/2006.10726",
+   "supports": "The one-week DA method: entropy-minimize BN/affine params on unlabeled test batches, one epoch, no labels. Verified abstract incl. source-free segmentation results (GTA→Cityscapes).",
+   "checked": true
+  },
+  {
+   "title": "LATTA — Langevin-Anchored TTA (arXiv 2510.05530)",
+   "url": "https://arxiv.org/abs/2510.05530",
+   "supports": "2025 follow-up confirming Tent/CoTTA instability issues and fixes (SGLD + weight anchor); informs fallback if naive Tent misbehaves on batch 2.",
+   "checked": true
+  },
+  {
+   "title": "MC-Dropout: Dropout as a Bayesian Approximation (Gal & Ghahramani 2015)",
+   "url": "https://arxiv.org/abs/1506.02142",
+   "supports": "Theoretical basis for per-pixel epistemic uncertainty via dropout at inference — the engine of the error-bars idea.",
+   "checked": true
+  },
+  {
+   "title": "Single-Channel Tissue Segmentation via Cross-Modal Distillation from Foundation Models (arXiv 2606.00928, 2026)",
+   "url": "https://arxiv.org/abs/2606.00928",
+   "supports": "SAM ViT-H/CellSAM teachers → 4 small U-Net students: +12 Dice, 23x param reduction, cross-dataset gains without retraining. Direct precedent for the teacher→ONNX-student idea.",
+   "checked": true
+  },
+  {
+   "title": "Segment Anything for Cell Tracking (zero-shot SAM2 cell tracking, arXiv 2509.09943)",
+   "url": "https://arxiv.org/abs/2509.09943",
+   "supports": "Zero-shot cell tracking with SAM2 in 2D/3D time-lapse microscopy — evidence the time-lapse idea is deliverable IF data exists.",
+   "checked": true
+  },
+  {
+   "title": "Trackastra: Transformer-based cell tracking for live-cell microscopy (ECCV 2024)",
+   "url": "https://arxiv.org/abs/2405.15700",
+   "supports": "SOTA cell linking with division handling; code github.com/weigertlab/trackastra; micro-sam integration. Alternative to SAM2 for the tracking stretch.",
+   "checked": true
+  },
+  {
+   "title": "Track-Anything (github.com/gaomingqi/Track-Anything, MIT, 7k★)",
+   "url": "https://github.com/gaomingqi/Track-Anything",
+   "supports": "Mature interactive video segmentation/tracking toolchain (SAM + XMem + E2FGVI) — practical vehicle for time-lapse tracking. License verified MIT via GitHub API.",
+   "checked": true
+  },
+  {
+   "title": "Semi-supervised Active Learning for Instance Segmentation via TSP (BMVC 2020)",
+   "url": "https://arxiv.org/abs/2012.04829",
+   "supports": "Uncertainty-based sample selection for instance segmentation on medical images; reference for the auto-accept/review gating (we simplify to a threshold).",
+   "checked": true
+  },
+  {
+   "title": "SAM2MOT — Multi-Object Tracking by Segmentation (arXiv 2504.04519)",
+   "url": "https://arxiv.org/abs/2504.04519",
+   "supports": "2025 evidence that segmentation-driven tracking generalizes without task-specific fine-tuning — supports zero-shot tracking feasibility claim.",
+   "checked": true
+  },
+  {
+   "title": "SAM2-UNet (arXiv 2408.08870, github WZH0120/SAM2-UNet, Apache-2.0)",
+   "url": "https://github.com/WZH0120/SAM2-UNet",
+   "supports": "SAM2 Hiera encoder + U-Net decoder with adapters beats specialist SOTA on medical segmentation without bells and whistles — alternative to LoRA-SAM if the team prefers a U-shaped decoder for thin structures.",
+   "checked": true
+  },
+  {
+   "title": "SegSEM — SAM2 for few-shot industrial contour extraction (60 images, arXiv 2602.20471)",
+   "url": "https://arxiv.org/abs/2602.20471",
+   "supports": "Foundation-model adaptation validated on a 60-image dataset — closest published analogue to our n≈70 regime; supports 'PEFT works at ~70 images' claim.",
+   "checked": true
+  }
+ ],
+ "bottom_line": "Commit to three things that compose: (1) a CellSAM/micro-sam labeling copilot for batch 2 with a blind-control anchoring check and measured speedup — cheapest win, lands by W4; (2) uncertainty propagation (MC-dropout → skeleton → per-feature confidence intervals) — the genuinely novel, low-risk, high-defensibility differentiator that turns your metrics tables into honest measurement science; (3) the GNN-on-neurite-graphs treatment classifier as a W6-capped spike, positioned from day one as an ablation/embedding study (n≈1400 cell-graphs for 2 classes is demo-scale — never claim generalization). Add LoRA-on-SAM (SAMed/peft-sam) as a foundation-model comparison arm — it fits 24 GB, runs overnight 5-fold, and gives either a win or a defensible negative result. Treat Tent TTA + histogram matching as the one-week robustness protocol for the batch-2 shift, and keep SAM2/Trackastra time-lapse tracking as a stretch contingent on confirming time-series data this week. Skip: DANN/style-transfer DA, RetinaNet two-stage (trigger only on density failure), and direct morphometric regression (novelty without a literature anchor, and it undermines the interpretability story)."
+}

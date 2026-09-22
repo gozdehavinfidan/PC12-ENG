@@ -1,4 +1,4 @@
-# PC12 Hücre Morfolojisi — Otomatik Analiz (ENG400)
+# PC12 Hücre Morfolojisi — Otomatik Analiz (ENG401)
 
 Görüntü işleme + derin öğrenme ile **PC12 nöronal hücrelerinin** otomatik
 morfolojik analizi: hücre sayısı, hücre alanı, nörit sayısı, nörit uzunluğu,

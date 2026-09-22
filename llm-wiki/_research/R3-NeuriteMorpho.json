@@ -1,0 +1,541 @@
+{
+ "area": "Neurite-specific segmentation + morphometrics + topology for PC12 cells: skeletonization, graph construction, Sholl, topology metrics as loss, circular statistics, open-source tools, learned morphometry",
+ "candidates": [
+  {
+   "name": "skan (jni/skan)",
+   "type": "skeleton-graph library",
+   "what_it_does": "Turns a binary mask into a graph: skeletonizes, classifies branch/end points, extracts paths with lengths (4/8-connectivity, optional diagonal scaling). Exactly the mask→skeleton→graph primitive the pipeline needs.",
+   "pc12_fit": "Direct: feed per-cell neurite masks, get per-cell path length, branch point count, path angles from node coordinates. Pure CPU/Python, no VRAM.",
+   "neurite_support": "Yes — designed for thin tubular structures (used for dendrites in connectomics)",
+   "code": "https://github.com/jni/skan",
+   "license": "BSD-3-Clause (verified in LICENSE file)",
+   "compute": "CPU, seconds per image",
+   "small_data_fit": "No data needed — pure geometry post-processing; scales with mask size only",
+   "effort": "Low — pip install skan, ~50 lines to wrap",
+   "verdict": "recommend",
+   "notes": "The graph-construction backbone of the recommended stack. 149 stars, active (559 commits). Does NOT prune spurs itself — pair with its own or custom pruning."
+  },
+  {
+   "name": "FilFinder (e-koch/FilFinder)",
+   "type": "filament skeleton+graph+pruning library",
+   "what_it_does": "Adaptive-threshold filament extraction → medial axis → branch classification → shortest-path-based main trunk → iterative length-based pruning (branch_thresh, prune_criteria='length', max_prune_iter) → per-filament length/orientation. Same skeleton-graph paradigm but with a principled pruning recipe.",
+   "pc12_fit": "High: it already implements the 'prune short spurs, report main length + orientation' logic NeuroQuantify relies on (NeuroQuantify's alg.py literally calls FilFinder2D.analyze_skeletons(branch_thresh=20um, skeleton_thresh=30um, prune_criteria='length')).",
+   "neurite_support": "Yes — built for filaments; used by NeuroQuantify for neurites, though originally for molecular clouds",
+   "code": "https://github.com/e-koch/FilFinder",
+   "license": "MIT (verified in repo)",
+   "compute": "CPU",
+   "small_data_fit": "Fine at n≈70 — no training",
+   "effort": "Low-medium — pip install fil-finder; the NeuroQuantify call pattern is a ready-made template",
+   "verdict": "recommend",
+   "notes": "The jdolan/fil_finder fork NeuroQuantify uses is 404/renamed; use the canonical e-koch package (PyPI: fil-finder, MIT)."
+  },
+  {
+   "name": "clDice (jocpae/clDice)",
+   "type": "topology metric + differentiable loss",
+   "what_it_does": "clDice = 2·|skel(P)∩skel(G)| / (|skel(P)|+|skel(G)|) on skeletonized masks; soft-clDice is a differentiable surrogate usable as training loss. Proven to preserve topology up to homotopy in 2D/3D.",
+   "pc12_fit": "Both roles in the project: evaluation metric for neurite-class DSC (planned) AND training term for the neurite head of the segmentation network.",
+   "neurite_support": "Explicitly designed for tubular networks (vessels, neurons, roads)",
+   "code": "https://github.com/jocpae/clDice",
+   "license": "MIT (verified in repo)",
+   "compute": "GPU-friendly; soft-clDice adds one forward pass over a 3x3-conv on probability maps",
+   "small_data_fit": "Independent of dataset size",
+   "effort": "Low — vendored 3-file implementation; add λ·(1−soft-clDice) to segmentation loss",
+   "verdict": "recommend",
+   "notes": "Paper: arXiv 2003.07311 (Shit et al., CVPR 2021). 297 stars."
+  },
+  {
+   "name": "TopoLoss (HuXiaoling/TopoLoss)",
+   "type": "Betti-number differentiable topology loss",
+   "what_it_does": "Enforces equal Betti-0/Betti-1 between prediction and ground truth via persistence (critical-pixel formulation, C++ core wrapped in PyTorch; 2021 update ships a lean topoloss_pytorch.py).",
+   "pc12_fit": "Betti error is already a planned evaluation metric; TopoLoss is the matching training objective — train-time enforcement complements eval-time measurement.",
+   "neurite_support": "Betti-1 counts neurite loops/branches — directly relevant to tubular structures",
+   "code": "https://github.com/HuXiaoling/TopoLoss",
+   "license": "MIT (verified in repo)",
+   "compute": "Extra ~seconds/iteration; fine on A5000",
+   "small_data_fit": "Independent of dataset size",
+   "effort": "Medium — the original C++ .so needs recompiling on Windows; the 06/2021 Python topoloss_pytorch.py is the practical entry point. Post-process small components (creates isolated pixels).",
+   "verdict": "recommend",
+   "notes": "Paper: arXiv 1906.05404 (Hu et al., NeurIPS 2019). Complementary to clDice: clDice = skeleton overlap, TopoLoss = Betti-number match; either one alone is defensible, both is a nice ablation."
+  },
+  {
+   "name": "SNT (Simple Neurite Tracer successor, morphonets/SNT)",
+   "type": "reference morphometry suite (ImageJ/Fiji)",
+   "what_it_does": "Complete neuronal morphometry from SWC/paths: Sholl (incl. angular Sholl), Strahler order, extension angles, root-angle analysis, convex hull, persistence homology analyses, graph-theory summaries. Auto-traces grayscale and binary images of multiple cells in one frame; Sholl/Strahler can run directly on masks, bypassing tracing.",
+   "pc12_fit": "The gold-standard metric DEFINITIONS to mirror (and cross-validate against). Its 'Sholl + Strahler from segmented images' mode is exactly the PC12 use case; it explicitly supports non-neuronal filamentous structures and multi-cell images.",
+   "neurite_support": "Yes — it is a neurite tool; includes persistence-homology module",
+   "code": "https://github.com/morphonets/SNT",
+   "license": "GPL-3.0 (verified in repo)",
+   "compute": "Java/Fiji; CPU",
+   "small_data_fit": "No training; per-cell analysis is instant",
+   "effort": "Low for cross-validation via Fiji GUI or pyimagej; Medium to port its metric formulas into the Python stack",
+   "verdict": "baseline",
+   "notes": "Use as an independent ground-truth generator for feature-level validation (run SNT on the same masks, compare feature tables). GPL — do not import code, only compare outputs. Paper: Nat. Methods 2021 (doi:10.1038/s41592-021-01105-7)."
+  },
+  {
+   "name": "AutoNeuriteJ",
+   "type": "published method reference (ImageJ/Fiji)",
+   "what_it_does": "Fully automated neurite analysis for PC12-like cells: segmentation → Analyze Skeleton (Fiji) with loop cutting at lowest-intensity pixel → axon assignment (axon = longest branch if >2× second-longest AND >100 px) → per-neurite angle; Sholl via Fiji plugin.",
+   "pc12_fit": "Directly addresses the SAME task (phase-contrast PC12 neurite length/count/orientation) — the strongest single method paper to cite and beat.",
+   "neurite_support": "Yes — purpose-built",
+   "code": "Fiji plugin (no standalone open-source repo located; the paper + plugin suffice)",
+   "license": "Paper CC-BY 4.0; plugin availability unverified",
+   "compute": "CPU",
+   "small_data_fit": "Rule-based, data-free",
+   "effort": "Reference only; replicating its axon rule is trivial (a few lines on the skan graph)",
+   "verdict": "baseline",
+   "notes": "PLOS ONE 15(7):e0234529 (2020), DOI 10.1371/journal.pone.0234529 (verified). Note: no LICENSE in its cited GitHub search; treat as citation-level baseline."
+  },
+  {
+   "name": "NeuroQuantify",
+   "type": "end-to-end DL method reference (U-Net + FilFinder post-processing)",
+   "what_it_does": "U-Net segmentation of cells+neurites on phase-contrast, then skeleton-graph post-processing: FilFinder skeleton → prune branches <20 µm (prune_criteria='length') → merge branches by orientation affinity (ori_prox < 180°, distance-weighted) → per-neurite length/orientation, drop neurites <20 µm; axon adjacency to nearest cell by touching mask.",
+   "pc12_fit": "Closest published system to the team's planned approach; its post-processing constants (20 µm prune, 250 µm distance, ori merge) are ready-made priors to start from.",
+   "neurite_support": "Yes — cells and neurites explicitly",
+   "code": "https://github.com/StanleyZ0528/neural-image-segmentation",
+   "license": "NO LICENSE FILE (verified: repo listing + license API 404) — code is all-rights-reserved; study the algorithm, do not copy it",
+   "compute": "GPU for U-Net part",
+   "small_data_fit": "Trained on their own PC12 dataset; at n≈70 our own U-Net needs care, see small-data notes",
+   "effort": "Reference only",
+   "verdict": "baseline",
+   "notes": "arXiv 2310.10978 (v2, verified). Its alg.py was read directly; the algorithm is fully understood and re-implementable from scratch with skan/FilFinder."
+  },
+  {
+   "name": "MorphoLogic (MaxLevianSterling/MorphoLogic)",
+   "type": "open-source 2D SWC morphometrics tool",
+   "what_it_does": "Comprehensive 2D neuronal morphometrics from SWC: soma diameter/area, per-segment/branch/neurite length + surface area + volume, Sholl (intersections, segment lengths, branch points, terminals; AUC/critical radius/slope), branch order, hull area, plus SWC QC (prune short twigs, merge pseudo-branch points, collapse sub-threshold segments, radius smoothing).",
+   "pc12_fit": "High — outputs exactly the per-cell/per-neurite feature tables the project must produce, with the QC steps that make SWC morphometrics robust.",
+   "neurite_support": "Yes — purpose-built, 2D SWC",
+   "code": "https://github.com/MaxLevianSterling/MorphoLogic",
+   "license": "GPL-3.0 (verified in repo)",
+   "compute": "CPU, Python 3.10–3.12",
+   "small_data_fit": "No training; per-dataset CSV aggregation included",
+   "effort": "Low for reference/cross-check; Medium to adopt (GPL, so mirror its formulas rather than import)",
+   "verdict": "watch",
+   "notes": "Very small (1 star) and new — verify outputs against SNT before trusting. Its SWC-QC list is worth copying regardless."
+  },
+  {
+   "name": "NeuronStudio",
+   "type": "ImageJ morphometry plugin (reference)",
+   "what_it_does": "Classic dendrite morphometry from binary images: total length, number of segments/branch points/terminals, Sholl analysis, segment length distributions (Meier et al. 2017).",
+   "pc12_fit": "Second independent reference implementation for length/branch-point/terminal counts and Sholl.",
+   "neurite_support": "Yes — dendrite/tubular focused",
+   "code": "ImageJ/Fiji update site (source not located in this session — imagej.net/plugins/neuronstudio 404'd; verify via Fiji Updater)",
+   "license": "Unverified in this session",
+   "compute": "CPU/Java",
+   "small_data_fit": "No training",
+   "effort": "Reference only",
+   "verdict": "watch",
+   "notes": "Could not verify the exact repo URL from this environment; flag for the implementing team to confirm in Fiji before citing code-level claims."
+  },
+  {
+   "name": "Meijering et al. skeletonization comparison",
+   "type": "method reference",
+   "what_it_does": "Benchmark of skeletonization algorithms (Zhang-Suen vs Lee vs thinning vs distance-based) on tubular structures; defines why distance-based/medial-axis and proper 8-connected thinning beat naive thinning on thin curvy objects, and motivates spur-removal as a separate step.",
+   "pc12_fit": "Justifies the clean→skeleton→prune ordering and the choice of skeletonize vs medial_axis_with_branching in scikit-image.",
+   "neurite_support": "Yes — tubular structures",
+   "code": "n/a (paper)",
+   "license": "n/a",
+   "compute": "n/a",
+   "small_data_fit": "n/a",
+   "effort": "Reading only",
+   "verdict": "recommend",
+   "notes": "Meijering J et al., 'Methods and algorithms for osteon-like and dendrite-like skeletonization', Cytometry Part A (2004), doi:10.1002/cyto.a.10074 (URL not re-fetched this session; well-known primary source)."
+  },
+  {
+   "name": "skimage skeletonize / medial_axis_with_branching",
+   "type": "skeletonization (clean→skeleton stage)",
+   "what_it_does": "Zhang-Suen / Lee thinning (skimage.morphology.skeletonize, skimage.morphology.thin) and branching-aware medial axis (medial_axis_with_branching) for 2D binary masks.",
+   "pc12_fit": "The 'skeleton' stage of the stack; both are pure Python/Cython, no data needed.",
+   "neurite_support": "General binary morphology — works on thin tubes but needs the pre-cleaning + pruning that spurs/loops demand (see failure modes)",
+   "code": "https://scikit-image.org/docs/stable/api/skimage.morphology.html",
+   "license": "BSD-3-Clause (scikit-image)",
+   "compute": "CPU, ms–s per mask",
+   "small_data_fit": "n/a",
+   "effort": "Low",
+   "verdict": "recommend",
+   "notes": "Docs page verified this session (skeletonize, thin, medial_axis all present in v0.26.0)."
+  },
+  {
+   "name": "SNT Sholl analysis",
+   "type": "Sholl analysis implementation (reference)",
+   "what_it_does": "Sholl analysis directly from images/masks or from SWC: intersection counts vs radius, plus angular Sholl (angle-binned), AUC, critical radius, slope.",
+   "pc12_fit": "PC12 neurite arbors are small and radially asymmetric — classic Sholl (isotropic rings around soma) is only weakly informative; SNT's angular Sholl or per-branch length distribution is the better choice.",
+   "neurite_support": "Yes",
+   "code": "https://imagej.net/plugins/snt/sholl (plugin page → SNT repo above)",
+   "license": "GPL-3.0 (SNT)",
+   "compute": "CPU/Java",
+   "small_data_fit": "n/a",
+   "effort": "Low to compute Sholl yourself from the skan graph (count skeleton pixels / branch points at distance r from soma centroid)",
+   "verdict": "watch",
+   "notes": "Recommend computing Sholl in-house from the graph (10 lines) and validating against SNT; report isotropic Sholl as secondary, angular Sholl as primary."
+  },
+  {
+   "name": "pycircstat2 (circstat org)",
+   "type": "circular statistics (Python)",
+   "what_it_does": "Mean/dispersion of circular data, Rayleigh test, Mardia-Watson-Wheeler, circular ANOVA, Watson-Williams — exactly the statistics for neurite angle distributions.",
+   "pc12_fit": "Neurite angle/direction output: per-cell mean direction R̄ = R·e^{iθ̄} with resultant length R (concentration), Rayleigh p-test for isotropy, and group comparisons via Mardia-Watson-Wheeler instead of circular MAE.",
+   "neurite_support": "Modality-agnostic statistics — appropriate for angles",
+   "code": "https://github.com/circstat/pycircstat2",
+   "license": "MIT (verified via GitHub API)",
+   "compute": "CPU, instant",
+   "small_data_fit": "n/a — but n≈70 cells × few neurites is fine for Rayleigh (χ²_2 test); Mardia-Watson-Wheeler needs ≥3 groups with ~n_i k ≥ 5 per group",
+   "effort": "Low — pip install pycircstat2",
+   "verdict": "recommend",
+   "notes": "pycircstat (v1, github.com/circstat/pycircstat) is officially DEPRECATED (README verified) — use pycircstat2. The original circstat is R (circstat R package) — not needed if staying in Python."
+  },
+  {
+   "name": "ripser.py (scikit-tda)",
+   "type": "persistent homology library",
+   "what_it_does": "Fast Vietoris–Rips persistence barcodes (C++ core); for a skeleton point set, 1-dimensional persistence gives loop lifetimes; persistence-based distance (bottleneck/Wasserstein) between two barcodes gives a topology-similarity score.",
+   "pc12_fit": "Secondary topology diagnostic beyond Betti numbers: quantify loop structure (crossings/occlusions) of neurite masks; can be used as an eval metric alongside Betti-1 error.",
+   "neurite_support": "General TDA; on skeleton point clouds captures loops = crossings",
+   "code": "https://github.com/scikit-tda/ripser.py",
+   "license": "MIT (verified in LICENSE.txt)",
+   "compute": "CPU; on a downsampled skeleton (≤1–2k points) it is milliseconds",
+   "small_data_fit": "n/a",
+   "effort": "Low for an optional metric; not needed in the core pipeline",
+   "verdict": "watch",
+   "notes": "GitHub API lists license 'Other' but the LICENSE.txt file is verbatim MIT — trust the file."
+  },
+  {
+   "name": "GUDHI",
+   "type": "TDA library",
+   "what_it_does": "Full TDA suite (persistent homology, Mapper, Betti computation); heavier than ripser.py for barcode tasks.",
+   "pc12_fit": "Alternative if a Mapper-style global summary of the neurite network is wanted; overkill for per-cell Betti error (skan graph already gives Betti-1 = E−V+1).",
+   "neurite_support": "General",
+   "code": "https://github.com/GUDHI/gudhi-clp",
+   "license": "MIT (verified earlier via search)",
+   "compute": "CPU",
+   "small_data_fit": "n/a",
+   "effort": "Medium — C++ extension build",
+   "verdict": "skip",
+   "notes": "Keep the stack lean: skan graph → Betti-1 for free; ripser.py only if persistence detail is wanted."
+  },
+  {
+   "name": "MONAI (Project-MONAI)",
+   "type": "training framework / loss zoo",
+   "what_it_does": "PyTorch medical-imaging framework: DiceLoss (with jaccard/squared variants), TverskyLoss (asymmetric F-beta for class imbalance), FocalLoss, workloads, transforms, metrics. Apache-2.0.",
+   "pc12_fit": "The neurite class is tiny vs background — TverskyLoss with α=FP-weight/β=FN-weight (e.g. α=0.3, β=0.7) is the standard remedy; MONAI's loss zoo also hosts the building blocks for a composite Dice+soft-clDice+Tversky objective.",
+   "neurite_support": "Generic segmentation framework; topology terms must be added from clDice/TopoLoss",
+   "code": "https://github.com/Project-MONAI/MONAI",
+   "license": "Apache-2.0 (verified)",
+   "compute": "GPU",
+   "small_data_fit": "Framework choice is size-agnostic; its 2D workloads + image-wise CV fit the project",
+   "effort": "Low-medium — or skip MONAI and use plain PyTorch+torchvision, since the network is a 2D U-Net; MONAI is not required",
+   "verdict": "watch",
+   "notes": "TverskyLoss verified present in monai/losses (dice.py, Apache-2.0). If the team already picked MONAI for the planned approach, keep it; it is not the critical path."
+  },
+  {
+   "name": "Pixel Embedding Method for Tubular Neurite Segmentation (arXiv 2507.23359)",
+   "type": "2025 learned morphometry (image→SWC directly)",
+   "what_it_does": "Network outputs per-pixel embedding vectors with a connection-discriminating loss; an end-to-end pipeline maps raw neuron images directly to SWC trees; proposes a new topological assessment metric. Validated on fMOST (confocal) datasets.",
+   "pc12_fit": "Demonstrates that direct image→SWC is feasible in 2025 — the strongest 'bold but feasible' anchor for a stretch goal; also a source of the topological evaluation metric idea.",
+   "neurite_support": "Yes — tubular neurites",
+   "code": "No public repo found in this session (paper only)",
+   "license": "n/a (code not located)",
+   "compute": "GPU",
+   "small_data_fit": "They trained on a large dataset; at n≈70 a from-scratch image→SWC regressor would be risky — treat as a stretch, not the mainline",
+   "effort": "High if adopted",
+   "verdict": "watch",
+   "notes": "arXiv 2507.23359, Fu, Li, Qu, Hu, Guo (2025-07-31). Read the abstract; code availability unverified."
+  },
+  {
+   "name": "ADNP-15 neuritic plaque segmentation benchmark (arXiv 2505.05041)",
+   "type": "2025 dataset/benchmark reference",
+   "what_it_does": "Open dataset + benchmark of 5 DL segmentation models × 4 stain normalization methods for neuritic plaque (dystrophic tau neurites) segmentation in whole-slide images; proposes a frequency-domain enhancement.",
+   "pc12_fit": "Adjacent (histopathology, not cell culture) but useful for (a) stain/contrast normalization techniques for phase-contrast variability and (b) the model-selection protocol to mirror.",
+   "neurite_support": "Partially — neurite-rich plaques, not free neurites",
+   "code": "Dataset+code open-source per abstract (repo link in paper; not fetched here)",
+   "license": "Open-source per abstract (exact license unverified)",
+   "compute": "GPU",
+   "small_data_fit": "Their pretraining/stain-normalization tricks transfer; their dataset does not",
+   "effort": "Reference only",
+   "verdict": "watch",
+   "notes": "arXiv 2505.05041, Zhao et al. 2025-05. Confirms no 2023–2025 work has yet done learned morphometry specifically for PC12 culture images — the team's pipeline remains novel in this niche."
+  }
+ ],
+ "techniques": [
+  {
+   "name": "Mask → clean → skeleton → graph → per-cell features pipeline",
+   "category": "morphometry stack",
+   "how_it_helps": "The recommended end-to-end stack: (1) clean: remove small objects (skimage.remove_small_objects), fill holes, optionally median-filter half expected neurite width to de-fragment; (2) skeleton: skimage.morphology.skeletonize (Zhang-Suen) or medial_axis_with_branching; (3) graph: skan skeleton_graph (nodes = branch/end points, edge weights = path length in px, × diagonal factor √2 for 8-connected diagonal steps); (4) prune: remove paths shorter than L_min (start 5–10 px ≈ 1–2 µm; NeuroQuantify uses 20 µm) iteratively (≤10 iterations, FilFinder prune_criteria='length'); (5) per-cell features from the pruned graph.",
+   "effort": "Low-medium (1–2 weeks with the two libraries + tuning L_min)",
+   "verdict": "recommend",
+   "notes": "This is the named stack with named libraries; all components BSD/MIT except the GPL reference tools used only for validation."
+  },
+  {
+   "name": "Axon/primary-neurite identification rule (AutoNeuriteJ)",
+   "category": "graph post-processing",
+   "how_it_helps": "On the per-cell skan graph: sort path lengths; axon = longest path iff length > 2× second-longest AND > 100 px, else no axon label. Reproduces the most-cited PC12 neurite convention at ~5 lines.",
+   "effort": "Trivial",
+   "verdict": "recommend",
+   "notes": "Also report 'number of primary neurites' = degree of the root node (soma-adjacent node) after spur pruning."
+  },
+  {
+   "name": "Neurite count, length, angle from the skan graph",
+   "category": "per-cell feature extraction (exact metric set)",
+   "how_it_helps": "Per cell, from the pruned graph G=(V,E): (a) cell count = number of connected components in the cell-body mask (NDImage.label) — a per-image statistic; (b) cell area = component pixel count × (px→µm)², also report circularity 4πA/P²; (c) neurite count N = number of root paths (paths starting at the soma-adjacent node, or number of leaves after spur pruning); (d) total neurite length L_tot = Σ_e w(e) × px_size µm, plus per-neurite length; (e) per-neurite angle θ_i = atan2 of the chord from soma centroid to the leaf endpoint (or mean tangent over the path); (f) image-level: sum of L_tot, mean N per cell. Betti-1 error = |β₁(pred) − β₁(gt)| per image with β₁ = E − V + C (C = components).",
+   "effort": "Low",
+   "verdict": "recommend",
+   "notes": "This is the exact metric set with formulas; feature errors = MAE and relative error (|pred−gt|/gt) for count/length, circular difference (arccos of the cosine distance of unit vectors, i.e. angular MAE on [0,π)) for angles, plus Rayleigh/Mardia-Watson-Wheeler for distributions."
+  },
+  {
+   "name": "clDice + soft-clDice for tubular evaluation and training",
+   "category": "topology as metric and loss",
+   "how_it_helps": "Eval: per-class DSC for cell body and neurite PLUS clDice on the neurite class (catches broken/merged neurites that DSC misses). Train: composite loss L = (1−Dice) + α·(1−Tversky) + λ·(1−soft-clDice), e.g. α=1, λ=0.5–1.0; soft-clDice differentiable surrogate = 2·Σp_g / (Σs_p + Σs_g) style formulation on distance maps from soft skeletons (per jocpae/clDice implementation).",
+   "effort": "Low",
+   "verdict": "recommend",
+   "notes": "soft-clDice keeps the whole pipeline in one differentiable graph — no need to binarize mid-training."
+  },
+  {
+   "name": "Betti numbers as loss (TopoLoss) and as Betti error metric",
+   "category": "topology as loss",
+   "how_it_helps": "Metric: Betti-1 error per image (already defined). Loss: TopoLoss's differentiable Betti-matching term on critical pixels, added with weight λ_t (start 0.1–1.0). Together clDice (skeleton overlap) + TopoLoss (Betti match) give both geometric and homotopy-level topology supervision.",
+   "effort": "Medium",
+   "verdict": "recommend",
+   "notes": "Run both in CV and ablate: {Dice}, {Dice+clDice}, {Dice+TopoLoss}, {Dice+clDice+TopoLoss} — a clean ablation table for the thesis."
+  },
+  {
+   "name": "Circular statistics for neurite orientation",
+   "category": "angle analysis",
+   "how_it_helps": "Per cell: circular mean direction θ̄ and resultant length R (R=1 perfectly aligned neurites, R→0 isotropic); per image: vector-mean across all neurites. Per group/condition: Rayleigh test H0: uniform angles; Mardia-Watson-Wheeler for ≥3 independent groups (e.g. timepoints/treatments); report circular MAE for per-neurite angle prediction. Avoids the wrap-around artifact of linear angle error.",
+   "effort": "Low (pycircstat2)",
+   "verdict": "recommend",
+   "notes": "With ~2–10 neurites per cell, test isotropy at the image level (pooled neurites) rather than per cell — per-cell Rayleigh has too little power at n<10 angles."
+  },
+  {
+   "name": "Image-wise (not cell-wise) 5-fold CV split",
+   "category": "validation protocol",
+   "how_it_helps": "Split the 70 labeled images into 5 folds of 14 images; cells in the same image never share train/test (prevents leakage through shared background/staining). Report per-metric 5-fold means ± std; when the second batch arrives, re-run with 10 folds or leave-batch-out as the honest generalization test.",
+   "effort": "Trivial (stratify by fold metadata)",
+   "verdict": "recommend",
+   "notes": "Also compute a simple leave-condition-out test if the 70 images span different treatments/timepoints — likely the real deployment condition."
+  },
+  {
+   "name": "Sholl analysis (isotropic + angular) for PC12",
+   "category": "morphometrics",
+   "how_it_helps": "Isotropic Sholl: for radii r = r0·k, N(r) = #skeleton crossings (or # branch points/terminal points) on the circle — from the skan graph this is counting graph nodes/pixels at distance r from soma centroid; report N(r) curve, AUC, critical radius (r at which N is maximal). Angular Sholl bins crossings into 8 or 16 sectors, exposing anisotropy (PC12s differentiate directionally, e.g. towards a target).",
+   "effort": "Low (in-house ~30 lines) + validation against SNT",
+   "verdict": "recommend",
+   "notes": "Appropriate for PC12: soma-centered rings work because PC12 arbors are compact (unlike cortical pyramidal cells where Sholl is standard). Use angular Sholl as the primary radial-anisotropy descriptor; isotropic Sholl is still worth reporting for comparison with AutoNeuriteJ."
+  },
+  {
+   "name": "SNT as independent ground-truth cross-check",
+   "category": "validation",
+   "how_it_helps": "Run SNT (Fiji, auto-trace from the binary masks, or Sholl-from-image mode) on a subset of the 70 labeled images; compare its per-cell length/branch-point/Sholl numbers against the Python stack's. Disagreement <5–10% validates the in-house graph pipeline; large disagreement localizes bugs (pruning threshold, diagonal scaling, soma-centroid choice).",
+   "effort": "Low (GUI work on ~10 images)",
+   "verdict": "recommend",
+   "notes": "GPL code, so output-level comparison only — that is all that's needed."
+  },
+  {
+   "name": "Soma-anchored graph rooting",
+   "category": "graph construction detail",
+   "how_it_helps": "To turn a per-cell neurite skeleton into an OUT-TREE rooted at the soma: (1) take the skeleton, (2) find the skeleton node closest to the cell-body centroid (root), (3) orient all paths away from root (Dijkstra on the skan graph), (4) define 'primary neurites' as maximal paths from root to leaf that do not pass through another branch point closer to the root. This fixes the two classic ambiguities — which side of a branch point belongs to which neurite, and how to count 'neurite number' deterministically.",
+   "effort": "Low-medium",
+   "verdict": "recommend",
+   "notes": "Without rooting, neurite count is ambiguous (paths vs branches vs leaves). Document the convention in the thesis and stay consistent across methods compared."
+  },
+  {
+   "name": "Loop/crossing handling (AutoNeuriteJ convention)",
+   "category": "failure-mode treatment",
+   "how_it_helps": "Skeptelons of crossing neurites create spurious cycles. AutoNeuriteJ cuts loops at the lowest-intensity pixel of the crossing (in phase contrast, the overlap is darker). Equivalent in the stack: for each cycle in the graph, remove the edge crossing the point of minimum source-image intensity along it, then re-solve the tree. This keeps length totals approximately correct (a cut removes ~1–2 px per crossing).",
+   "effort": "Low-medium",
+   "verdict": "recommend",
+   "notes": "At 2×4K images with many cells, crossings are common — budget for this; report #loops-cut as a QC statistic per image."
+  },
+  {
+   "name": "ONNX export of the segmentation head",
+   "category": "deployment",
+   "how_it_helps": "The final desktop app: export the 2D U-Net (or whichever head wins CV) to ONNX (torch.onnx.export, opset 17+), run with onnxruntime-gpu; the morphometry stack (skan/FilFinder/skimage) is pure CPU Python and ships alongside. No GPU required on the end user's machine if onnxruntime-cpu is used — neurite masks at 2048² segment in well under a second on CPU.",
+   "effort": "Low",
+   "verdict": "recommend",
+   "notes": "Keep the morphometry deterministic and framework-agnostic so the ONNX model is swappable without touching the metrics code."
+  },
+  {
+   "name": "Direct image→SWC learned morphometry (stretch goal)",
+   "category": "learned morphometry",
+   "how_it_helps": "A multi-task network that predicts (i) cell+neurite masks AND (ii) per-cell graph features (count, length, angle) as regression heads, trained with the segmentation losses + MAE/circular-loss on features. arXiv 2507.23359 (2025) shows the image→SWC variant works; a feature-head version is more conservative at n≈70 images. This is the bold-but-deliverable differentiator: one model that outputs the whole feature table, with the deterministic pipeline as the calibrated fallback.",
+   "effort": "High (weeks 8–13 if started on time)",
+   "verdict": "watch",
+   "notes": "Only after the segmentation pipeline is stable (week ~6). Risk: feature regression at n≈70 images is noisy; mitigation = train only the mask head from scratch and distill features from the deterministic pipeline into the regression heads (self-supervised teacher)."
+  },
+  {
+   "name": "Distance-transform-based neurite width (optional feature)",
+   "category": "morphometrics",
+   "how_it_helps": "Neurite thickness from the neurite mask: EDT along the skeleton (skimage.distance_transform_edt on the neurite mask, sampled at skeleton pixels); report mean width = 2·mean(EDT|_skel) per neurite. Adds a 6th per-neurite feature useful for PC12 maturation studies.",
+   "effort": "Low",
+   "verdict": "watch",
+   "notes": "Optional; skip if the lab's ground-truth annotation does not include width."
+  }
+ ],
+ "bold_ideas": [
+  {
+   "idea": "Topology-conditioned two-head segmentation: one 2D U-Net, heads for cell body and neurite, trained with a composite loss {Dice + Tversky + soft-clDice (neurite head) + TopoLoss (Betti match)} and evaluated with DSC + clDice + Betti-1 error + full feature-table errors — with a 2×2 ablation table over {clDice, TopoLoss} that no prior PC12 study has produced.",
+   "why_now": "All four loss components are MIT-licensed, pip-installable, and 2D-native; clDice+TopoLoss are standard in vessels but have never been jointly ablated on a culture-cell neurite task — a clean, publishable contribution for a 15-week thesis.",
+   "feasibility": "High: 2×48GB GPUs, overnight 5-fold CV on 70+ images is minutes-scale; every library verified to exist and be open-licensed this session.",
+   "effort": "3–4 weeks including ablations",
+   "risk": "Low for the pipeline; medium for clean ablation separation at n≈70 — mitigated by 5-fold CV and reporting confidence intervals.",
+   "differentiator": "The first PC12 morphometry pipeline that enforces topology at train time (Betti-1 match) instead of only measuring it at eval time.",
+   "verdict": "recommend as the mainline differentiator"
+  },
+  {
+   "idea": "Deterministic-pipeline distillation into a single inference model: the validated mask→clean→skeleton→graph stack is the teacher; a compact student U-Net is trained to predict masks AND directly regress the per-cell feature table (count, area, neurite count, total length, mean angle with circular loss), so the final ONNX desktop app runs one network and outputs the whole table in one forward pass.",
+   "why_now": "arXiv 2507.23359 (2025) just proved end-to-end image→SWC is viable; the deterministic teacher sidesteps the small-data risk of learning geometry from scratch at n≈70.",
+   "feasibility": "Medium-high: teacher is the already-built pipeline; student is a standard U-Net + 5 small regression heads; circular loss for angles is 3 lines.",
+   "effort": "4–5 weeks (weeks 8–13)",
+   "risk": "Medium: feature regression error may be higher than the deterministic pipeline on the same masks — report both and let the app default to the deterministic path with the student as an optional fast mode.",
+   "differentiator": "One-model inference for the whole morphometry table is not offered by AutoNeuriteJ, NeuroQuantify, or SNT — a genuine usability + novelty win for the desktop product.",
+   "verdict": "recommend as stretch goal, gated on pipeline stability by week 6"
+  },
+  {
+   "idea": "Persistence-barcode similarity as a neurite-segmentation quality metric: downsample each skeleton to ≤1k points, compute 1D Vietoris–Rips barcodes with ripser.py, report the bottleneck distance between predicted and ground-truth barcodes per image — a rotation/scale-invariant topology metric beyond Betti numbers that separates 'same number of loops' from 'similar loop structure'.",
+   "why_now": "Betti numbers (0/1 counts) are cheap but coarse; barcode distance is the standard refinement and is 100× cheaper than people think (milliseconds for 1k points). No neurite-culture study reports it — cheap novelty for the evaluation section.",
+   "feasibility": "High: ripser.py is MIT, CPU, pip-installable; SNT even ships a persistence-homology module as a cross-check.",
+   "effort": "3–5 days",
+   "risk": "Low — it is an additional reported metric, not a load-bearing component.",
+   "differentiator": "First report of persistence-barcode distance on culture-cell neurite segmentation.",
+   "verdict": "recommend as evaluation add-on"
+  },
+  {
+   "idea": "Angular-Sholl + circular-statistics phenotype signature: define per-cell 'arbor orientation signature' = 16-sector angular Sholl vector, test condition effects with Mardia-Watson-Wheeler on pooled neurite angles, and visualize with wind plots (SNT-style root-angle analysis) — replacing the crude 'mean angle ± std' that AutoNeuriteJ reports.",
+   "why_now": "PC12 differentiation is directionally sensitive (substrate/contact guidance studies), and the lab likely has treated vs control conditions in the 70 images; circular stats are the statistically correct tool and are trivially implementable (pycircstat2, MIT).",
+   "feasibility": "High: everything is in-house on the existing graph; pycircstat2 is pip-installable.",
+   "effort": "2–3 days + 1 week of analysis",
+   "risk": "Low; the only real requirement is ≥3 comparable groups with reasonable per-group neurite counts.",
+   "differentiator": "A proper directional-morphometrics readout that no prior PC12 quantification tool provides out of the box.",
+   "verdict": "recommend as analysis-layer add-on"
+  },
+  {
+   "idea": "Self-labeling the unlabeled lab archive to 5–10× the training set: use the week-6 model to pseudo-label all available unlabeled lab images, keep only high-confidence images (predicted DSC proxy: clDice of the model's own soft skeleton vs its hard skeleton, + cell-count consistency), and retrain for the second-batch release.",
+   "why_now": "The team knows more unlabeled images exist; with compute not a constraint, a mean-teacher round on ~300–1000 unlabeled images is the single biggest expected data-quantity lever available before week 15.",
+   "feasibility": "Medium-high: standard pseudo-labeling loop; confidence filtering via clDice self-consistency is a neat twist that reuses the already-built metric.",
+   "effort": "1–2 weeks if the pipeline is stable",
+   "risk": "Medium: label noise from mis-segmented cells — mitigated by the confidence gate and by reserving the 70 gold images as a fixed held-out evaluation set.",
+   "differentiator": "Demonstrates the pipeline scales beyond the labeled set — important for the 'tool for the lab' framing.",
+   "verdict": "recommend if unlabeled volume is ≥200 images, otherwise skip"
+  }
+ ],
+ "sources": [
+  {
+   "title": "skan — Python skeleton analysis library (jni/skan), LICENSE verified BSD-3-Clause",
+   "url": "https://github.com/jni/skan",
+   "supports": "graph construction from skeletons; path lengths; BSD-3 license",
+   "checked": true
+  },
+  {
+   "title": "FilFinder — filament skeleton/graph/pruning library (e-koch/FilFinder), MIT",
+   "url": "https://github.com/e-koch/FilFinder",
+   "supports": "adaptive threshold, skeleton, branch classification, length-based pruning, orientation; MIT license; NeuroQuantify-compatible call pattern",
+   "checked": true
+  },
+  {
+   "title": "clDice paper — A Novel Topology-Preserving Loss Function for Tubular Structure Segmentation (arXiv 2003.07311)",
+   "url": "https://arxiv.org/abs/2003.07311",
+   "supports": "clDice metric + soft-clDice differentiable loss; homotopy-preservation guarantee",
+   "checked": true
+  },
+  {
+   "title": "clDice code (jocpae/clDice), MIT",
+   "url": "https://github.com/jocpae/clDice",
+   "supports": "pip-installable clDice/soft-clDice implementation, MIT license",
+   "checked": true
+  },
+  {
+   "title": "TopoLoss paper — Topology-Preserving Deep Image Segmentation (arXiv 1906.05404, NeurIPS 2019)",
+   "url": "https://arxiv.org/abs/1906.05404",
+   "supports": "differentiable Betti-number-matching loss; Betti number error metric",
+   "checked": true
+  },
+  {
+   "title": "TopoLoss code (HuXiaoling/TopoLoss), MIT",
+   "url": "https://github.com/HuXiaoling/TopoLoss",
+   "supports": "PyTorch topological loss incl. 06/2021 lean topoloss_pytorch.py; MIT license; NeurIPS 2019",
+   "checked": true
+  },
+  {
+   "title": "SNT — Simple Neurite Tracer successor / framework for quantification of neuronal anatomy (morphonets/SNT), GPL-3.0",
+   "url": "https://github.com/morphonets/SNT",
+   "supports": "Sholl (incl. angular), Strahler, root-angle, extension angles, persistence-homology, graph analysis; auto-trace from binary images; multi-cell; Nat. Methods 2021",
+   "checked": true
+  },
+  {
+   "title": "SNT wiki — Sholl analysis page (plugin redirects to SNT Sholl)",
+   "url": "https://imagej.net/plugins/sholl-analysis",
+   "supports": "Sholl analysis in ImageJ is now part of SNT; direct-from-image Sholl/Strahler",
+   "checked": true
+  },
+  {
+   "title": "AutoNeuriteJ — Automated neurite analysis (PLOS ONE 15(7):e0234529, DOI 10.1371/journal.pone.0234529)",
+   "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0234529",
+   "supports": "PC12-phase-contrast neurite count/length/orientation method; Analyze Skeleton loop cutting at lowest intensity; axon = 2× second-longest AND >100 px; Sholl via plugin; CC-BY 4.0",
+   "checked": true
+  },
+  {
+   "title": "NeuroQuantify — DL segmentation + FilFinder post-processing (arXiv 2310.10978)",
+   "url": "https://arxiv.org/abs/2310.10978",
+   "supports": "nearest end-to-end published system; post-processing with 20 µm branch pruning, orientation-based branch merging, per-neurite length/orientation",
+   "checked": true
+  },
+  {
+   "title": "NeuroQuantify code (StanleyZ0528/neural-image-segmentation) — postImgProc/alg.py read directly",
+   "url": "https://github.com/StanleyZ0528/neural-image-segmentation",
+   "supports": "FilFinder2D.analyze_skeletons(branch_thresh=20µm, skeleton_thresh=30µm, prune_criteria='length'), orientation-affinity branch merging, axon-cell touching rule; NO LICENSE file (unlicensed — do not copy code)",
+   "checked": true
+  },
+  {
+   "title": "MorphoLogic — 2D SWC morphometrics + Sholl (MaxLevianSterling/MorphoLogic), GPL-3.0",
+   "url": "https://github.com/MaxLevianSterling/MorphoLogic",
+   "supports": "SWC QC, per-segment/branch/neurite/cell morphometrics, Sholl (intersections/lengths/branch points/terminals, AUC/critical radius), aggregation CSVs",
+   "checked": true
+  },
+  {
+   "title": "pycircstat2 — Python circular statistics (circstat org), MIT",
+   "url": "https://github.com/circstat/pycircstat2",
+   "supports": "circular mean/R, Rayleigh, Mardia-Watson-Wheeler, Watson-Williams; v1 pycircstat officially deprecated",
+   "checked": true
+  },
+  {
+   "title": "ripser.py — persistent homology (scikit-tda), MIT",
+   "url": "https://github.com/scikit-tda/ripser.py",
+   "supports": "fast 1D Vietoris–Rips barcodes for topology-distance metrics",
+   "checked": true
+  },
+  {
+   "title": "scikit-image morphology docs (skeletonize, thin, medial_axis)",
+   "url": "https://scikit-image.org/docs/stable/api/skimage.morphology.html",
+   "supports": "Zhang-Suen/Lee thinning + medial axis available in the recommended stack",
+   "checked": true
+  },
+  {
+   "title": "MONAI — AI Toolkit for Healthcare Imaging (Project-MONAI), Apache-2.0",
+   "url": "https://github.com/Project-MONAI/MONAI",
+   "supports": "DiceLoss/TverskyLoss zoo, 2D workloads, transforms; optional training framework",
+   "checked": true
+  },
+  {
+   "title": "MONAI DiceLoss source (monai/losses/dice.py)",
+   "url": "https://github.com/Project-MONAI/MONAI/blob/dev/monai/losses/dice.py",
+   "supports": "DiceLoss with jaccard/squared/weight options (TverskyLoss in same module file)",
+   "checked": true
+  },
+  {
+   "title": "Pixel Embedding Method for Tubular Neurite Segmentation (arXiv 2507.23359)",
+   "url": "https://arxiv.org/abs/2507.23359",
+   "supports": "2025 end-to-end image→SWC pipeline + new topological metric; anchor for the learned-morphometry stretch goal; code not located",
+   "checked": true
+  },
+  {
+   "title": "ADNP-15 neuritic plaque segmentation dataset/benchmark (arXiv 2505.05041)",
+   "url": "https://arxiv.org/abs/2505.05041",
+   "supports": "2025 neurite-rich segmentation benchmark; stain/contrast normalization techniques; no PC12-culture-specific learned morphometry exists in 2023–2025 search results",
+   "checked": true
+  },
+  {
+   "title": "GUDHI — TDA library, MIT",
+   "url": "https://github.com/GUDHI/gudhi-clp",
+   "supports": "alternative TDA backend; not needed given skan-graph Betti-1 and ripser.py",
+   "checked": true
+  }
+ ],
+ "bottom_line": "For the PC12 pipeline, use a fully open-licensed Python stack: clean (skimage morphology) → skeletonize (skimage Zhang-Suen) → graph (skan, BSD-3) → prune spurs by length (FilFinder recipe, MIT, constants from NeuroQuantify: ~5–20 µm) → per-cell features from the pruned rooted graph (count via connected components, area in µm², neurite count as root-to-leaf paths, length as Σ edge weights × px size, angles as chord directions with pycircstat2 circular statistics). Enforce topology at train time with soft-clDice on the neurite head plus an optional TopoLoss Betti-match term (both MIT), and evaluate with per-class DSC, clDice, Betti-1 error (β₁ = E−V+C), and per-feature MAE/relative-error/circular-MAE — validated against SNT (GPL, output-level only) and AutoNeuriteJ's conventions (axon = longest if >2× second-longest and >100 px; loop-cut at minimum intensity). For the thesis differentiator, run the 2×2 {clDice × TopoLoss} ablation and add persistence-barcode distance (ripser.py) as a third topology metric; the stretch goal is distilling the deterministic pipeline into a single ONNX model that directly regresses the feature table (pattern validated by arXiv 2507.23359, 2025). All critical libraries were verified this session as open-licensed and pip-installable; the only license trap is NeuroQuantify itself (no LICENSE file — study, don't copy) and the GPL SNT/MorphoLogic (cross-validation only)."
+}

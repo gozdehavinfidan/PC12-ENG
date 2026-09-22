@@ -10,6 +10,12 @@ This is an **added** capability vs a minimal clone — a `[PLANNED]` improvement
 that also serves as a strong presentation talking point.
 
 ## 1. What we explain
+- **NTI component attribution** (top layer — base canon `[BASE26]`): which
+  morphological parameter (neurite length / branching count /
+  branching-angle distribution / soma morphology) drives the NTI change.
+  With a linear NTI model this is a direct decomposition — the offline
+  equivalent of the base's SHAP goal. Gated on O1 for *toxicity-direction*
+  claims (`07-METRICS` Level C).
 - **Per-pixel saliency**: which image regions drive the segmentation decision
   (Grad-CAM / Integrated Gradients on the decoder).
 - **Per-instance explanation** `[IDEA]`: for a specific cell/neurite, show the
@@ -17,14 +23,28 @@ that also serves as a strong presentation talking point.
 - **Uncertainty** `[IDEA]`: pixels/regions where the model is unsure → flag for
   human review (ties to "trust").
 
-## 2. Candidate methods
-| Method | Type | Good for | Notes |
-|--------|------|----------|-------|
-| **Grad-CAM** | gradient-based | coarse regions, fast | works for CNNs; ViT variants exist |
-| **Integrated Gradients** | path-based | finer, per-pixel-ish | needs a baseline input |
-| **SHAP (deep)** | model-agnostic | per-feature attribution | heavier; maybe `[IDEA]` |
-| **Occlusion** | perturbation | model-agnostic sanity | slow but interpretable |
-| **MC-dropout / TTA disagreement** | uncertainty | "where unsure" | pairs with the above |
+## 2. Candidate methods (2026-09-22 araştırma sonucu — `16` §4)
+
+**Minimum-inandırıcı set (≤3, tümü offline, görsel başına ~2 s altı):**
+
+| Method | Type | Library (lisans) | Verdict |
+|--------|------|------------------|---------|
+| **Integrated Gradients** (per-pixel target, ~20–50 adım) | path-based | `pytorch/captum` (BSD-3) | **ANA SALIENCY** — aksiyom-doğrulanmış; Adebayo sanity'larını geçer; SmoothGrad = NoiseTunnel |
+| **5-seed derin ensemble** (dağıtılan model); CV-fold ensemble yalnız doğrulama | uncertainty | DIY ~100 satır / `torch-uncertainty` (Apache-2.0) | **BELİRSİZLİK KATMANI** + gözden-geçirme kuyruğu. ⚠ Bir fold'ın tahminlerini kendi validasyon fold'unda asla ortalama — sızıntı (Kirscher 2026, arXiv:2605.18329) |
+| **Sınıf-bazlı global sıcaklık + ECE** | calibration | `torch-uncertainty` | **CALIBRATION** — tam per-pixel değermez (app göreli U tüketir) |
+| Grad-CAM (pytorch-grad-cam) | gradient-based | MIT | fallback — kaba; ViT'te reshape gerekir |
+| RISE / occlusion | black-box | paper repo | **yalnız doğrulama** (deletion ground-truth + ONNX tutarlılık kontrolü) |
+| ~~Seg-Grad-CAM~~ | — | Keras, "no updates planned" | **AT** — PyTorch IG/Grad-CAM aynı haritayı bakımlı kütüphanede verir |
+| ~~Evidential / Bayesian U-Net~~ | — | — | **AT** — yeniden eğitim + zayıf segmentasyon kanıtı (arXiv:2410.18461) |
+| ~~SHAP (deep)~~ | — | — | **AT** — per-pixel çok yavaş |
+| MC-dropout | uncertainty | — | yalnız tek-checkpoint zorunlu olursa yedek (ONNX'te fiddly) |
+
+**⚠ `pytorch-uncertainty` ÖLÜ paket** (404, iki varyant da) → **torch-uncertainty** kullan.
+
+**Doğrulama protokolü (raporda zorunlu, ~1 gün):** (1) **deletion curve** —
+IG önemine göre top-k pikseli karart → DSC düşüşü, random-k kıyası; (2)
+**Adebayo model-swap**. **"U bir şey mi demek?" sayımı:** flag vs hata AUROC
+(torch-uncertainty selective-classification) — holdout'ta bir kez.
 
 ## 3. Plan (maps to İP4 in `03`)
 - **T4.1 Spike (W6):** pick **one** method (start **Grad-CAM**), run on the

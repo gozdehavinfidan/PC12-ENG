@@ -4,10 +4,12 @@
 > how, and the targets we'll report — and keeps every "improvement" claim
 > **relative to a baseline** (the base's "≥15% improvement" `[BASE]`).
 
-## 1. Two-level evaluation
-Segmentation quality and **morphometric feature** quality are **different
-things**. A mask can look good (high DSC) but still yield a wrong length.
-We report **both**:
+## 1. Three-level evaluation
+Segmentation quality, **morphometric feature** quality, and (new — D14)
+**NTI index** quality are **different things**. A mask can look good
+(high DSC) but still yield a wrong length; a feature set can be exact but
+still combine into an NTI that says nothing biologically.
+We report **all three**:
 
 ### Level A — Segmentation (per pixel)
 | Metric | Formula / note |
@@ -31,19 +33,37 @@ We report **both**:
 | Feature | Error metric |
 |---------|-------------|
 | Cell count | abs. error, rel. error %, exact-match % |
-| Cell area | MAE, relative error % |
+| **Soma morphology** (area/circularity/eccentricity) | MAE, relative error % |
+| **Branching count** | abs. error, rel. error % |
+| **Neurite length** | MAE, relative error % (in px, and µm if scale known) |
+| **Branching-angle distribution** | circular error (deg), Rayleigh / Mardia–Watson–Wheeler vs GT |
 | Neurite count | abs. error, rel. error % |
-| Neurite length | MAE, relative error % (in px, and µm if scale known) |
-| Neurite angle | circular error (deg), Rayleigh alignment vs GT |
 
+- **Bold rows are the base-canon NTI parameters** (`02` §NTI, D14).
 - **Ground truth for features** is derived from the **GT masks** with the
   *same* `features/` module → measures **mask→feature** fidelity. For a subset
   we also use **hand-measured** values (Berke) → measures **full-pipeline**
   fidelity. Report both.
 
+### Level C — NTI index (new — D14, gated on O1)
+| Case (per O1) | What we report |
+|---------------|----------------|
+| **Timepoint/dose metadata exists** | NTI per condition vs timepoint: monotonicity in the expected direction, per-parameter attribution (which parameter drives the change), agreement between replicate wells; if reference-assay values are available, correlation vs them |
+| **No metadata** | NTI computed and displayed on available conditions (demo of the construct); **no correlation claim** — calibration stays the 24-month project's scope, and we say so explicitly |
+
+- Either way: the **attribution** report (NTI change decomposed into the 4
+  parameter contributions) is ours — it needs only the linear NTI model, no
+  assay data. That is the SHAP-level explanation in `08-XAI` terms.
+
 ## 2. Targets (from base, then made concrete)
-`[BASE]` stated: DSC & IoU **≥ 90%**; feature extraction **≥ 95%**; overall
-**≥ 95%**; user satisfaction **≥ 90%**; **≥ 15%** improvement over current.
+`[BASE26]` (2026 canon, our concept source) stated: cell body **IoU ≥ 0.85,
+Dice ≥ 0.90**; **neurite length MAE ≤ 5 µm**; NTI–MTT/LDH **Pearson r ≥ 0.7
+(95% CI)** per compound; SH-SY5Y transfer **Dice loss ≤ 0.05**; app
+**SUS ≥ 80** (n ≥ 12).
+
+`[BASE]` (2025 NeuroMind, reference only): DSC & IoU **≥ 90%**; feature
+extraction **≥ 95%**; overall **≥ 95%**; user satisfaction **≥ 90%**;
+**≥ 15%** improvement over current.
 
 ### ⚠ Two corrections to the base's targets
 

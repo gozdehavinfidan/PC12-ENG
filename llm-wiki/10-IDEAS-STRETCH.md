@@ -48,7 +48,7 @@ has a **verified** source in `14-REFERENCES-VERIFIED.md`.
 | B1 | **Generalization story: İP7 new dataset** (old vs new, transfer) — **CONFIRMED, ETA ~W3** `[CONFIRMED]` | High | Med | Med | Now a **commitment**, not a contingency: batch 2 = held-out test set + distribution-shift test. |
 | B2 | **Neurite graph + Sholl profile** (branching, branch order, Sholl curve) | High | Med | Med | Richer morphometrics than count/length/angle; very publishable-looking. |
 | B3 | **nnU-Net auto-config + 5-fold CV** | Med | Med | Med | Free rigor + strong baseline; but data-format work. |
-| B4 | **Offline ONNX app** (truly no-internet NeuroMind) | High | Med | Low | Honors the base's explicit offline goal; impressive in demo. |
+| B4 | **Offline ONNX app** (truly no-internet, IntelliCell module style) | High | Med | Low | Honors the base's explicit offline goal; impressive in demo. |
 | B5 | **Robustness probe** (unseen magnification / modality) | Med | Med | Low | Honest OOD evaluation; shows maturity. |
 
 ## Tier C — Inspiring / stretch (only if we're ahead) `[IDEA]`
@@ -63,16 +63,27 @@ has a **verified** source in `14-REFERENCES-VERIFIED.md`.
 | C7 | **Auto-report with figures** (bar/histogram/Sholl + narrative) | Med | Med | Low | The app writes a mini-paper. Great demo. |
 | C8 | **Web version** of the app (shareable link) | Low | Med | Low | Convenience; not core. |
 
-## The "inspiration" shortlist (the three to remember)
-1. **Trust via uncertainty** (A1) — "we show the model's confidence, and flag
-   what a human should check."
-2. **Growth trajectories** (C1) — "we don't just count neurites, we track a
-   cell *growing* under NGF."
-3. **A tool that generalizes** (B1/C6) — "we prove it works on data it
-   wasn't trained on, and beat the existing open tool."
+## The "inspiration" shortlist — 2026-09-22 araştırmasıyla yenilendi
 
-> These three are what we lead the presentation with. Everything else is
-> supporting evidence.
+6 scout'un birincil-kaynak taramasından **18 doğrulanmış cesur fikir** çıktı
+(tam tablo + kararlar: **`16-ARCHITECTURE-RESEARCH.md` §5**). Sunumun
+başına koyacağımız üç:
+
+1. **Trust via uncertainty — somut hali:** *her morphometrik özelliğin hata
+   çubuğu* (ensemble piksel-U → skeleton → CI; 16 §5-1). PC12/nörit
+   kuantifikasyonunda kimse yapmıyor; NeuroQuantify yalnız nokta tahmin
+   raporluyor. En savunulabilir tezs farklılaştırıcısı.
+2. **A tool that generalizes — ölçülmüş hali:** *etiketleme copilot (kör
+   kontrolle) + active-labeling loop* (16 §5-3 + §5-11): ölçülen etiketleme
+   hızlanması, ve batch 2'ye en belirsiz ~20 görselin seçilmesiyle UQ'den
+   DSC'ye kapanan döngü.
+3. **Growth trajectories** (C1) — somut yolu bulundu: **SAM2/Trackastra**
+   (doğrulanmış, 16 §5-18); **koşul: longitudinal veri var mı — bu hafta teyit** `[OPEN]`.
+
+Bunları destekleyen ana hat: **topoloji-kondisyonlu iki-kollu segmentasyon +
+2×2 {clDice × TopoLoss} ablation** (16 §5-2 — kimse kültür hücresi nöritinde
+yapmamış) ve **GNN spike** (16 §5-4 — işe yararsa "vaay", yaramazsa
+yayınlana bilir ablation).
 
 ## How an idea becomes a task
 1. It lives here with a tag.

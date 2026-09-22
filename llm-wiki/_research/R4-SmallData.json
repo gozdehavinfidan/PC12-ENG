@@ -1,0 +1,332 @@
+{
+ "area": "data-efficiency techniques for PC12 segmentation (n≈70 labeled + unlabeled pool + incoming batch 2)",
+ "candidates": [
+  {
+   "name": "DINOv2 ViT-S/14 or B/14 (fine-tuned on own unlabeled pool)",
+   "type": "self-supervised pretraining / backbone",
+   "what_it_does": "Pretrained ViT features (142M images, no labels). Fine-tune the checkpoint on your unlabeled PC12 pool, then use it as frozen backbone + light segmentation head, or as a feature extractor (kNN density maps as a free auxiliary supervision signal).",
+   "pc12_fit": "High for the fluorescence channel; usable for phase contrast but ImageNet-pretrained features are phase-contrast-agnostic, hence the domain fine-tune.",
+   "neurite_support": "None built in (feature-level only); helps boundary generalization, not topology.",
+   "code": "https://github.com/facebookresearch/dinov2",
+   "license": "Apache-2.0 (code + weights) — verified in repo README",
+   "compute": "Fine-tuning ViT-S/14 or B/14 fits one 24 GB GPU (official fine-tune configs target single-node multi-GPU but scale down); pretraining from scratch is out of reach (repo: ~1 day on 32 A100-80GB for ViT-L/16).",
+   "small_data_fit": "Strong: SSL gains are largest exactly when labels < ~100; fine-tuning on a few hundred unlabeled images is the documented recipe.",
+   "effort": "2-4 day spike (fine-tune on pool, attach U-Net head, compare vs ImageNet-pretrained ResNet baseline).",
+   "verdict": "recommend",
+   "notes": "Do NOT pretrain from scratch. If unlabeled pool < ~300 images, expect modest gains; fine-tune with low LR (1e-5..1e-4) and keep the original checkpoint as fallback."
+  },
+  {
+   "name": "Cell-DINO (Meta, fluorescent cell microscopy self-supervision)",
+   "type": "domain-pretrained backbone",
+   "what_it_does": "DINOv2 variant pretrained on Human Protein Atlas single-cell, HPA FoV, and Cell Painting; domain-adapted features for cell fluorescence. Weights via access request.",
+   "pc12_fit": "Fluorescence channel only — not trained on phase contrast. Best used as a frozen feature branch for the fluorescence input, not the main encoder.",
+   "neurite_support": "Pretraining crops are single-cell (no long neurites) → no topology specialization.",
+   "code": "https://github.com/facebookresearch/dinov2/blob/main/docs/README_CELL_DINO.md",
+   "license": "CC-BY-NC (code) + FAIR noncommercial (weights) — fine for a thesis, blocks commercial release",
+   "compute": "Inference/frozen-use only: trivial on 24 GB. Training variant: ~2 days on 4 A100-80GB nodes (per README) — skip.",
+   "small_data_fit": "Potentially better in-domain start than generic DINOv2 for fluorescence; unverified for phase contrast and PC12 morphology.",
+   "effort": "1 day to request + eval features vs DINOv2.",
+   "verdict": "watch",
+   "notes": "Gated download + NC license + niche fit; only worth it if fluorescence channel is a first-class input."
+  },
+  {
+   "name": "FixMatch (and FixMatch-pytorch)",
+   "type": "semi-supervised (consistency + confidence pseudo-labels)",
+   "what_it_does": "Pseudo-label from weak aug kept only above a confidence threshold; train to match it under strong aug. Verified abstract: 88.6% CIFAR-10 with just 40 labels — evidence it works far below our label count. Ablations (per abstract) show the confidence threshold is the load-bearing piece.",
+   "pc12_fit": "Medium: code is classification-oriented; per-pixel adaptation for segmentation is a known but manual port (~1-2 weeks).",
+   "neurite_support": "Weak: thin structures are never 'confident' at borders; naive per-pixel thresholding drops exactly the neurite pixels that matter. Needs a morphological gate (e.g., only pseudo-label interior/eroded regions).",
+   "code": "https://github.com/google-research/fixmatch (Apache-2.0, archived) ; https://github.com/kekmodel/FixMatch-pytorch (MIT)",
+   "license": "Apache-2.0 (official, archived) / MIT (community)",
+   "compute": "Two forward passes per unlabeled sample per step; trivial on 24 GB.",
+   "small_data_fit": "Credible at 70+unlabeled, but engineering cost is high for 2 students.",
+   "effort": "1-2 weeks to adapt properly.",
+   "verdict": "watch",
+   "notes": "The simpler pseudo-label self-training loop (below) captures most of the gain at 1/4 the cost; FixMatch's consistency term is the part you'd be paying for."
+  },
+  {
+   "name": "Pseudo-label self-training loop (teacher → threshold → spot-check → retrain)",
+   "type": "semi-supervised / self-training",
+   "what_it_does": "Train strong teacher on 70 images → predict unlabeled pool → keep only high-confidence regions (per-pixel p>~0.95 AND skeleton sanity: predicted component size/length in plausible range) → human spot-check ~5 images → add to training, 2-3 rounds max.",
+   "pc12_fit": "Directly targets the 50-500 image unlabeled pool; rounds are cheap overnight jobs.",
+   "neurite_support": "Add a topology gate before accepting pseudo-labels: reject regions where skeleton has broken fragments or Betti count mismatch vs plausible cell topology — this is the cheap way to make pseudo-labeling neurite-safe.",
+   "code": "hand-rolled (~100 lines on your existing trainer)",
+   "license": "n/a",
+   "compute": "one teacher inference pass per round; trivial.",
+   "small_data_fit": "Good: 2-3 rounds + spot-check gate keeps confirmation-bias risk low; with 70 labeled seeds the teacher is already decent, which is the regime where self-training works.",
+   "effort": "3-5 days.",
+   "verdict": "recommend",
+   "notes": "Simplest credible semi-supervised option; stop after 2-3 rounds (gains saturate, error compounds). Log acceptance rate per round as a health metric."
+  },
+  {
+   "name": "CRITIC (Zhao et al., CVPR 2020, unsupervised domain adaptation for cell instance segmentation)",
+   "type": "domain adaptation",
+   "what_it_does": "Critic-guided UDA for instance segmentation of cells; relevant if the unlabeled pool / batch 2 comes from a different acquisition setting (exposure, well, timepoint) than the 70 labeled images.",
+   "pc12_fit": "Only if the pool is cross-domain; otherwise plain self-training suffices.",
+   "neurite_support": "Cell-instance-centric (bodies); no tubular handling.",
+   "code": "UNVERIFIED — no working repo/paper URL found in this pass (multiple candidate URLs 404'd).",
+   "license": "unverified",
+   "compute": "unverified",
+   "small_data_fit": "designed for scarce-labels regimes; but unverifiable here = unusable in week 1.",
+   "effort": "unknown until repo located.",
+   "verdict": "watch",
+   "notes": "Re-resolve the exact arXiv ID / repo before citing; do not plan on it until then."
+  },
+  {
+   "name": "Simple Copy-Paste (Ghiasi et al.) + CP2",
+   "type": "augmentation / pretraining",
+   "what_it_does": "Paste instance masks onto random backgrounds. Verified abstract: +0.6 mask AP COCO over prior SOTA and large LVIS rare-class gains (baseline beat LVIS 2020 challenge entry by +3.6 mask AP on rare classes) — rare-class result is the closest analogy to our thin/rare neurite foreground. CP2 (2203.11709) turns the same mechanism into a pixel-wise contrastive pretraining objective (78.6% mIoU VOC with ResNet-50 after fine-tune).",
+   "pc12_fit": "Adapt as RIGID-UNIT copy-paste: extract each cell as (body + attached neurites) crop from the 70 labeled images (~hundreds of donor units), rotate the whole unit by a random angle, feather the alpha boundary, paste 1-2 units per background patch. Track the applied rotation so pasted-instance angle labels stay exactly consistent.",
+   "neurite_support": "Yes IF done as rigid units (rotate image+mask together = labels stay valid). Never paste a neurite stub that would cross a patch edge, and never exclude... DO exclude the donor's own image as paste target and keep donor/recipient within the same CV fold split (no leakage).",
+   "code": "method is ~100 lines with existing masks; CP2 repo URL not stated in verified abstract (unverified)",
+   "license": "n/a (self-implemented)",
+   "compute": "zero (CPU dataloader work).",
+   "small_data_fit": "Excellent — the single best label-multiplier at n=70: instance count grows without any labeling.",
+   "effort": "3-5 days.",
+   "verdict": "recommend",
+   "notes": "Cap pastes at 1-2 per patch and keep ~30-40% of patches real-only, else the model learns a synthetic prior (illumination halo around pastes). Intensity-match donors to recipients."
+  },
+  {
+   "name": "STARDOM (diffusion-based augmentation for microscopy, as named in project brief)",
+   "type": "diffusion-based augmentation",
+   "what_it_does": "Reported as diffusion-generated variants of microscopy images + masks for segmentation training.",
+   "pc12_fit": "Unverified — could not locate the paper or a public repo via arXiv API or GitHub search in this pass.",
+   "neurite_support": "unverified",
+   "code": "UNVERIFIED — no repo found (searched 'stardom' on GitHub API incl. in:name/in:description; nothing microscopy-related).",
+   "license": "unverified",
+   "compute": "unverified",
+   "small_data_fit": "unverified",
+   "effort": "unverifiable",
+   "verdict": "watch",
+   "notes": "Treat as a rumor until a verifiable URL lands. If it exists, its risk profile equals the HistoSmith/MSDM/DualDiT category below: high cost, unproven small-n gain."
+  },
+  {
+   "name": "Synthetic data via joint image-mask diffusion (HistoSmith, MSDM, DualDiT)",
+   "type": "synthetic data generation",
+   "what_it_does": "Latent diffusion models generating realistic image+mask pairs for cell/nuclei/histology segmentation. HistoSmith (2502.08754): joint layout+mask+image LDM, helps underrepresented classes. MSDM (2510.09121): morphology/color/metadata-conditioned generation for cell & nuclei segmentation. DualDiT (2607.29337): dual-output DiT; FID 56.14, expert panel misclassified 46% of synthetics as real, downstream Dice/IoU improved but only modestly.",
+   "pc12_fit": "Would need training a new joint image-mask model on 70 pairs — thin training set for the generator itself.",
+   "neurite_support": "All three are cell-body/nuclei-centric; none targets long tubular neurites.",
+   "code": "UNVERIFIED in this pass (no repos confirmed).",
+   "license": "unverified",
+   "compute": "48 GB for a few days per generator experiment.",
+   "small_data_fit": "Poor as a first move: honest cost/benefit — the tractography-synthesis study (2606.26898) reports synthetic-ONLY training fails and mixed real+synthetic needs 3x less annotation; i.e., generators only work as a garnish on top of real supervision, not a replacement. At n=70 the expected downstream gain is ~1-3% Dice for 3-6 weeks of student-time.",
+   "effort": "3-6 weeks.",
+   "verdict": "skip",
+   "notes": "This is the trap: high cost, small uncertain gain, zero neurite-specificity. Revisit only if batch-2 labeling is capped AND cheap wins already exhausted. The cheaper sibling recipe (instance-preserving auto-aug + mask-conditioned pix2pix, IAAA/SAAA 2602.00949) is the one to copy if synthesis is ever needed."
+  },
+  {
+   "name": "Deep Active Learning via MC-dropout uncertainty (neuropoly/deep-active-learning)",
+   "type": "active learning",
+   "what_it_does": "U-Net + dropout MC sampling → per-image uncertainty → label the most uncertain first. Verified abstract: on real histology datasets of 14 and 24 images, 3 uncertainty-selected samples reached max Dice where 15 random samples did not — the exact small-n regime we're in, and direct evidence AL works at our scale.",
+   "pc12_fit": "Rank the 50-500 unlabeled / batch-2 images by uncertainty; label top K (K = what the lab can afford, e.g. 10-20); also rank crops within images.",
+   "neurite_support": "Entropy is weak for thin structures (a broken long neurite contributes little pixel-mass entropy) — pair with a topology term (see bold ideas).",
+   "code": "https://github.com/neuropoly/deep-active-learning (cited in paper abstract; repo itself unverified this pass)",
+   "license": "unverified",
+   "compute": "MC passes over pool: hours on 24 GB.",
+   "small_data_fit": "Excellent — the paper's datasets are smaller than ours.",
+   "effort": "2-3 days.",
+   "verdict": "recommend",
+   "notes": "Also use rareness-aware scoring (2507.17359 shows contrastive pretraining + rareness-aware acquisition helps under class imbalance) — practically: weight uncertainty by predicted neurite-pixel share."
+  },
+  {
+   "name": "nnU-Net v2",
+   "type": "baseline segmentation framework",
+   "what_it_does": "Fully automatic 2D/3d U-Net pipeline: patching, augmentation (incl. elastic), ensembles, self-configuring. Already a known prior in the project.",
+   "pc12_fit": "Fastest path to a solid supervised baseline in days; use its 2D config on 512 patches.",
+   "neurite_support": "Weak: Dice-optimized, under-segments thin tubes; must be augmented with soft-clDice in the loss to serve neurites.",
+   "code": "https://github.com/MIC-DKFZ/nnUNet (license MIT — unverified this pass)",
+   "license": "MIT (unverified)",
+   "compute": "24 GB is ample for 2D runs.",
+   "small_data_fit": "Robust defaults + elastic augmentation make it a strong small-data baseline; 5-fold CV by image is manual but standard.",
+   "effort": "1-3 days to first run.",
+   "verdict": "baseline",
+   "notes": "Week-1 supervised reference that everything else must beat."
+  },
+  {
+   "name": "clDice / soft-clDice loss",
+   "type": "loss function / metric",
+   "what_it_does": "Similarity computed on intersection of masks and their morphological skeletons; verified abstract: differentiable soft-clDice, topology preservation up to homotopy equivalence, tested on 5 datasets incl. neurons; improves connectivity, graph similarity, volumetric scores.",
+   "pc12_fit": "Purpose-built for exactly the failure mode we care about: broken/fused neurites.",
+   "neurite_support": "Yes — this is the tubular-structure method.",
+   "code": "paper provides the formulation (2003.07311); standalone implementation existence unverified — expect 1-2 days to implement (skeletonize with scikit-image + differentiable morph ops).",
+   "license": "n/a (implement)",
+   "compute": "skeletonization per batch element: minor overhead.",
+   "small_data_fit": "Acts as a structural inductive bias = regularizer, which is most valuable at n=70.",
+   "effort": "1-2 days.",
+   "verdict": "recommend",
+   "notes": "Use as ADD-ON to Tversky/BCE, not a replacement (w=0.1-0.3). You already chose clDice as an eval metric — training with it makes the metric aligned with the objective."
+  },
+  {
+   "name": "Tversky loss (asymmetric F1)",
+   "type": "loss function",
+   "what_it_does": "Weights FP vs FN independently (alpha, beta); standard fix for small/elongated foreground drowned by background. Train with Tversky (alpha=0.3, beta=0.7 → penalize FN less than FP or vice versa) + soft-clDice + small BCE.",
+   "pc12_fit": "Directly targets neurite-pixel minority.",
+   "neurite_support": "Yes at the pixel level; no topology awareness (that's clDice's job).",
+   "code": "scikit-medimage / any custom loss; trivial to implement",
+   "license": "n/a",
+   "compute": "zero",
+   "small_data_fit": "free win",
+   "effort": "hours",
+   "verdict": "recommend",
+   "notes": "Primary reference is Tversky (1984) Psychol. Rev. + widespread segmentation use; no arXiv checked this pass (unverified link)."
+  },
+  {
+   "name": "Focal loss (Lin et al.)",
+   "type": "loss function",
+   "what_it_does": "Down-weights easy negatives to focus on hard examples (verified abstract, RetinaNet motivation: extreme FG-BG imbalance).",
+   "pc12_fit": "Secondary: with only 2 classes, Tversky+clDice already addresses imbalance; focal mostly helps dense multi-class detection.",
+   "neurite_support": "indirect",
+   "code": "Detectron / any PyTorch loss",
+   "license": "n/a",
+   "compute": "zero",
+   "small_data_fit": "neutral",
+   "effort": "hours",
+   "verdict": "watch",
+   "notes": "Try only if Tversky+clDice still over-predicts background; don't stack all three from day 1 (loss soup hides which term helps)."
+  },
+  {
+   "name": "Style augmentation (Ginsburger, MoNuSeg)",
+   "type": "augmentation",
+   "what_it_does": "Style-transfer-based augmentation reducing CNN texture overfitting; verified abstract: improves segmentation on MoNuSeg with few labeled data.",
+   "pc12_fit": "Cheap proxy for exposure/illumination variability across wells and the future batch 2 (likely a different instrument session).",
+   "neurite_support": "neutral",
+   "code": "per paper (unverified)",
+   "license": "unverified",
+   "compute": "one-off style model training",
+   "small_data_fit": "modest",
+   "effort": "2-3 days",
+   "verdict": "watch",
+   "notes": "Histogram matching + random brightness/contrast/gamma is the 90% solution in 1 hour; style aug is the +10% if intensity variability dominates your CV variance."
+  },
+  {
+   "name": "IAAA / SAAA instance-aware augmentation (CAR-T/NK synapse, fluorescence + brightfield)",
+   "type": "augmentation pipeline",
+   "what_it_does": "Verified abstract: IAAA = optimized augmentation policies applied instance-preservingly to microscopy images with masks; SAAA = diffusion-based mask generator + Pix2Pix image synthesizer aligned to those masks; both improve detection/segmentation on a limited annotated microscopy dataset.",
+   "pc12_fit": "Closest published evidence that this exact recipe (instance-preserving aug + mask-conditioned pix2pix) works on small microscopy datasets — the blueprint to copy if you ever go the synthetic route.",
+   "neurite_support": "instance-preserving (whole-object) rather than pixel-level — compatible with rigid-unit pasting.",
+   "code": "unverified",
+   "license": "unverified",
+   "compute": "pix2pix scale: 24 GB fine",
+   "small_data_fit": "designed for it",
+   "effort": "1-2 weeks (pix2pix branch only)",
+   "verdict": "watch",
+   "notes": "If synthesis is ever greenlit, do SAAA-lite (pix2pix on mask-conditioned crops) instead of full latent diffusion."
+  }
+ ],
+ "sources": [
+  {
+   "title": "Simple Copy-Paste is a Strong Data Augmentation Method for Instance Segmentation (Ghiasi et al.) — arXiv:2012.07177",
+   "url": "https://arxiv.org/abs/2012.07177",
+   "supports": "Copy-Paste gains, +0.6 mask AP COCO, +3.6 rare-class AP on LVIS vs 2020 challenge winner; additive with pseudo-labeling",
+   "checked": true
+  },
+  {
+   "title": "CP2: Copy-Paste Contrastive Pretraining for Semantic Segmentation — arXiv:2203.11709",
+   "url": "https://arxiv.org/abs/2203.11709",
+   "supports": "Copy-paste as SSL pretraining for dense prediction (78.6 mIoU VOC, ResNet-50)",
+   "checked": true
+  },
+  {
+   "title": "clDice — A Novel Topology-Preserving Loss Function for Tubular Structure Segmentation — arXiv:2003.07311",
+   "url": "https://arxiv.org/abs/2003.07311",
+   "supports": "soft-clDice differentiable loss, homotopy topology preservation, 5 datasets incl. neurons",
+   "checked": true
+  },
+  {
+   "title": "DINOv2: Learning Robust Visual Features without Supervision — arXiv:2304.07193 + official repo",
+   "url": "https://arxiv.org/abs/2304.07193",
+   "supports": "142M-image SSL pretraining; ViT-S/B/L/g checkpoints; training cost (1 day / 32 A100-80GB) proving from-scratch is out of reach",
+   "checked": true
+  },
+  {
+   "title": "DINOv2 official repo (weights, fine-tune commands, license Apache-2.0, Cell-DINO section)",
+   "url": "https://github.com/facebookresearch/dinov2",
+   "supports": "pretrained checkpoints, fine-tune recipe, Apache-2.0 license, pointer to Cell-DINO docs",
+   "checked": true
+  },
+  {
+   "title": "Cell-DINO: Self-Supervised Image-based Embeddings for Cell Fluorescent Microscopy (README)",
+   "url": "https://github.com/facebookresearch/dinov2/blob/main/docs/README_CELL_DINO.md",
+   "supports": "fluorescent-cell-domain SSL model; CC-BY-NC + FAIR noncommercial weights; ~2 days / 4 A100 nodes to train",
+   "checked": true
+  },
+  {
+   "title": "FixMatch: Simplifying Semi-Supervised Learning with Consistency and Confidence — arXiv:2001.07685",
+   "url": "https://arxiv.org/abs/2001.07685",
+   "supports": "confidence-gated pseudo-labels + consistency; 88.61% CIFAR-10 with 40 labels; ablation evidence; official code link",
+   "checked": true
+  },
+  {
+   "title": "FixMatch official code (archived) + FixMatch-pytorch",
+   "url": "https://github.com/google-research/fixmatch",
+   "supports": "Apache-2.0 (official, archived); MIT (community); classification-only scope requiring porting to pixels",
+   "checked": true
+  },
+  {
+   "title": "Deep Active Learning for Axon-Myelin Segmentation on Histology Data — arXiv:1907.05143",
+   "url": "https://arxiv.org/abs/1907.05143",
+   "supports": "MC-dropout uncertainty AL on 14/24-image datasets; 3 selected vs 15 random samples to reach max Dice; code at neuropoly/deep-active-learning",
+   "checked": true
+  },
+  {
+   "title": "Exploring Active Learning for Semiconductor Defect Segmentation — arXiv:2507.17359",
+   "url": "https://arxiv.org/abs/2507.17359",
+   "supports": "contrastive pretraining per AL cycle + rareness-aware acquisition under class imbalance",
+   "checked": true
+  },
+  {
+   "title": "HistoSmith: Single-Stage Histology Image-Label Generation via Conditional Latent Diffusion — arXiv:2502.08754",
+   "url": "https://arxiv.org/abs/2502.08754",
+   "supports": "joint layout+mask+image latent diffusion for cell instance segmentation; helps underrepresented classes",
+   "checked": true
+  },
+  {
+   "title": "MSDM: Multimodal Conditioned Diffusion for Cell and Nuclei Segmentation — arXiv:2510.09121",
+   "url": "https://arxiv.org/abs/2510.09121",
+   "supports": "morphology+color+metadata conditioned generation; improves accuracy on target cell class",
+   "checked": true
+  },
+  {
+   "title": "DualDiT: Conditional Dual-Output Diffusion Transformer (OCT image+mask) — arXiv:2607.29337",
+   "url": "https://arxiv.org/abs/2607.29337",
+   "supports": "FID 56.14; 46% of synthetics misclassified as real by experts; modest downstream Dice/IoU gain — honest cost/benefit data point",
+   "checked": true
+  },
+  {
+   "title": "Tractography-Driven Synthetic Data Generation for Fiber Bundle Segmentation — arXiv:2606.26898",
+   "url": "https://arxiv.org/abs/2606.26898",
+   "supports": "synthetic-ONLY training fails; mixed real+synthetic ≈ SOTA with 3x less annotation — key cost/benefit evidence for synthesis",
+   "checked": true
+  },
+  {
+   "title": "Data Augmentation for CAR-T/NK Synapse Images (IAAA + SAAA: auto-aug + diffusion-mask/pix2pix) — arXiv:2602.00949",
+   "url": "https://arxiv.org/abs/2602.00949",
+   "supports": "instance-preserving augmentation + mask-conditioned pix2pix on small microscopy datasets; the blueprint for a cheap synthetic route if ever needed",
+   "checked": true
+  },
+  {
+   "title": "Style Augmentation improves Medical Image Segmentation (MoNuSeg) — arXiv:2211.01125",
+   "url": "https://arxiv.org/abs/2211.01125",
+   "supports": "style-transfer augmentation reduces texture overfitting and improves few-label segmentation",
+   "checked": true
+  },
+  {
+   "title": "U-Net: Convolutional Networks for Biomedical Image Segmentation — arXiv:1505.04597",
+   "url": "https://arxiv.org/abs/1505.04597",
+   "supports": "strong augmentation as the enabling technique for very-few-image training (incl. elastic); phase-contrast/DIC cell tracking win",
+   "checked": true
+  },
+  {
+   "title": "Focal Loss for Dense Object Detection — arXiv:1708.02002",
+   "url": "https://arxiv.org/abs/1708.02002",
+   "supports": "down-weighting easy examples under extreme FG-BG imbalance; evidence it's a detection-era tool (less central for 2-class microscopy seg)",
+   "checked": true
+  },
+  {
+   "title": "Swin UNETR — arXiv:2201.01266",
+   "url": "https://arxiv.org/abs/2201.01266",
+   "supports": "transformer encoder for variable-size structures via long-range modeling (context for backbone choice; not a data-efficiency method itself)",
+   "checked": true
+  }
+ ],
+ "bottom_line": "Week-1 cheap wins, in order: (1) histogram-matched preprocessing + 5-fold image-level split with leak guards; (2) nnU-Net-v2-style baseline with elastic + rotation augmentation and neurite-rich 512-px patch oversampling, loss = Tversky (alpha 0.3/beta 0.7) + soft-clDice (w~0.2) + BCE; (3) rigid-unit Copy-Paste from the 70 labeled images with rotation-tracked angle labels and ≤2 pastes/patch, donors never crossing fold boundaries. The two highest-value spikes are a pseudo-label self-training loop (ensemble-confidence + skeleton/Betti sanity gate + 5-image human spot-check, 2-3 rounds max) and uncertainty-based active learning over the unlabeled pool/Batch 2 (MC-dropout + Betti-disagreement term — entropy alone is blind to thin structures; the 14/24-image histology evidence shows AL pays at exactly our n). Skip: FixMatch/CRITIC/Mean-Teacher-style fancy SSL (engineering cost exceeds expected gain at n=70) and any diffusion-based image synthesis (verified literature shows synthetic-only fails, mixed gains are 1-3% for weeks of work, and no generator targets tubular neurites). The one genuinely novel, deliverable contribution is the topology-aware AL + known-answer morphometric test set from rotation-tracked pasting — cheap, publishable, and directly aligned with your Betti/clDice metrics."
+}

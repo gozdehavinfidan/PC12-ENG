@@ -44,7 +44,8 @@
 ## The base project (internal)
 | ID | Source | Type | What it supports |
 |----|--------|------|------------------|
-| R18 | **Tuseb_2025_Basvuru_Eren.pdf** (in this folder) | P | The **base** TÜSEB NeuroMind proposal. Source of all `[BASE]` facts (see `02`). |
+| R18 | **Tuseb_2025_Basvuru_Eren.pdf** (in this folder) | P | The 2025 "NeuroMind" proposal (44235) — **reference only** after D14; source of the `[BASE]` tags. |
+| R18b | **`TUSEB/bolumler/*.txt`** (this repo) | P | **The concept canon** (D14): 2026 TÜSEB application, section-by-section dump — NTI, 5 WPs, H₁–H₃, K1–K6, R1–R11, IntelliCell. Source of all `[BASE26]` facts (see `02`). |
 | R19 | **PC12_Gantt_Chart.xlsx** (in this folder) | P | Example Gantt / WBS structure + candidate model tracks (DS-UNet, nnU-Net, ViT-UNet). Reference only — not binding. |
 
 ## Datasets / models we may *add* (watchlist)

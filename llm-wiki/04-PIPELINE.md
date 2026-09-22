@@ -2,8 +2,12 @@
 
 > End-to-end: raw microscopy image → quantitative morphometric report + app.
 > This is our **design intent** `[PLANNED]`. It inherits the base's hybrid
-> philosophy (DL for segmentation, image processing for morphometrics) `[BASE]`
-> but is made concrete and testable.
+> philosophy (DL for segmentation, image processing for morphometrics)
+> `[BASE26]` — the 2026 canon's whole measurement chain — but is made
+> concrete and testable.
+> Concept/purpose canon = the 2026 TÜSEB NTI chain (D14): the morphometrics
+> stage must yield the **4 NTI parameters** (`02` §NTI) and feed the **NTI
+> computation module** (`00` deliverable 5).
 
 > ## ⚠ Constrained by n ≈ 70
 >
@@ -13,12 +17,21 @@
 > regularisation (S1), and **Cellpose-SAM as a first-class candidate** (S2) —
 > not the from-scratch U-Net / reach-transformer plan an unconstrained team
 > would pick.
+>
+> ## ✅ 2026-09-22: araştırma sonuçları geldi
+>
+> `16-ARCHITECTURE-RESEARCH.md` (6 paralel literatür scout'u, birincil kaynaklar)
+> bu dosyayı **doğruladı ve netleştirdi**: ana hat = **İKİ KOL** (gövde: SMP
+> pretrained U-Net ailesi; nörit: düz binary kol + soft-clDice), morphometrik
+> stack = **skan + FilFinder + pycircstat2** (tümü açık-lisans, pip), XAI/UQ =
+> **IG + 5-seed ensemble + sıcaklık kalibrasyonu**. Aşağıdaki S2–S5 o doğrultuda
+> güncellendi; `16` §6 resmi v2 mimaridir.
 
 ## Block diagram
 
 ```
                  ┌─────────────────────────────────────────────┐
-   RAW IMAGE     │              NeuroMind (offline app)          │
+   RAW IMAGE     │      IntelliCell-style (offline app, D14)       │
   (pc/fluor) ───▶│  ┌──────────┐  ┌───────────┐  ┌───────────┐  │
                  │  │  Load &  │─▶│Preprocess │─▶│ Segmentation│ │
                  │  │ normalize│  │  (config) │  │  (DL model)│  │
@@ -69,17 +82,28 @@ names these `[BASE]`:
 - **Task:** pixel-wise, **multi-class**: `background`, `cell_body`, `neurite`.
   This 2-class-signal + background is the **safe core** `[PLANNED]`.
   `[IDEA]` a 3rd class (e.g., nucleus under fluorescence) only if data supports it.
-- **Model set to compare** (details + ranking in `05-MODELS`, governed by
-  `15-SMALL-DATA-STRATEGY`): **ImageNet-pretrained encoder + U-Net decoder**
-  (primary workhorse) · **Cellpose-SAM zero-shot / fine-tune** (first-class
-  candidate, run early at the W6 gate, and the route to **instance** masks) ·
-  nnU-Net (gated on GPU, A6) · classical Hessian/ridge (no-DL baseline).
-  **TransUNet stays `[IDEA]`** — a ViT at n≈70 memorises (§2 of the strategy).
+- **Model set to compare** (full verified table: `16` §1; governed by
+  `15-SMALL-DATA-STRATEGY`):
+  - **gövde kolu:** ImageNet-pretrained encoder + **U-Net ailesi** decoder
+    (SMP-MIT: U-Net / **UNet3+** — full-res path 1–2 px nörit detayını korur — / UNet++)
+    · **nnU-Net v2 ResEnc L** (clDice için trainer subclass; D12)
+    · **SA-UNet** (damar-transfer ablation) · **TransUNet** (tek ablation satırı —
+      2404.09556: n≈70'de transformer'lar CNN'lere kaybediyor)
+  - **nörit kolu:** düz binary segmentation + soft-clDice. **Hiçbir doğrulanmış
+    foundation model nörit instance'ı vermiyor** (star-convex/box öncülü ince
+    dallara yapısal düşman — `16` §1.2, tutarlı bulgu) → nörit her zaman
+    mask→skeleton yolundan gelir.
+  - **foundation modeller W6 kapısında** (3 rol): Cellpose-SAM `cpsam_v2` /
+    μ-SAM+APG / CellSAM / StarDist / SAM(zayıf kontrol) → "FM prior" satırı +
+    gövde **instance** motoru + pseudo-label kaynağı (+ **LoRA-on-SAM kolu**, 16 §5-7).
   Every comparison is reported as **5-fold mean ± std**.
-- **Loss:** Dice + (soft) cross-entropy; class-balanced.
-- **Training:** reproducible (seed, config), early stopping on validation DSC.
-- **Output:** probability map → mask; plus (optional) **uncertainty**
-  (MC dropout / TTA disagreement) `[IDEA]`.
+- **Loss:** gövde: Dice + Tversky(0.3/0.7); **nörit: + soft-clDice (w 0.2–0.3,
+  MIT)** + (ablation) TopoLoss — alan + topoloji (16 §1.3, §5-2).
+- **Training:** reproducible (seed, config), early stopping on validation DSC;
+  W8–10: topology-gate'li pseudo-label self-training + topology-aware active
+  learning (16 §3, §5-6/§5-11).
+- **Output:** probability map → mask; **5-seed derin ensemble** dağıtılır
+  (CV-fold ensemble yalnız doğrulama — 16 §4); belirsizlik = ensemble varyansı.
 
 ### S3 — Post-processing `[PLANNED]`
 Turn masks into **instances** and clean artifacts:
@@ -89,33 +113,54 @@ Turn masks into **instances** and clean artifacts:
   instance masks** where available (counting touching cells is exact); else
   distance transform + watershed; if it fails, keep a merged blob and **flag
   it** (honest limitation, feeds the error analysis). `[VERIFY]` needed.
-- **Neurite graph**: from the `neurite` mask, skeletonize → graph; identify
-  branches, endpoints, junctions; compute per-neurite length & direction.
-  (Canny + Hough in the base `[BASE]` is one option; **skeleton + graph** is
-  the cleaner general approach — decision in `DECISIONS.md`.)
+- **Neurite graph (doğrulanmış stack — `16` §2):** from the `neurite` mask:
+  clean (remove_small_objects + fill holes) → **skeletonize** (Zhang-Suen) →
+  **skan** `skeleton_graph` (BSD-3) → **FilFinder** length-pruning (L_min 5/10/20 µm
+  süpürmesi; NeuroQuantify sabiti 20 µm) → kök-yaprak yolları → per-neurite
+  length & direction (**pycircstat2** circular statistics). The base's
+  Canny + Hough `[BASE]` remains the documented fallback. (D2 — accepted by
+  evidence: SNT cross-check + Bland-Altman vs Berke's hand measurement.)
 
-### S4 — Morphometric features `[BASE]` outputs, `[PLANNED]` module
-Per image (and per cell where possible):
+### S4 — Morphometric features `[BASE26]` outputs (4 NTI params), `[PLANNED]` module
+Per image (and per cell where possible). **Bold = a base-canon NTI
+parameter** (`02` §NTI):
 | Feature | How | Units |
 |---------|-----|-------|
-| Cell count | components (cell_body) | # |
-| Cell area | component area | px² / µm² `[OPEN]` |
-| Neurite count | skeleton branches / per cell | # |
-| Neurite length | sum of skeleton branch lengths | px / µm |
-| Neurite angle | branch direction(s) | deg |
-- `[IDEA]` add: total neurite length/cell, mean angle, circular (Rayleigh)
-  alignment, Sholl profile, per-neurite length distribution, uncertainty band.
+| Cell count | FM instance mask varsa tam sayım; yoksa components (cell_body) | # |
+| **Soma morphology** | component area + **circularity + eccentricity** | px² / µm² `[OPEN]` pixel-size (D5) |
+| **Branching count** | skan junction/branch noktaları / per cell | # |
+| **Neurite length** | Σ skeleton edge weights (× px-size) | px / µm |
+| **Branching-angle distribution** | branch-pair açılarının circular profili (Rayleigh, Mardia-Watson-Wheeler) | deg |
+| Neurite count | skan kök-yaprak yolları / per cell (axon kuralı: en uzun, >2× 2. uzun ve >100 px) | # |
+- **NTI module (yeni — D14):** 4 parametreden NTI hesabı; base canon
+  **lineer temel model** `[BASE26]`; kalibrasyon derinliği **O1**'e
+  (metadata) bağlı — `00` #5, `DECISIONS` D14.
+- **Topoloji (yeni — 16 §2):** Betti-1 = E−V+C, clDice, (stretch) persistence-barcode distance.
+- **Yeni (16 §5-1, COMMIT):** her özelliğin **hata çubuğu** — ensemble piksel-U →
+  skeleton boyunca → CI; (5-12) TTA açı-yayılımı = açı güveni; (5-14) angular-Sholl (16 sektör).
+- `[IDEA]` add: Sholl profile, per-neurite length distribution, width (EDT, GT'de genişlik varsa `[OPEN]`).
 - **Unit-test this module on synthetic + hand-measured images** (T3.3) — it is
-  pure geometry, so it must be exactly right.
+  pure geometry, so it must be exactly right; plus **known-answer set** from
+  rotation-tracked rigid-unit pasting (16 §3/§5-13).
 
 ### S5 — XAI / explainability (see `08-XAI`) `[PLANNED]`
-- Saliency (Grad-CAM / Integrated-Grad) on the segmentation model.
-- Cross-check saliency against **error analysis** (where does it fail?).
-- Optional: per-pixel **uncertainty** shown as a third overlay.
+> Base canon's XAI goal `[BASE26]`: **SHAP-level component attribution** —
+> show *which parameter* (length / branching / angle / soma) drives the NTI
+> change. With a linear NTI model, per-parameter contribution is available
+> directly; IG + ensemble U covers the *pixel-level* layer below it.
+- **Integrated Gradients** (captum, per-pixel target) — ana saliency; U-Net'te
+  yüksek-res decoder katmanı (ince kenarlar çözümlensin) (16 §4).
+- **5-seed ensemble belirsizliği** → mavi overlay + hücre-bazlı **gözden-geçirme
+  kuyruğu** (Cellpose prob_map UX deseninin aktarımı).
+- Cross-check saliency against **error analysis** + **deletion curve + model-swap**
+  doğrulaması raporda zorunlu (16 §4).
 
 ### S6 — App + report (see `09-DASHBOARD` + `02` İP4) `[PLANNED]`
-- Offline desktop (Python: e.g. **PySide6**/Qt, or web-in-shell); model
-  shipped as **ONNX** (or TorchScript) → no internet, no training stack.
+- Module list follows the base's **IntelliCell** canon `[BASE26]`: image
+  load/**QC** · segmentation (ONNX) · morphometrics · **NTI computation** ·
+  **temporal visualization** (0/6/24 h) · **explainability (SHAP-style
+  attribution)** · **reporting (PDF/Excel)**. Which of these are live at the
+  demo depends on O1 + schedule (temporal view needs timepoint metadata).
 - Inputs: image(s) / folder → runs S0–S4 → shows overlay + feature table +
   histograms → exports **report** (PDF/HTML).
 - Report is co-owned by Berke (biology framing) — the numbers must be

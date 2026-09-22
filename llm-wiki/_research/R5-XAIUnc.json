@@ -1,0 +1,397 @@
+{
+ "area": "XAI + uncertainty quantification for cell/neurite segmentation models, scoped to a 2-person offline desktop app (no training stack at runtime)",
+ "candidates": [
+  {
+   "name": "Grad-CAM (pytorch-grad-cam)",
+   "type": "saliency",
+   "what_it_does": "Per-pixel class-activation maps at a chosen conv layer; for segmentation, target = logit of the class at a pixel/region (repo documents semantic-segmentation usage incl. SegEigenCAM for seg); also supports ViT encoders via reshape transforms",
+   "pc12_fit": "Works on U-Net directly; for ViT (Cellpose/nnU-Net-ViT) need last-block target + reshape transform, more fiddly",
+   "neurite_support": "Fine-resolution maps come from U-Net skip layers; choose a high-res decoder layer so thin neurite borders are resolved (low-res bottleneck layer misses tubular detail)",
+   "code": "https://github.com/jacobgil/pytorch-grad-cam",
+   "license": "MIT",
+   "compute": "1 forward+backward per image; well under 2 s even on CPU for 2D 256-1024px crops; batched",
+   "small_data_fit": "No training required — works on the models you already have",
+   "verdict": "baseline",
+   "notes": "Coarse at object level; use as the cheap fallback, not the headline method. Captum also has Grad-CAM (BSD-3, https://github.com/pytorch/captum)."
+  },
+  {
+   "name": "Integrated Gradients (captum)",
+   "type": "saliency",
+   "what_it_does": "Axiom-satisfying per-pixel attributions; target = pixel logit (or masked-region loss) for segmentation; noise_tunnel option = SmoothGrad for cleaner maps",
+   "pc12_fit": "Fully per-pixel, works for any differentiable U-Net; baseline = zero image; needs ~20-50 Riemann steps",
+   "neurite_support": "Per-pixel resolution, so it tracks thin neurite boundaries better than CAM-style maps",
+   "code": "https://github.com/pytorch/captum",
+   "license": "BSD-3-Clause",
+   "compute": "~20-50 forward-backward passes per image; a few seconds on laptop GPU, tens of seconds on CPU — batch across crops",
+   "small_data_fit": "No training required",
+   "verdict": "recommend",
+   "notes": "Primary saliency method: faithful + cheap + gives clean per-pixel maps for the 'why was this pixel neurite?' overlay. Passes Adebayo sanity checks (unlike guided backprop)."
+  },
+  {
+   "name": "Seg-Grad-CAM (Vinogradova et al., AAAI 2020)",
+   "type": "saliency",
+   "what_it_does": "Grad-CAM generalized to per-pixel segmentation targets; produces dense per-pixel explanation maps without pooling to a single class score",
+   "pc12_fit": "Conceptually ideal for segmentation; NOT 'Bach et al.' (likely mis-remembered in the brief)",
+   "neurite_support": "Dense maps; but only demoed on Cityscapes/TextureMNIST",
+   "code": "https://github.com/kiraving/SegGradCAM",
+   "license": "LICENSE file present; terms not verified (repo is Keras, no PyTorch port)",
+   "compute": "1 forward+backward",
+   "small_data_fit": "n/a (no training)",
+   "verdict": "watch",
+   "notes": "Official repo: Keras only, Python 3.6-era, README says 'no updates or upgrades planned'. Reimplementing in ~30 PyTorch lines is feasible but not worth the effort vs. per-pixel-target Integrated Gradients/Grad-CAM which give equivalent maps with maintained libraries."
+  },
+  {
+   "name": "RISE / occlusion",
+   "type": "saliency",
+   "what_it_does": "Black-box: probe model with ~100 random masks, aggregate saliency; also the deletion/insertion protocol itself",
+   "pc12_fit": "Works through ONNX export — useful to prove the exported model behaves identically to the PyTorch model",
+   "neurite_support": "Mask granularity determines; fine enough for neurites with small masks",
+   "code": "https://github.com/petsiuk/rise (paper impl)",
+   "license": "Unverified (paper repo, small)",
+   "compute": "~100 forward passes per image; offline/development use, NOT per-image in the app",
+   "small_data_fit": "No training required",
+   "verdict": "watch",
+   "notes": "Use only in the saliency-validation protocol (as occlusion ground truth) and as an ONNX-consistency check — not the shipped XAI layer."
+  },
+  {
+   "name": "Deep ensemble (5 members from 5 CV folds)",
+   "type": "uncertainty",
+   "what_it_does": "Mean + variance of per-pixel softmax across 5 independently trained models = epistemic uncertainty map; standard technique per Lakshminarayanan et al. NIPS 2017",
+   "pc12_fit": "Directly available: your 5-fold CV already produces 5 checkpoint sets",
+   "neurite_support": "Per-pixel, so neurite-border disagreement is captured",
+   "code": "DIY (~100 lines: load 5 ckpts, mean/std) or torch-uncertainty DeepEnsembleModel",
+   "license": "n/a",
+   "compute": "5x inference per image (~1-5 s on laptop GPU; precompute and cache per image in the offline app)",
+   "small_data_fit": "Best uncertainty option at n~70 images: no extra training data needed",
+   "verdict": "recommend",
+   "notes": "LEGIATE caveat below: a true deep ensemble (5 seeds, full data) is strictly better for the shipped model; CV-fold ensemble is a valid, strong proxy and is what the literature uses, but label it honestly."
+  },
+  {
+   "name": "MC-Dropout (Kendall & Gal 2017 / Gal 2015)",
+   "type": "uncertainty",
+   "what_it_does": "~10-20 stochastic forward passes with dropout on; mean/variance = uncertainty; no extra models needed",
+   "pc12_fit": "Zero retraining if the U-Net was trained with dropout (verify rate ~0.1-0.5)",
+   "neurite_support": "Per-pixel",
+   "code": "DIY or torch-uncertainty",
+   "license": "n/a",
+   "compute": "10-20x inference; slower than ensemble-of-5 and noisier",
+   "small_data_fit": "Works at n~70",
+   "verdict": "watch",
+   "notes": "Fallback ONLY if the shipped model must be a single checkpoint (e.g., ONNX size cap). Ensemble is preferred: better calibrated, no stochastic-forward quirks in ONNX export (dropout-in-ONNX works but is fiddly)."
+  },
+  {
+   "name": "TTA disagreement (flip/90deg-rotation)",
+   "type": "uncertainty",
+   "what_it_does": "Run model on 4 TTA variants, average maps; disagreement = free epistemic signal, works with a single model",
+   "pc12_fit": "PC12 neurite direction output is rotation-sensitive, so TTA also acts as a self-consistency check on the angle feature",
+   "neurite_support": "Per-pixel",
+   "code": "DIY",
+   "license": "n/a",
+   "compute": "4x inference",
+   "small_data_fit": "Works at n~70",
+   "verdict": "baseline",
+   "notes": "Cheap bonus signal to blend into the uncertainty map when only one model is deployed; not a substitute for an ensemble."
+  },
+  {
+   "name": "Evidential deep learning (Sensoy 2018) / Bayesian U-Net (Kendall 2017)",
+   "type": "uncertainty",
+   "what_it_does": "Single-pass per-pixel Dirichlet/evidence outputs, or full Bayesian weights",
+   "pc12_fit": "Requires RE-TRAINING with new heads/losses — conflicts with 'no training at runtime' + 15-week timeline + ONNX simplicity",
+   "neurite_support": "Per-pixel",
+   "code": "https://github.com/dougbrion/pytorch-classification-uncertainty (classification only, 521 stars); https://github.com/hmi88/what (Kendall's code, 2019-era)",
+   "license": "Unverified (small personal repos)",
+   "compute": "Single pass (evidential) — appealing; Bayesian U-Net needs MCMC/VI sampling = slow",
+   "small_data_fit": "Fine, but you pay in engineering, not data",
+   "verdict": "skip",
+   "notes": "Skip for the product. Mention in the paper as 'considered and rejected' with the retraining cost + weak segmentation evidence (Tan et al. 2024, TAAI, found evidential error correlations are task-dependent) as justification."
+  },
+  {
+   "name": "Cellpose prob_map + GUI (product precedent)",
+   "type": "product",
+   "what_it_does": "Cellpose outputs a per-pixel cellprob map (0-255) alongside masks; GUI overlays it, human-in-the-loop training workflow lets users fix mistakes and retrain",
+   "pc12_fit": "This is the pattern to copy: probability channel as first-class output + overlay + review loop; our neurite prob channel maps 1:1",
+   "neurite_support": "Cellbody-centric, but the UI pattern transfers to neurite prob maps",
+   "code": "https://github.com/MouseLand/cellpose",
+   "license": "BSD-3-Clause (model weights CC-BY-NC — do NOT bundle Cellpose weights in your app)",
+   "compute": "n/a (reference)",
+   "small_data_fit": "n/a",
+   "verdict": "recommend",
+   "notes": "Recommend = adopt the UX pattern. StarDist is the other precedent (per-pixel object probability channel + NMS, https://github.com/stardist/stardist, BSD-3, TensorFlow-based so heavier for a desktop app)."
+  },
+  {
+   "name": "torch-uncertainty",
+   "type": "library",
+   "what_it_does": "PyTorch UQ framework: DeepEnsemble/MC-dropout/packed-ensembles wrappers, segmentation tutorials, ECE/reliability-diagram metrics, temperature scaling, selective-classification (failure-detection) metrics — exactly the validation battery we need",
+   "pc12_fit": "Covers both the uncertainty stack and the calibration/failure-detection metrics in one package (NeurIPS D&B 2025 paper)",
+   "neurite_support": "n/a (library)",
+   "code": "https://github.com/torch-uncertainty/torch-uncertainty",
+   "license": "Apache-2.0",
+   "compute": "n/a",
+   "small_data_fit": "n/a",
+   "verdict": "recommend",
+   "notes": "NOTE: 'pytorch-uncertainty' (the name in the brief) is DEAD — 404 everywhere I tried (jbshr/pytorch-uncertainty, jacobgil/pytorch-uncertainty both 404). torch-uncertainty is the maintained successor. Lightning-based; if that's friction, the 5-model ensemble + ECE are trivial DIY."
+  },
+  {
+   "name": "NeuroQuantify",
+   "type": "product",
+   "what_it_does": "DL cells+neurites from phase contrast + neurite length/orientation quantification (arXiv 2310.10978) — your closest prior work",
+   "pc12_fit": "Direct domain precedent; its output set (cells, neurite count/length/orientation) matches the project spec",
+   "neurite_support": "Yes — neurite segmentation + skeletonization is its core",
+   "code": "https://github.com/StanleyZ0528/neural-image-segmentation",
+   "license": "Not verified in this session (listed in the brief as known prior work)",
+   "compute": "n/a (reference)",
+   "small_data_fit": "n/a",
+   "verdict": "baseline",
+   "notes": "No XAI/uncertainty layer in the paper — that gap is exactly our XAI contribution."
+  }
+ ],
+ "techniques": [
+  {
+   "name": "Deletion/insertion curves (saliency validation)",
+   "category": "validation",
+   "how_it_helps": "The minimum credible saliency check: sort pixels by IG importance, hide (occlude) top-k and re-run model, plot DSC/loss vs k% pixels hidden; compare top-k curve vs random-k; our curve must drop significantly faster",
+   "effort": "Low — ~1 day on holdout set (14 images); offline, not app runtime",
+   "verdict": "recommend",
+   "notes": "Also run a model-swap sanity check per Adebayo et al. 2018: explanations should change with the model. Skip insertion curves (deletion is cheaper and the standard for segmentation)."
+  },
+  {
+   "name": "Per-pixel temperature scaling + ECE/reliability diagram",
+   "category": "calibration",
+   "how_it_helps": "Single scalar per class fit on val logits (torch-uncertainty TemperatureScaler); gives the uncertainty heatmap an honest scale and one figure for the thesis (reliability diagram before/after)",
+   "effort": "Low — <1 h fit + 1 h plotting",
+   "verdict": "recommend",
+   "notes": "Full per-pixel calibration (Guo 2017 is classification-only) is NOT worth it: the app consumes RELATIVE uncertainty (which pixels to flag), not calibrated probabilities. One global T per class is the sweet spot; report ECE on labeled pixels as the metric."
+  },
+  {
+   "name": "Uncertainty-gated review queue",
+   "category": "product",
+   "how_it_helps": "Per-cell 'review confidence' = min cellprob + ensemble std inside the mask; sort cells by risk; UI auto-flags low-confidence cells for human check (Cellpose/QuPath-style HITL pattern, without any retraining)",
+   "effort": "Medium — it's mostly UI wiring over the two maps we already have",
+   "verdict": "recommend",
+   "notes": "This is where uncertainty becomes a product feature: the professor sees an actionable workflow, not just a heatmap."
+  },
+  {
+   "name": "Select/failure-detection metric (AUROC of 'flag' vs error)",
+   "category": "validation",
+   "how_it_helps": "Prove the uncertainty map actually ranks mistakes: AUROC/precision-recall of flagging pixels (or cells) with top uncertainty vs pixels whose DSC is worst; torch-uncertainty has these metrics built in",
+   "effort": "Low — computed once on holdout",
+   "verdict": "recommend",
+   "notes": "This is the number that answers 'does your uncertainty mean anything?' — pair it with the deletion curves for the XAI chapter."
+  }
+ ],
+ "bold_ideas": [
+  {
+   "idea": "Active-labeling loop: run the ensemble on the lab's UNLABELED image archive, rank images by max uncertainty / expected-information-gain, and ask the PI to label only the top ~20 hardest images when batch 2 arrives",
+   "why_now": "Unlabeled lab images exist (count unknown) and the ensemble ships anyway; batch-2 ETA ~2 weeks means this fits in the timeline as a 3-day script",
+   "feasibility": "High — it's inference + ranking + an export for the labeling tool",
+   "effort": "~3-4 days",
+   "risk": "PI may not label the suggested images; fall back to 'uncertainty report' deliverable",
+   "differentiator": "Almost no student project closes the uncertainty->data->retraining loop; turns UQ from a figure into a measurable DSC gain (report DSC with and without the 20 extra images)",
+   "verdict": "ship-it (timeboxed)"
+  },
+  {
+   "idea": "Saliency-guided morphometrics QA: flag a cell's neurite-length/angle feature as 'unreliable' when the ensemble disagrees on any pixel along that neurite's skeleton; report per-feature reliability alongside MAE",
+   "why_now": "Combines the two pipeline halves (segmentation + morphometrics) that most projects keep separate; directly answers 'how do I trust a single measured neurite angle'",
+   "feasibility": "Medium — needs the skeleton from the morphometrics stage (R3 scope), then just sample uncertainty along it",
+   "effort": "~4-5 days, depends on R3's skeletonizer",
+   "risk": "Skeletized uncertain borders can overstate uncertainty; threshold tuning",
+   "differentiator": "Per-FEATURE (not per-image) uncertainty is novel for a thesis-scale app and maps onto their required per-feature error metrics",
+   "verdict": "strong candidate"
+  },
+  {
+   "idea": "ONNX-identical XAI: run Grad-CAM/IG inside the exported ONNX graph (or on the ONNX session) so the desktop app explains the EXACT shipped artifact, not a PyTorch twin",
+   "why_now": "ONNX Runtime supports gradients; the team already plans ONNX export — proving XAI-on-ONNX kills the 'but your app runs a different model' objection",
+   "feasibility": "Medium — ONNXRuntime gradient API is workable for a U-Net; ViT trickier",
+   "effort": "~3 days spike, drop if stuck (PyTorch twin is the fallback and still defensible)",
+   "risk": "Gradient support gaps in specific ops",
+   "differentiator": "Very few student projects run attribution on the deployed artifact itself",
+   "verdict": "watch (timeboxed spike)"
+  },
+  {
+   "idea": "TTA self-consistency as a neurite-angle sanity channel: average the 4 rotated-prediction angle estimates; large spread -> angle marked low-confidence (rotation-equivariance check for free)",
+   "why_now": "Neurite direction is the feature least protected by everything else in the stack",
+   "feasibility": "High — 4x inference + circular-mean stats",
+   "effort": "~2 days",
+   "risk": "Model may not actually be rotation-equivariant; then the spread just measures model inconsistency, still useful",
+   "differentiator": "Cheap, defensible, specific to their angle output",
+   "verdict": "recommend (cheap add-on)"
+  }
+ ],
+ "sources": [
+  {
+   "title": "Lost in the Folds: When Cross-Validation Is Not a Deep Ensemble (Kirscher et al., MICCAI 2026, arXiv 2605.18329)",
+   "url": "https://arxiv.org/abs/2605.18329",
+   "supports": "CV-folds-as-ensemble assessment: CV ensembles mix seed + data-exposure effects; true DEs calibrate and detect failures better; CV ensembles proxy inter-rater ambiguity. Core citation for the CV-folds question",
+   "checked": true
+  },
+  {
+   "title": "Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles (Lakshminarayanan, NIPS 2017, arXiv 1612.01474)",
+   "url": "https://arxiv.org/abs/1612.01474",
+   "supports": "Deep ensembles = baseline uncertainty technique",
+   "checked": true
+  },
+  {
+   "title": "What Uncertainties Do We Need in Bayesian DL for CV? (Kendall & Gal, NIPS 2017, arXiv 1703.04977)",
+   "url": "https://arxiv.org/abs/1703.04977",
+   "supports": "Per-pixel aleatoric/epistemic U-Net framework; the Bayesian-U-Net route",
+   "checked": true
+  },
+  {
+   "title": "Dropout as a Bayesian Approximation (Gal & Ghahramani, arXiv 1506.02142)",
+   "url": "https://arxiv.org/abs/1506.02142",
+   "supports": "MC-dropout",
+   "checked": true
+  },
+  {
+   "title": "Evidential Deep Learning to Quantify Classification Uncertainty (Sensoy et al., NeurIPS 2018, arXiv 1806.01768)",
+   "url": "https://arxiv.org/abs/1806.01768",
+   "supports": "Evidential DL (classified, not segmentation)",
+   "checked": true
+  },
+  {
+   "title": "Uncertainty-Error correlations in Evidential DL models for biomedical segmentation (Tan et al., TAAI 2024, arXiv 2410.18461)",
+   "url": "https://arxiv.org/abs/2410.18461",
+   "supports": "Evidential UQ in biomedical segmentation — task-dependent results, used to justify skipping",
+   "checked": true
+  },
+  {
+   "title": "Grad-CAM (Selvaraju et al., arXiv 1610.02391)",
+   "url": "https://arxiv.org/abs/1610.02391",
+   "supports": "Grad-CAM method",
+   "checked": true
+  },
+  {
+   "title": "Axiomatic Attribution for Deep Networks / Integrated Gradients (Sundararajan et al., ICLR 2017, arXiv 1703.01365)",
+   "url": "https://arxiv.org/abs/1703.01365",
+   "supports": "IG method + axioms",
+   "checked": true
+  },
+  {
+   "title": "SmoothGrad (Smilkov et al., NeurIPS 2017, arXiv 1706.03825)",
+   "url": "https://arxiv.org/abs/1706.03825",
+   "supports": "SmoothGrad (available as captum NoiseTunnel)",
+   "checked": true
+  },
+  {
+   "title": "Sanity Checks for Saliency Maps (Adebayo et al., arXiv 1810.03292)",
+   "url": "https://arxiv.org/abs/1810.03292",
+   "supports": "Saliency validation methodology (model-swap, insertion sensitivity)",
+   "checked": true
+  },
+  {
+   "title": "XRAI: Better Attributions Through Regions (Kapishnikov et al., IJCAI 2019, arXiv 1906.02825)",
+   "url": "https://arxiv.org/abs/1906.02825",
+   "supports": "PIC (Performance Information Curve) evaluation for saliency",
+   "checked": true
+  },
+  {
+   "title": "RISE: Randomized Input Sampling for Explanation of Black-box Models (Petsiuk et al., ECCV 2018, arXiv 1806.07421)",
+   "url": "https://arxiv.org/abs/1806.07421",
+   "supports": "RISE + deletion/insertion metric usage",
+   "checked": true
+  },
+  {
+   "title": "On Calibration of Modern Neural Networks (Guo et al., ICML 2017, arXiv 1706.04599)",
+   "url": "https://arxiv.org/abs/1706.04599",
+   "supports": "Temperature scaling + reliability diagrams",
+   "checked": true
+  },
+  {
+   "title": "Calibrating Ensembles for Scalable UQ in Medical Segmentation (Buddenkotte et al., arXiv 2209.09563)",
+   "url": "https://arxiv.org/abs/2209.09563",
+   "supports": "Ensemble + calibration pipeline for medical segmentation",
+   "checked": true
+  },
+  {
+   "title": "DUDES: Deep Uncertainty Distillation using Ensembles for Semantic Segmentation (Landgraf et al., 2023, arXiv 2303.09843)",
+   "url": "https://arxiv.org/abs/2303.09843",
+   "supports": "Recent (2023) example of ensembles distilled to single-pass U for segmentation",
+   "checked": true
+  },
+  {
+   "title": "Q for White Matter Hyperintensity segmentation detects silent failures (Philps et al., MedIA 2025, arXiv 2411.17571)",
+   "url": "https://arxiv.org/abs/2411.17571",
+   "supports": "2024-25 clinical UQ-as-failure-detector use case (imaging-adjacent, not microscopy)",
+   "checked": true
+  },
+  {
+   "title": "EDUE: Expert Disagreement-Guided One-Pass UQ (Abutalip et al., 2024, arXiv 2403.16594)",
+   "url": "https://arxiv.org/abs/2403.16594",
+   "supports": "Single-pass UQ for deployment (2024)",
+   "checked": true
+  },
+  {
+   "title": "How inter-rater variability relates to aleatoric/epistemic uncertainty (Roshanzamir et al., UNSURE@MICCAI 2023, arXiv 2308.06964)",
+   "url": "https://arxiv.org/abs/2308.06964",
+   "supports": "2023 UQ interpretation study for segmentation",
+   "checked": true
+  },
+  {
+   "title": "Seg-Grad-CAM: Towards Interpretable Semantic Segmentation via Grad-CAM (Vinogradova, Dibrov, Myers, AAAI 2020)",
+   "url": "https://ojs.aaai.org/index.php/AAAI/article/view/7244",
+   "supports": "The 'SegGrad-CAM' paper; repo is Keras, unmaintained",
+   "checked": false
+  },
+  {
+   "title": "Seg-Grad-CAM repo",
+   "url": "https://github.com/kiraving/SegGradCAM",
+   "supports": "Keras impl, 107 stars, last updated 2023, 'no updates planned'",
+   "checked": true
+  },
+  {
+   "title": "pytorch-grad-cam (Jacob Gil)",
+   "url": "https://github.com/jacobgil/pytorch-grad-cam",
+   "supports": "13k stars, MIT, GradCAM/HiResCAM/SegEigenCAM, seg + ViT support, built-in ARCC/perturbation metrics",
+   "checked": true
+  },
+  {
+   "title": "Captum (Meta)",
+   "url": "https://github.com/pytorch/captum",
+   "supports": "5.7k stars, BSD-3, IG/GradCAM/occlusion/GradientShap, NoiseTunnel (SmoothGrad)",
+   "checked": true
+  },
+  {
+   "title": "torch-uncertainty (Lafage et al., NeurIPS D&B 2025)",
+   "url": "https://github.com/torch-uncertainty/torch-uncertainty",
+   "supports": "528 stars, Apache-2.0, segmentation UQ tutorials, ECE/reliability, temperature scaling, selective-classification metrics. REPLACES dead 'pytorch-uncertainty' (jbshr & jacobgil variants both 404)",
+   "checked": true
+  },
+  {
+   "title": "Cellpose (MouseLand)",
+   "url": "https://github.com/MouseLand/cellpose",
+   "supports": "BSD-3 (weights CC-BY-NC); outputs per-pixel cellprob (0-255) alongside masks; GUI overlay + HITL training — the product precedent for prob-map UI",
+   "checked": true
+  },
+  {
+   "title": "Cellpose outputs doc (prob map / _seg.npy fields)",
+   "url": "https://cellpose.readthedocs.io/en/latest/outputs.html",
+   "supports": "Exact UX: flows[1] cell probability 0-255 channel, ismanual flag per mask = human-in-the-loop precedent",
+   "checked": true
+  },
+  {
+   "title": "StarDist",
+   "url": "https://github.com/stardist/stardist",
+   "supports": "BSD-3, per-pixel object probability channel + NMS; TensorFlow stack",
+   "checked": true
+  },
+  {
+   "title": "NeuroQuantify (Dang et al., arXiv 2310.10978)",
+   "url": "https://arxiv.org/abs/2310.10978",
+   "supports": "Closest prior work: DL cells+neurites, length/orientation, no XAI/UQ layer (our gap)",
+   "checked": true
+  },
+  {
+   "title": "Evidential DL PyTorch (dougbrion)",
+   "url": "https://github.com/dougbrion/pytorch-classification-uncertainty",
+   "supports": "521 stars, classification-only reference impl",
+   "checked": true
+  },
+  {
+   "title": "Kendall-Gal U-Net code (hmi88/what)",
+   "url": "https://github.com/hmi88/what",
+   "supports": "Bayesian U-Net reference, 2019-era",
+   "checked": true
+  }
+ ],
+ "bottom_line": "Minimum-credible XAI+uncertainty stack (<=3 methods, all offline, all <~2 s/image on a laptop GPU): (1) **Integrated Gradients** (captum, ~20 steps, per-pixel target = pixel logit) as the saliency layer, shown as a red-yellow overlay answering 'why is this pixel neurite'; (2) **5-member ensemble** (the 5 CV folds as members) for per-pixel epistemic uncertainty, shown as a blue heat overlay + per-cell review-confidence bar that gates a human review queue; (3) **one global temperature per class** (torch-uncertainty) so the uncertainty has an honest scale, reported with a single ECE + reliability diagram. CV-folds-as-ensemble: LEGITIMATE but with an asterisk — Kirscher et al. (MICCAI 2026, arXiv 2605.18329) show CV-fold ensembles are valid uncertainty proxies (they even track inter-rater ambiguity) but are worse at calibration and failure detection than a true deep ensemble (5 seeds, same data); since compute is free, ship a true 5-seed ensemble on the full 70-image set as the deployed model and keep the CV-fold ensemble as the validation-benchmark — never average a fold's predictions on its own validation fold (that IS leakage). Saliency validation to demo: deletion curves (occlude top-k IG pixels vs random-k, plot DSC drop) on the holdout fold + one Adebayo-style model-swap sanity check. Skip: Seg-Grad-CAM (Keras, dead), evidential/Bayesian U-Nets (retraining cost, weak segmentation evidence), SHAP (too slow per-pixel). Note: 'pytorch-uncertainty' is a dead package — use torch-uncertainty."
+}

@@ -1,0 +1,410 @@
+{
+ "area": "2D segmentation architectures for PC12 cell body + neurite (thin tubular) segmentation at n≈70 labeled images (phase-contrast + fluorescence), with open-source runnable candidates, topology-aware options, nnU-Net v2 state, small-data best practice, and 2024–25 neurite/PC12 literature",
+ "candidates": [
+  {
+   "name": "U-Net (plain, 2015)",
+   "type": "architecture",
+   "what_it_does": "Contracting-expanding CNN with dense skip connections; the biomedical segmentation workhorse. The original paper was built precisely for the small-data regime: trained end-to-end from very few images (~40 annotated) with heavy augmentation, and it won the 2015 ISBI cell-tracking challenge on transmitted-light (phase contrast + DIC) images — the same modality as your PC12 data.",
+   "pc12_fit": "Direct precedent: original paper's cell-tracking track was phase-contrast/DIC cell images. At n≈70, plain U-Net with nnU-Net-style augmentation is the lowest-risk, best-evidenced choice. Export to ONNX is trivial and mature.",
+   "neurite_support": "Partial. Pixel-wise so it can learn thin structures, but vanilla Dice/CCE losses do not enforce connectivity — you must add clDice/Tversky (see techniques) to avoid broken/fragmented neurites and false blobs.",
+   "code": "https://github.com/milesial/Pytorch-UNet (also MONAI and nnU-Net implementations)",
+   "license": "GPL-3.0 (milesial/Pytorch-UNet, verified); Apache-2.0 (MONAI/nnU-Net versions)",
+   "compute": "~2–5 GB for 512×512 2D; trivial on A5000",
+   "small_data_fit": "Best-in-class: architecture was explicitly designed for ~40 images + augmentation. The anchor point for all small-data evidence in this survey.",
+   "effort": "1–2 weeks incl. tuning",
+   "verdict": "recommend",
+   "notes": "GPL-3.0 of Pytorch-UNet is fine for a course project; if the final desktop app will be distributed, prefer the Apache-2.0 MONAI/nnU-Net implementation to avoid copyleft concerns (verify with your department's policy)."
+  },
+  {
+   "name": "UNet++ (nested U-Net, 2018)",
+   "type": "architecture",
+   "what_it_does": "Deeply supervised encoder-decoder with nested dense skip pathways that close the semantic gap between encoder/decoder feature maps; +3.9 IoU avg over U-Net on medical datasets incl. nuclei segmentation in microscopy (paper abstract, verified).",
+   "pc12_fit": "Strong candidate: deep supervision is a natural regularizer at n≈70 (multi-level loss = more gradient signal per image), and it was evaluated on nuclei-scale microscopy structures.",
+   "neurite_support": "Partial — same story as U-Net; pair with clDice/Tversky for the neurite branch. Nested skips help boundary fidelity for thin structures, but no topology guarantee.",
+   "code": "https://github.com/MrGiovanni/UNetPlusPlus (official); also in https://github.com/qubvel-org/segmentation_models.pytorch and https://github.com/yingkaisha/keras-unet-collection",
+   "license": "Official repo: ASU non-commercial research license (verified by reading LICENSE); MIT via segmentation_models.pytorch / keras-unet-collection (both verified)",
+   "compute": "~4–8 GB at 512×512 2D; fits A5000",
+   "small_data_fit": "Good — deep supervision + nested dense connections are known to help small-data biomedical tasks; evaluated on small-structure microscopy (nuclei).",
+   "effort": "1–2 weeks",
+   "verdict": "recommend",
+   "notes": "Use the MIT-licensed segmentation_models.pytorch 'unetplusplus' for the final deliverable (the official repo is non-commercial-only). Paper: arXiv:1807.10165 (verified)."
+  },
+  {
+   "name": "UNet3+ (2021)",
+   "type": "architecture",
+   "what_it_does": "U-Net variant that re-thinks the full-resolution path: all intermediate skip features are upsampled back to full resolution and concatenated, preserving 1-pixel boundary detail that classic U-Net downsample/upsample loses. Targeted at small/thin-structure segmentation (polyps, nuclei).",
+   "pc12_fit": "One of the best architectural matches for thin 1–2 px neurites in 2D: the full-resolution path explicitly preserves fine tubular detail. At n≈70 it is comparable in parameter count to U-Net, so no extra data hunger.",
+   "neurite_support": "Good (architecturally): full-res skips keep single-pixel strands intact; still needs clDice/Tversky for guaranteed connectivity.",
+   "code": "https://github.com/qubvel-org/segmentation_models.pytorch (model 'unet3plus', MIT, verified in repo); alternative: https://github.com/avBuffer/UNet3plus_pth (no license file, verified)",
+   "license": "MIT (segmentation_models.pytorch); unlicensed (avBuffer/UNet3plus_pth) — use SMP instead",
+   "compute": "~5–8 GB at 512×512 2D",
+   "small_data_fit": "Good — same parameter budget as U-Net; the win is in boundary fidelity, which is exactly the neurite failure mode.",
+   "effort": "1 week (drop-in via SMP)",
+   "verdict": "recommend",
+   "notes": "Official paper ('UNet3+: Re-thinking full-resolution path for image segmentation', Computers in Biology and Medicine, 2021) could not be re-verified via DOI in this session — mark paper as unverified if you cite it; the repo/architecture is solid. The claimed official repo zcasky/UNet3Plus returns 404 (checked)."
+  },
+  {
+   "name": "nnU-Net v2 (ResEnc presets, 2024–2025 state)",
+   "type": "framework+architecture",
+   "what_it_does": "Self-configuring segmentation framework: dataset fingerprint → preprocessing, normalization, patch size, batch size, network topology, augmentation, 5-fold splits, model selection and postprocessing — all automated. v2 adds hierarchical labels, unified trainer, native multi-GPU DDP, cross-platform support. 2024 'ResEnc' presets add ResNet/ConvNeXt-style residual encoders: nnUNetResEncUNetM (~9 GB VRAM), L (~23 GB, recommended default), XL (~37 GB) (official resenc_presets.md table, verified). Supports supervised pretraining/finetuning (-pretrained_weights) and finetuning from nnssl self-supervised checkpoints (docs verified).",
+   "pc12_fit": "Excellent as a baseline and as the mainline trainer for the cell-body class: automates exactly the 5-fold-by-image protocol the team planned, handles 2D natively, and ResEnc L fits the A5000 24 GB. At n≈70 the self-configured aggressive data augmentation is the main reason to use it over a hand-rolled loop.",
+   "neurite_support": "No — default loss is Dice+CE; no clDice, no topology awareness. You must subclass nnUNetTrainer (supported, documented) to add clDice/Tversky for the neurite class, or run the neurite head in a separate custom loop.",
+   "code": "https://github.com/MIC-DKFZ/nnUNet",
+   "license": "Apache-2.0 (verified)",
+   "compute": "Standard 2D config: well under 10 GB; ResEnc L: ~23 GB (3D table; 2D less) → A5000 OK; ResEnc XL: ~37 GB → use the A6000 48 GB",
+   "small_data_fit": "Strong: designed for exactly 10s–1000s of labeled samples; augmentation + 5-fold + postprocessing auto-tuned from the data itself. Known caveat from the 2024 'nnU-Net Revisited' paper (arXiv:2404.09556, verified): validate carefully — small datasets amplify overfitting to fold-split artifacts, so keep your planned split-by-image CV and report per-fold variance.",
+   "effort": "~1 week to pipeline; then unattended overnight runs",
+   "verdict": "recommend",
+   "notes": "Known failure modes at small n: (1) fingerprint-driven patch/batch choices can be suboptimal when the dataset is tiny — inspect the generated plans JSON and hand-edit if needed (plans are editable, documented); (2) it cannot learn connectivity for tubular structures (no clDice by default); (3) cascade configs are skipped for 2D-only data (fine). VRAM table and ResEnc L recommendation are from the official repo docs (checked)."
+  },
+  {
+   "name": "clDice / soft-clDice loss (Shit et al., CVPR 2021)",
+   "type": "loss/technique-architecture",
+   "what_it_does": "Connectivity-preserving loss computed on the intersection of masks and their morphological skeletons; the paper proves clDice guarantees topology preservation up to homotopy equivalence for binary 2D/3D segmentation, and the differentiable soft-clDice loss improves connectivity, graph similarity and volumetric scores on five datasets including vessels, roads AND NEURONS (2D and 3D) (abstract verified).",
+   "pc12_fit": "This is the single most important technique for the neurite class: it directly optimizes what your metrics (clDice, Betti error) measure, and the paper's benchmark set explicitly includes neuron data — the closest domain to PC12 neurites.",
+   "neurite_support": "Yes — designed and validated for tubular structures incl. neurons, not just vessels. Most 'topology-aware' published work on real cells uses this loss.",
+   "code": "https://github.com/jocpae/clDice (official, MIT, verified; PyTorch+TF); also https://github.com/dmitrysarov/clDice (PyTorch, no license) and https://github.com/jacobkoenig/clDice-Loss (Keras)",
+   "license": "MIT (jocpae/clDice, verified)",
+   "compute": "Loss only; negligible overhead (skeletonization per batch)",
+   "small_data_fit": "Essential at n≈70: acts as a structural prior that substitutes for data — the network gets per-iteration topological feedback instead of pure pixel statistics.",
+   "effort": "2–5 days to integrate",
+   "verdict": "recommend",
+   "notes": "Combine as weighted sum (e.g., 0.5·Dice + 0.5·soft-clDice, or Dice+Tversky+clDice) — soft-clDice alone can be noisy in early training when predictions are sparse. The official repo is small (loss module); drop-in PyTorch. The paper is arXiv:2003.07311v7 (verified)."
+  },
+  {
+   "name": "SA-UNet (Spatial Attention U-Net, 2020)",
+   "type": "architecture",
+   "what_it_does": "Lightweight U-Net with a spatial-attention gate and structured dropout convolution blocks, explicitly built so it 'does not require thousands of annotated training samples'; SOTA on DRIVE (40 training images) and CHASE_DB1 (60) retinal vessel benchmarks (abstract verified).",
+   "pc12_fit": "Good thin-structure template: retinal vessels are the standard proxy problem for neurites in 2D, and this paper is one of the few vessel-specialist architectures with explicit small-data evidence (40–60 images) plus overfitting control (structured dropout) that transfers to n≈70.",
+   "neurite_support": "Yes (by design for thin tubular structures); connectivity still needs a clDice-style loss to be guaranteed.",
+   "code": "https://github.com/changluguo/SA-UNet (author repo; URL not re-verified in this session — verify before citing)",
+   "license": "Unverified (repo not opened in this session)",
+   "compute": "~3–5 GB at 512×512",
+   "small_data_fit": "Explicit: paper's stated premise is few-hundred-to-tens of annotated images with augmentation + structured dropout.",
+   "effort": "1 week",
+   "verdict": "watch",
+   "notes": "Use as the 'vessel-transfer' ablation arm: retrain SA-UNet on PC12 neurites with clDice. If it beats plain U-Net on thin-structure recall, it's a clean thesis result on domain transfer (retina→neurons)."
+  },
+  {
+   "name": "DR-VNet (Dense Residual U-Net, 2021)",
+   "type": "architecture",
+   "what_it_does": "Combines residual dense blocks with squeeze-and-excitation residual blocks to recover thin/tiny vessels; validated on three retinal datasets with sensitivity gains specifically on small vessels (abstract verified).",
+   "pc12_fit": "Solid thin-structure specialist for the neurite head; SENet blocks give channel recalibration that helps when neurites are a tiny fraction of pixels.",
+   "neurite_support": "Yes — optimized for sensitivity on the thinnest tubular structures (the same failure mode as faint PC12 neurites in phase contrast).",
+   "code": "Paper: arXiv:2111.04739 (verified). Official code: not found/verified in this session.",
+   "license": "Unverified",
+   "compute": "~5 GB at 512×512",
+   "small_data_fit": "Good — built on the same few-hundred-image retinal benchmark culture (DRIVE/CHASE/STARE).",
+   "effort": "1–2 weeks (reimplementation if no official code)",
+   "verdict": "watch",
+   "notes": "Same role as SA-UNet: domain-transfer ablation. If only one vessel-specialist arm fits in 15 weeks, pick SA-UNet (verified paper + attention mechanism is easier to justify to a reviewer)."
+  },
+  {
+   "name": "TransUNet (2021)",
+   "type": "architecture",
+   "what_it_does": "CNN encoder → tokenized features → Transformer (global self-attention) → U-Net decoder with high-res skip features. Strong long-range context modeling for medical segmentation (abstract verified).",
+   "pc12_fit": "Weakest fit of the transformer options for n≈70: the transformer encoder is the most data-hungry component, and the 2024 'nnU-Net Revisited' benchmark (arXiv:2404.09556, verified) found CNN U-Net variants consistently outperform transformer models (SwinUNETR, nnFormer) even with 100–1000+ samples — the gap only grows when data shrinks. The 48 GB A6000 can afford the FLOPs, but extra VRAM does not substitute for 10× the labeled data.",
+   "neurite_support": "Partial — global attention may help keep long neurite context, but no topology guarantee; still needs clDice.",
+   "code": "https://github.com/Beckschen/transunet (official, verified)",
+   "license": "Apache-2.0 (verified)",
+   "compute": "~10 GB class at 512×512 2D (single-GPU design; fits 24 GB) — typical, not re-measured in this session",
+   "small_data_fit": "Poor-to-fair: no small-data evidence in the paper (trained on large abdominal/cardiac datasets); transformer inductive bias needs data to beat plain CNNs.",
+   "effort": "2–3 weeks",
+   "verdict": "watch",
+   "notes": "Worth running as ONE ablation row (it's cheap with nnU-Net-style automation and you have compute) to show 'transformer encoder does not help at n≈70' — that's a defensible negative result for the thesis. Do not make it the mainline."
+  },
+  {
+   "name": "Swin-UNet (ECCV Workshops 2022)",
+   "type": "architecture",
+   "what_it_does": "Pure hierarchical Swin-Transformer U-Net with shifted windows; competitive on abdominal/ACDC datasets.",
+   "pc12_fit": "Same small-data objection as TransUNet, plus practical issues: the official repo has NO license file (verified via GitHub API), and 2024 benchmarking (nnU-Net Revisited, arXiv:2404.09556) shows transformer UNets losing to CNN UNets including residual-encoder CNNs.",
+   "neurite_support": "Partial — windowed attention sees local context; no topology mechanism.",
+   "code": "https://github.com/HuCaoFighting/Swin-Unet (official, verified; no license file, verified)",
+   "license": "None (no LICENSE in repo, verified) — reimplementation required for a distributable app",
+   "compute": "~10–20 GB at 512×512 2D",
+   "small_data_fit": "Poor: no small-data evidence; data-hungry hierarchical transformer.",
+   "effort": "2–3 weeks incl. licensing workaround",
+   "verdict": "skip",
+   "notes": "Skip for the mainline. If a reviewer asks for a Swin comparison, one overnight 5-fold run on the A6000 from a clean-room reimplementation suffices; do not build the final app on unlicensed code."
+  },
+  {
+   "name": "Attention U-Net (2018)",
+   "type": "architecture",
+   "what_it_does": "U-Net with attention gates that learn to suppress irrelevant regions while highlighting salient structures; minimal overhead, improves sensitivity across training sizes (abstract verified).",
+   "pc12_fit": "Moderate: attention gates help focus on cells/neurites against busy phase-contrast backgrounds (other cells, debris), but the paper's evidence is CT abdomen, not microscopy or tubular structures. At n≈70 the extra gate parameters are mild data hunger.",
+   "neurite_support": "Partial — helps sensitivity, says nothing about connectivity.",
+   "code": "https://github.com/LeeJunHyun/Image_Segmentation (PyTorch, no license, verified in search results); also in https://github.com/yingkaisha/keras-unet-collection (MIT, verified)",
+   "license": "MIT (keras-unet-collection); unlicensed (LeeJunHyun)",
+   "compute": "~3–5 GB at 512×512",
+   "small_data_fit": "Fair — attention helps small-data generalization somewhat, but no explicit small-data study.",
+   "effort": "1 week (drop-in via keras-unet-collection or SMP-style reimplementation)",
+   "verdict": "watch",
+   "notes": "Candidate upgrade of the cell-body head if background clutter hurts recall in week-4 evaluation. Not a neurite solution by itself."
+  },
+  {
+   "name": "SegResNet (2018)",
+   "type": "architecture",
+   "what_it_does": "3D MRI segmentation network with autoencoder (latent bottleneck) regularization of skip connections, reducing overfitting; baseline from the BrainLes 2018 workshop (reference verified in nnU-Net official docs).",
+   "pc12_fit": "The autoencoder regularization is a legitimate small-data device, but the design is 3D-oriented; in 2D it reduces to a regularized U-Net with no edge over UNet++ at equal parameter budget.",
+   "neurite_support": "No special support.",
+   "code": "In https://github.com/Project-MONAI/MONAI (Apache-2.0, reference verified via nnU-Net docs; MONAI repo not opened this session)",
+   "license": "Apache-2.0 (MONAI)",
+   "compute": "~5–10 GB at 512×512",
+   "small_data_fit": "Fair — regularization helps, but no thin-structure specialization and weaker evidence than UNet++ for your regime.",
+   "effort": "1–2 weeks",
+   "verdict": "watch",
+   "notes": "Keep as a secondary baseline if you want to show regularization beats plain U-Net at n≈70; low priority otherwise."
+  },
+  {
+   "name": "FPN / FPUNet (feature pyramid decoder)",
+   "type": "architecture",
+   "what_it_does": "Multi-scale top-down feature pyramid with lateral connections (object-detection origin, arXiv:1612.03144 verified); as a segmentation decoder (FPUNet) it fuses multi-resolution features for pixel prediction.",
+   "pc12_fit": "Decent general decoder (multi-scale helps when cell bodies vary in size), but for thin neurites the top-down upsampled path is exactly where 1-px detail is destroyed — opposite of what you want. Use it for the cell-body head only, if at all.",
+   "neurite_support": "Poor — pyramid upsmoothing is the classic cause of broken thin strands.",
+   "code": "https://github.com/qubvel-org/segmentation_models.pytorch ('fpn'/'fpn_unet', MIT, verified)",
+   "license": "MIT",
+   "compute": "~4–8 GB at 512×512",
+   "small_data_fit": "Fair; no thin-structure evidence.",
+   "effort": "1 week",
+   "verdict": "skip",
+   "notes": "Not a differentiator for this task; UNet3+ is strictly better for thin structures at the same cost. Listed so it can be explicitly ruled out in the proposal."
+  },
+  {
+   "name": "DS-UNet (dual-stream U-Net, IEEE Access 2021)",
+   "type": "architecture",
+   "what_it_does": "Image-feature-fusion dual-stream U-Net benchmarked on retinal vessel segmentation (image stream + feature stream with parallel multi-scale convolutions).",
+   "pc12_fit": "Conceptually fine (multi-scale dual stream for thin vessels), but the original repo could not be verified: GitHub search returned only a 2024 third-party clone without a license (GuanLi0818/DSUNet, 0 stars, no license, verified in search results).",
+   "neurite_support": "Yes (vessel-designed), unverified in practice.",
+   "code": "Not verifiable: https://github.com/GuanLi0818/DSUNet (third-party, no license, created 2024) — treat as unofficial",
+   "license": "Unverified/none",
+   "compute": "~4–8 GB",
+   "small_data_fit": "Unverified (original paper's datasets are standard retinal, ~40–2000 images).",
+   "effort": "2 weeks (reimplementation risk)",
+   "verdict": "skip",
+   "notes": "Skip unless you can verify the original IEEE Access 2021 paper and official code (not found in arXiv/Crossref/GitHub in this session). SA-UNet covers the same niche with verifiable assets."
+  },
+  {
+   "name": "VesselMUNet (U-Net + multi-head attention, vessel segmentation)",
+   "type": "architecture",
+   "what_it_does": "Reported in the field as a retinal-vessel U-Net enhanced with a multi-head attention module. IMPORTANT: could NOT be verified in this session — github.com/JianpengZhang/VesselMUNet returns 404 (user jianpengzhang exists but has no such repo, user repo list checked), GitHub code search for 'VesselMUNet' returns 0 results, arXiv full-text search returns 0, Crossref title search returns 0.",
+   "pc12_fit": "Unverifiable — do not build the plan on it.",
+   "neurite_support": "Reportedly vessel-focused; unverified.",
+   "code": "None found (verified absence, not absence of effort)",
+   "license": "Unverified",
+   "compute": "Unknown",
+   "small_data_fit": "Unknown",
+   "effort": "Unknown",
+   "verdict": "skip",
+   "notes": "Flag to the team: the commonly cited 'VesselMUNet' reference appears broken/untraceable in the public record as of this check. Replace with SA-UNet or DR-VNet (both verified). If you have the PDF of the paper, verify its exact venue/DOI before citing it in the thesis."
+  },
+  {
+   "name": "TransNewSeg (transformer retinal vessel segmentation)",
+   "type": "architecture",
+   "what_it_does": "Reported as a U-shaped transformer for retinal vessel segmentation. Like VesselMUNet, it could NOT be verified here: GitHub code search 'TransNewSeg' = 0 results, arXiv = 0, Crossref title search = 0.",
+   "pc12_fit": "Unverifiable.",
+   "neurite_support": "Reportedly vessel-focused; unverified.",
+   "code": "None found (verified absence)",
+   "license": "Unverified",
+   "compute": "Unknown",
+   "small_data_fit": "Unknown (transformers at n≈70 are the worst case anyway)",
+   "effort": "Unknown",
+   "verdict": "skip",
+   "notes": "Same treatment as VesselMUNet: verify the primary source (likely an IEEE Access 2024 paper) before citing; do not plan around it. If it exists, its transformer design carries the same small-data caveat as TransUNet."
+  },
+  {
+   "name": "MM-UNet (Morph Mamba U-Net, 2025)",
+   "type": "architecture",
+   "what_it_does": "2025 retinal vessel segmentation network using Mamba (state-space) blocks for morphologically-aware thin-vessel modeling (repo description verified).",
+   "pc12_fit": "Interesting 2025 SOTA for thin tubular structures, but: Mamba ONNX export for a desktop app is the weak link (operator support is still maturing), and it's a 2025 paper with a young codebase to adopt into a 15-week course project.",
+   "neurite_support": "Yes — designed for thin vessels with topology in mind.",
+   "code": "https://github.com/liujiawen-jpg/MM-UNet (verified)",
+   "license": "MIT (verified)",
+   "compute": "~8–16 GB (typical SSM 2D net; not measured here)",
+   "small_data_fit": "Unknown — retinal benchmarks are large (DRIVE/CHASE/STARE/HF5).",
+   "effort": "3+ weeks (new paradigm, export risk)",
+   "verdict": "watch",
+   "notes": "Keep as a literature-comparison point for 'thin-structure methods 2024–25'. Do not build the deliverable on Mamba: ONNX runtime support for ssm ops is the specific risk to the offline-desktop-app requirement."
+  },
+  {
+   "name": "MIX-Transformer (2021)",
+   "type": "architecture",
+   "what_it_does": "Multi-scale interleaved cross-attention transformer for medical segmentation (paper cited in the brief; not re-verified in this session — the arXiv IDs commonly associated with it could not be confirmed).",
+   "pc12_fit": "Data-hungry transformer with, to the best of this session's verification, no official open-source code — a bad fit for a 2-person, 15-week, must-run-on-ONNX project.",
+   "neurite_support": "No specific support.",
+   "code": "Not verified (none found this session)",
+   "license": "Unverified",
+   "compute": "Unknown",
+   "small_data_fit": "Poor (transformer, no small-data evidence).",
+   "effort": "3+ weeks (reimplementation risk)",
+   "verdict": "skip",
+   "notes": "Drop from the shortlist; the verified transformer options (TransUNet as ablation) cover the 'we tried transformers' requirement."
+  },
+  {
+   "name": "Cellpose (for context)",
+   "type": "tool/foundation baseline",
+   "what_it_does": "StarDist-style amortized cell segmentation with style transfer; strong pretrained models for generic cell bodies across microscopes.",
+   "pc12_fit": "Useful zero-shot/first-pass baseline on your 70 images (free labeled-prior), and a comparison row — but it is cell-BODY centric.",
+   "neurite_support": "No — it does not segment neurites; do not count it toward the neurite pipeline.",
+   "code": "https://github.com/musec-lab/cellpose (known from project brief; repo not re-opened this session)",
+   "license": "MIT (known; not re-verified this session)",
+   "compute": "~2 GB inference",
+   "small_data_fit": "Excellent as a zero-shot baseline; fine-tuning possible but not needed at n≈70 for the comparison row.",
+   "effort": "1 day (zero-shot)",
+   "verdict": "baseline",
+   "notes": "Run zero-shot Cellpose + StarDist in week 1 on a 10-image sample to calibrate how far the supervised pipeline must beat the off-the-shelf prior — that number anchors the thesis motivation."
+  }
+ ],
+ "sources": [
+  {
+   "title": "clDice — A Novel Topology-Preserving Loss Function for Tubular Structure Segmentation (Shit et al., CVPR 2021)",
+   "url": "https://arxiv.org/abs/2003.07311",
+   "supports": "clDice/soft-clDice as the topology-aware loss; benchmark includes neurons (2D/3D), vessels, roads; topology preservation guarantee",
+   "checked": true
+  },
+  {
+   "title": "clDice official code (jocpae/clDice)",
+   "url": "https://github.com/jocpae/clDice",
+   "supports": "MIT-licensed runnable PyTorch/TF implementation of clDice loss + metric",
+   "checked": true
+  },
+  {
+   "title": "U-Net: Convolutional Networks for Biomedical Image Segmentation (Ronneberger et al., 2015)",
+   "url": "https://arxiv.org/abs/1505.04597",
+   "supports": "Small-data evidence anchor: trained from very few images with augmentation; won ISBI cell tracking on phase-contrast/DIC cell images",
+   "checked": true
+  },
+  {
+   "title": "Pytorch-UNet (milesial)",
+   "url": "https://github.com/milesial/Pytorch-UNet",
+   "supports": "GPL-3.0 11.6k-star plain U-Net implementation (license verified via API)",
+   "checked": true
+  },
+  {
+   "title": "UNet++: A Nested U-Net Architecture for Medical Image Segmentation (Zhou et al., 2018)",
+   "url": "https://arxiv.org/abs/1807.10165",
+   "supports": "UNet++ +3.9 IoU over U-Net; evaluated on nuclei segmentation in microscopy",
+   "checked": true
+  },
+  {
+   "title": "UNetPlusPlus official (MrGiovanni/UNetPlusPlus)",
+   "url": "https://github.com/MrGiovanni/UNetPlusPlus",
+   "supports": "Official code; ASU non-commercial license (LICENSE file read)",
+   "checked": true
+  },
+  {
+   "title": "segmentation_models.pytorch (qubvel-org)",
+   "url": "https://github.com/qubvel-org/segmentation_models.pytorch",
+   "supports": "MIT, 500+ pretrained backbones × UNet/UNet++/UNet3+/FPN decoders — the small-data backbone lever (ResNet/EfficientNet/ConvNeXt/Swin)",
+   "checked": true
+  },
+  {
+   "title": "keras-unet-collection (yingkaisha)",
+   "url": "https://github.com/yingkaisha/keras-unet-collection",
+   "supports": "MIT Keras implementations of U-Net/UNet++/UNet3+/AttU-Net/Swin-UNet with optional ImageNet backbones",
+   "checked": true
+  },
+  {
+   "title": "TransUNet: Transformers Make Strong Encoders for Medical Image Segmentation (Chen et al., 2021)",
+   "url": "https://arxiv.org/abs/2102.04306",
+   "supports": "TransUNet architecture + official Apache-2.0 repo (Beckschen/transunet, verified)",
+   "checked": true
+  },
+  {
+   "title": "nnU-Net: Automated Design of Deep Learning Methods for Biomedical Image Segmentation (Isensee et al., 2019/2021)",
+   "url": "https://arxiv.org/abs/1904.08128",
+   "supports": "nnU-Net framework: automated pipeline, 19 challenges, from-scratch biomedical design",
+   "checked": true
+  },
+  {
+   "title": "nnU-Net v2 (MIC-DKFZ/nnUNet) — README, changelog, resenc_presets.md, pretraining docs",
+   "url": "https://github.com/MIC-DKFZ/nnUNet",
+   "supports": "2024–2025 state: Apache-2.0; ResEnc M/L/XL presets (L recommended, ~23 GB VRAM); unified trainer; DDP; pretrain→finetune and nnssl-checkpoint finetuning; editable plans JSON; 2D support",
+   "checked": true
+  },
+  {
+   "title": "nnU-Net Revisited: A Call for Rigorous Validation in 3D Medical Image Segmentation (Isensee et al., 2024)",
+   "url": "https://arxiv.org/abs/2404.09556",
+   "supports": "CNN U-Nets (incl. ResNet/ConvNeXt) + nnU-Net + scaling beat transformers; validation-rigor warnings relevant to n≈70",
+   "checked": true
+  },
+  {
+   "title": "Attention U-Net: Learning Where to Look for the Pancreas (Oktay et al., 2018)",
+   "url": "https://arxiv.org/abs/1804.03999",
+   "supports": "Attention U-Net architecture and its (non-microscopy) evaluation evidence",
+   "checked": true
+  },
+  {
+   "title": "SA-UNet: Spatial Attention U-Net for Retinal Vessel Segmentation (Guo et al., 2020)",
+   "url": "https://arxiv.org/abs/2004.03696",
+   "supports": "Vessel-specialist architecture explicitly designed for few annotated samples; SOTA on DRIVE/CHASE_DB1; structured dropout for overfitting",
+   "checked": true
+  },
+  {
+   "title": "DR-VNet: Retinal Vessel Segmentation via Dense Residual UNet (Karaali et al., 2021)",
+   "url": "https://arxiv.org/abs/2111.04739",
+   "supports": "Thin/tiny-vessel sensitivity via dense residual + SE blocks; retinal transfer template",
+   "checked": true
+  },
+  {
+   "title": "A Novel Focal Tversky Loss Function With Improved Attention U-Net for Lesion Segmentation (Abraham & Khan, ISBI 2019)",
+   "url": "https://api.crossref.org/works/10.1109/isbi.2019.8759329",
+   "supports": "Focal-Tversky loss (imbalance-aware) — DOI record verified via Crossref",
+   "checked": true
+  },
+  {
+   "title": "focal-tversky-unet (nabsabraham)",
+   "url": "https://github.com/nabsabraham/focal-tversky-unet",
+   "supports": "Official code for the ISBI 2019 loss; no LICENSE file (API: license=null) → copy the loss, don't vendor the repo",
+   "checked": true
+  },
+  {
+   "title": "Swin-UNet: Unet-like Pure Transformer for Medical Image Segmentation (Cao et al., ECCV Workshops 2022)",
+   "url": "https://github.com/HuCaoFighting/Swin-Unet",
+   "supports": "Official Swin-UNet repo — verified NO license file (GitHub API), hence skip for distributable app",
+   "checked": true
+  },
+  {
+   "title": "Swin-Unet paper (ECCV 2022 Workshops, DOI 10.1007/978-3-031-25066-8_9)",
+   "url": "https://api.crossref.org/works/10.1007/978-3-031-25066-8_9",
+   "supports": "Swin-UNet paper record verified via Crossref",
+   "checked": true
+  },
+  {
+   "title": "µMatch: Foundation Models for Semi-supervised Learning and Domain Adaptation in EM (Freitag et al., 2026)",
+   "url": "https://arxiv.org/abs/2606.21605",
+   "supports": "2024–25 evidence that semi-supervised foundation-model methods improve neurite segmentation in EM — template for the pseudo-labeling bold idea",
+   "checked": true
+  },
+  {
+   "title": "Pixel Embedding Method for Tubular Neurite Segmentation (Fu et al., 2025)",
+   "url": "https://arxiv.org/abs/2507.23359",
+   "supports": "2025 neurite segmentation: pixel-embedding network → SWC neuron trees + topological assessment metric; fMOST dataset; directly relevant recent-work citation",
+   "checked": true
+  },
+  {
+   "title": "ADNP-15: Open-Source Histopathological Dataset for Neuritic Plaque Segmentation (Zhao et al., 2025)",
+   "url": "https://arxiv.org/abs/2505.05041",
+   "supports": "2025 neurite-structure benchmark: five-model + stain-normalization comparison; open dataset — relevant for method-benchmarking context",
+   "checked": true
+  },
+  {
+   "title": "MM-UNet: Morph Mamba U-shaped Networks for Retinal Vessel Segmentation (2025)",
+   "url": "https://github.com/liujiawen-jpg/MM-UNet",
+   "supports": "2025 Mamba thin-vessel network, MIT-licensed — watch item; ONNX export risk flagged for desktop app",
+   "checked": true
+  },
+  {
+   "title": "Feature Pyramid Networks for Object Detection (Lin et al., 2016)",
+   "url": "https://arxiv.org/abs/1612.03144",
+   "supports": "FPN origin; basis for FPN-as-segmentation-decoder candidate (ruled out for thin structures)",
+   "checked": true
+  },
+  {
+   "title": "GitHub code-search results: VesselMUNet (0 results), TransNewSeg (0 results), zcasky/UNet3Plus (404), JianpengZhang/VesselMUNet (404, user repo list checked)",
+   "url": "https://api.github.com/search/repositories?q=VesselMUNet",
+   "supports": "Verified absence of public repos for VesselMUNet and TransNewSeg; arXiv/Crossref title searches also returned 0 — both listed as skip with 'unverified primary source'",
+   "checked": true
+  }
+ ],
+ "bottom_line": "For a 2-person, 15-week team with n≈70 images and 24+48 GB GPUs, the literature points to one clear mainline: a CNN U-Net family model (plain U-Net, UNet++, or UNet3+ — all ~same parameter budget, all runnable on the A5000, all ONNX-exportable) trained inside nnU-Net v2 for its free augmentation/5-fold/postprocessing automation, with a per-class multi-objective loss = Dice/Tversky for cell bodies + soft-clDice (jocpae/clDice, MIT) for neurites, since the clDice paper is the only topology-aware loss with proven guarantees AND a validated neuron benchmark. The 2024 'nnU-Net Revisited' evidence (arXiv:2404.09556) says transformers (TransUNet/Swin-UNet) lose to CNN U-Nets even at 100–1000 samples, so treat them as one ablation row, not the mainline; and note that the frequently-cited VesselMUNet and TransNewSeg repos could not be verified in the public record (404s/zero search hits) — do not build on them. The three highest-leverage differentiators that fit the budget: (1) semi-supervised pseudo-labeling on the unlabeled lab archive (the only realistic data-scaling lever), (2) making Betti-error/clDice-score the headline metric and demonstrating DSC≠topology, (3) a skeleton-graph morphometrics layer validated against expert-traced skeletons. Expected effort: weeks 1–3 baseline (Cellpose zero-shot + nnU-Net U-Net 5-fold), weeks 4–9 mainline with clDice + semi-supervision, weeks 10–15 graph validation, ONNX export, and XAI — comfortably within 15 weeks on the stated hardware."
+}

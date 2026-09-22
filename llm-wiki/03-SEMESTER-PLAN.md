@@ -2,7 +2,9 @@
 
 > Scope: **1 semester, 2 people** (Gozde `G`, Berke `B`, both `E`). This is the
 > **improved** version of the TÜSEB base, scaled to a real student project.
-> The TÜSEB Gantt (12-month, 4 WP) is the reference; we compress + add rigor.
+> The TÜSEB base is the 2026 NTI application (`TUSEB/bolumler/`; 24 months,
+> 5 WP) — concept canon per **D14**; `[SUPERSEDED BY D14]` 12-month / 4 WP
+> reference was the 2025 NeuroMind PDF.
 >
 > **Weeks are relative** (W1–W15). Exact calendar dates stay `[OPEN]` by choice —
 > we track weeks, not dates.
@@ -30,13 +32,13 @@
 | A4 | Dataset from the Biomed dept: **≈ 70 labeled images today**, more in ~2 weeks | `[CONFIRMED]` user, W1 — see `15-SMALL-DATA-STRATEGY` |
 | A5 | Working capacity ≈ **10–15 h/person/week** combined on this project | `[OPEN]` |
 | A6 | **Compute: RTX A5000 (24 GB) + RTX A6000 (48 GB) available** | `[CONFIRMED]` user, W1 session 3 — see ADR **D12** |
-| A7 | Two microscopies in scope: **phase-contrast** + **fluorescence** | `[BASE]` |
+| A7 | Two microscopies in scope: **phase-contrast** + **fluorescence** | `[BASE26]` |
 
 > A4 is now **answered**, and the answer reshaped the technical plan: at n≈70 the
 > binding constraint is labeled data, not architecture. Every model/metric
 > decision downstream of this is governed by **`15-SMALL-DATA-STRATEGY.md`**.
-> ~~A6 is the remaining blocker~~ — **A6 resolved (D11)**: two datacenter GPUs
->
+> ~~A6 is the remaining blocker~~ — **A6 resolved (D12)**: A5000 24 GB +
+> A6000 48 GB; compute is no longer a constraint.
 > **W15 retrospective note:** A2 is what makes this project unusual to schedule —
 > six mandatory presentations means work is sequenced by *demoability*, not by
 > technical dependency order. That sequencing lives in **`13-SUNUM-PLAN.md`**.

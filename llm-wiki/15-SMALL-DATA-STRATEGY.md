@@ -13,6 +13,17 @@
 | Augmentation planned | yes | `[PLANNED]` |
 | Effective sample size after augmentation | **still ≈ 70 independent images** | see §6 |
 
+**2026-09-22 (araştırma):** bu dosyanın her kararı, 6 paralel birincil-kaynak
+taramasıyla **doğrulandı ve keskinleştirildi** — tam kanıt:
+`16-ARCHITECTURE-RESEARCH.md`. Keskinleşenler: §1 → decoder ailesi {U-Net,
+UNet3+, UNet++} + nnU-Net v2 ResEnc L (D13); §2 → "nnU-Net Revisited"
+(arXiv:2404.09556) transformer'ların n≈70'de kaybettiğini sayıyla gösterdi;
+§7 → loss = Tversky(0.3/0.7) + **soft-clDice** (nörit); §8 → W6 kapısı 5 FM'ye
+çıktı (Cellpose-SAM/μ-SAM+APG/CellSAM/StarDist/SAM) + LoRA-on-SAM kolu — ve
+**hiçbir FM nörit segmente etmiyor**, bu yüzden nörit kolu klasik
+skeleton-graph (D13); §9 → batch 2 = **topology-aware active learning** +
+**Tent TTA** test yatağı.
+
 **The governing sentence:** segmentation quality here is limited by the number
 of *labeled pixels we actually have*, not by architecture cleverness. Every
 decision below is judged by **"does this extract more from 70 images?"** —

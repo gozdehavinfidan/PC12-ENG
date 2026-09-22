@@ -3,9 +3,10 @@
 # Everything below must therefore NEVER be committed.
 # ---------------------------------------------------------------------------
 
-# Unpublished TUSEB grant application - do not publish
+# Unpublished TUSEB grant applications - do not publish
 *.pdf
 Tuseb_2025_Basvuru_Eren.pdf
+TUSEB/
 
 # Raw / labeled microscopy data (not ours to redistribute; also large)
 data/
@@ -55,3 +56,5 @@ example ui base.png
 # Yerelde kalir (siz okursunuz), herkese acik depoya girmez.
 llm-wiki/02-BASE-PROJECT-TUSEB.md
 llm-wiki/LOG.md
+# Proje klavuzu - yayimlanmamis rapor icerigi ozetledigi icin yerele ozel (double-click ile acilir)
+KLAVUZ.html

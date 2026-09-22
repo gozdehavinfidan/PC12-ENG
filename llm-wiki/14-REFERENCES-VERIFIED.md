@@ -144,10 +144,89 @@ Do not cite these until checked; they are recorded so we do not lose the lead.
 
 | Lead | Where it came from | What to verify |
 |------|--------------------|----------------|
-| NeuroQuantify | `12-REFERENCES.md` R1 / `05-MODELS.md` | Does the paper exist under the stated authors/year? Does the repo exist? Licence? Does its dataset overlap ours? |
-| AutoNeuriteJ | `12-REFERENCES.md` R2 | DOI resolves? Fiji/ImageJ plugin still available? |
 | GATS (3D axon topology) | search result, arXiv:2311.04116 | Relevant to 2D? Probably 3D-only — check before investing |
 | ContextLoss | search result, arXiv:2506.11134 | Topology-preserving alternative to clDice — newer, less established |
+
+~~NeuroQuantify~~ → **verified 2026-09-22 (R3)**: arXiv:2310.10978 + repo
+`StanleyZ0528/neural-image-segmentation` doğrulandı; **LICENSE dosyası YOK** —
+incelenebilir, kopyalanamaz; 20 µm branch-pruning sabiti kağıttan alıntı.
+~~AutoNeuriteJ~~ → **verified 2026-09-22 (R3)**: PLOS ONE 15(7):e0234529,
+DOI 10.1371/journal.pone.0234529; akson kuralı (en uzun yol, >2× ikinci uzun
+ve >100 px) + minimum-intensity loop-cut — `16` §2'de kullanımda.
+
+---
+
+## 2026-09-22 architecture research (R1–R6, all `[V-SEARCH]` + repo LICENSE checks)
+
+Full per-claim detail + `supports` notes: `_research/R*.json` (raw scout
+payloads). Entries here are the ones the plan now depends on.
+
+**Benchmark / method-of-record**
+- **Revisiting foundation models for cell instance segmentation** — MIDL 2026,
+  arXiv:2603.17845. `[V-READ]` (tam okundu) CellPose-SAM / CellSAM / μ-SAM(+APG) /
+  SAM2 / SAM3 head-to-head, 36 dataset; label-free mikroskopide üst-3; mSA/IoU
+  matching protokolü = W6 kapısının metrik reçetesi.
+- **nnU-Net Revisited: A Call for Rigorous Validation** — arXiv:2404.09556.
+  100–1000+ örnekte bile CNN U-Net(ler)+scaling, transformer'lara üstün →
+  TransUNet'in tek-ablation-satırı kararının kanıtı.
+- **Lost in the Folds: When Cross-Validation Is Not a Deep Ensemble** —
+  Kirscher et al., MICCAI 2026, arXiv:2605.18329. CV-fold ensemble = meşru ama
+  zayıf kalibreli proxy; gerçek 5-seed ensemble kalibrasyon/hata-tespitte üstün
+  → D13 ensemble kararı.
+
+**Morphometry stack (hepsi açık-lisans, pip)**
+- **TopoLoss** — arXiv:1906.05404 (NeurIPS 2019); kod `HuXiaoling/TopoLoss` (MIT).
+  Betti-match loss; 2×2 ablation'ın ikinci eksen.
+- **FilFinder** — `e-koch/FilFinder` (MIT): skeleton+graf+length-pruning;
+  NeuroQuantify'nin kullandığı kütüphane.
+- **pycircstat2** — `circstat/pycircstat2` (MIT): Rayleigh,
+  Mardia-Watson-Wheeler, Watson-Williams (circular açı istatistiği).
+- **ripser.py** — `scikit-tda/ripser.py` (MIT): persistence barcode (stretch metrik).
+- **SNT** — `morphonets/SNT` (GPL — output-level cross-check, depoya girmez):
+  Sholl (angular), Strahler, root-angle, TDA modülü.
+
+**XAI / uncertainty**
+- **Captum** — `pytorch/captum` (BSD-3): Integrated Gradients, NoiseTunnel.
+- **torch-uncertainty** — `torch-uncertainty/torch-uncertainty` (Apache-2.0,
+  NeurIPS D&B 2025): ensemble/ECE/temperature scaling/selective-classification.
+  ⚠ `pytorch-uncertainty` (jbshr + jacobgil) **404 — ölü paket**.
+- **pytorch-grad-cam** — `jacobgil/pytorch-grad-cam` (MIT, 13k★): fallback +
+  ViT reshape.
+
+**Data-efficiency**
+- **Simple Copy-Paste** — arXiv:2012.07177 (+CP2, 2203.11709): rijit-ünite
+  pasting'in nadir-sınıf kanıtı.
+- **Deep Active Learning (axon-myelin, histology)** — arXiv:1907.05143:
+  **14 ve 24 görsellik** veri setlerinde uncertainty-AL → tam n≈70 rejimi kanıtı.
+- **DINOv2** — arXiv:2304.07193, `facebookresearch/dinov2` (Apache-2.0):
+  pool ≥300 ise spike; Cell-DINO varyantı CC-BY-NC+FAIR-NC (gated).
+
+**Bold-ideas anchors**
+- **NeuNet** — arXiv:2312.14518 (AAAI 2024): skeleton+GNN nörön sınıflandırma;
+  5-4 spike'ın en yakın önceki çalışması (küçük-veri 2D PC12 versiyonu yok).
+- **SAMed** (`hitachinsk/SAMed`, MIT) + **peft-sam** (MIDL 2025) + Conv-LoRA
+  (2401.17868) + SAM-OCTA (2309.11758): LoRA-on-SAM kolu (5-7); SAM-OCTA açıkça
+  "birkaç yüz örnek → overfit → LoRA" der.
+- **Tent** — arXiv:2006.10726 (ICLR 2021): batch-2 shift robustluk protokolü (5-5);
+  LATTA (2510.05530) kararsızlık notu.
+- **Cross-modal distillation** — arXiv:2606.00928 (2026): FM teacher → 4 küçük
+  U-Net, +12 Dice, 23× parametre (kağıdın iddiası) → 5-10 stretch.
+- **Pixel Embedding → SWC** — arXiv:2507.23359 (2025): end-to-end image→SWC
+  kanıtı → 5-9 (pipeline distillasyonu).
+- **SAM2 cell tracking** (2509.09943) + **Trackastra** (2405.15700): 5-18
+  (time-lapse) — longitudinal veri teyidi `[OPEN]` bekliyor.
+
+**Negative results (doğrulanmış yokluk — alıntılamayın):**
+- **VesselMUNet**: repo 404, GitHub code search 0, arXiv 0, Crossref 0.
+- **TransNewSeg**: aynı dört kanıt.
+- **MoCell / DICE (foundation) / Cell-Clarity / "ISCE"**: çoklu arXiv+Crossref+
+  GitHub sorgusunda 0 sonuç; ISCE = μ-SAM karışıklığı.
+- **CRITIC repo** (CVPR 2020 UDA): birden fazla aday URL 404 — kaynağı
+  çözülene dek kullanılmaz. **STARDOM**: arXiv/GitHub'ta bulunamadı.
+
+**License traps (doğrulandı):** Cellpose ağırlıkları CC-BY-NC (kod BSD-3) ·
+ resmi UNetPlusPlus ASU-non-commercial · Swin-UNet lisanssız · Pytorch-UNet GPL ·
+ NeuroQuantify LICENSE yok · MM-UNet MIT ama ONNX riski.
 
 ---
 

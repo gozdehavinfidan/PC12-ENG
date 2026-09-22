@@ -1,0 +1,393 @@
+{
+ "area": "Foundation models for cell segmentation (zero-shot / few-shot / fine-tune) for PC12 phase-contrast + fluorescence morphometrics",
+ "candidates": [
+  {
+   "name": "Cellpose-SAM (v4.x, cpsam/cpsam_v2) + CellposeDINO (cpdino)",
+   "type": "foundation model (SAM/DINOv3 backbone + flow/star-convex decoder)",
+   "what_it_does": "Generalist 2D/3D cell & nucleus instance segmentation. Flow-field (star-convex vector) decoder on top of a SAM-ViT-L or DINOv3-ViT-L/B backbone; robust to shot noise, blur, anisotropy, channel shuffling, cell size; trained on 22,826 images / 3.34M cells (light microscopy + histopathology). Official human-in-the-loop fine-tuning in GUI/notebook; exports to BioImage.IO. Built-in models: cpsam_v2 (Jun 2026, low-contrast fix), cpsam (Apr 2025), cpdino, cpdino-vitb.",
+   "pc12_fit": "Excellent for cell BODIES in phase contrast: the MIDL 2026 benchmark (Archit & Pape, arXiv:2603.17845) found CellPose-SAM consistently in the top-3 on label-free (phase-contrast-type) microscopy datasets; the Cellpose paper itself reports phase-contrast (LIVEcell, HeLa) as a core training domain. Neurites: NO — it is a single-class star-convex instance model; its pretrained models target cyto/nuclei/both. Thin tubular neurites violate the star-convex-from-soma assumption (long 2-3 px arms will be dropped, truncated, or swallowed into the body mask), so it CANNOT represent the neurite class natively. You could fine-tune a custom class, but star-convex geometry is a poor shape prior for branching dendrites — expect clDice-style failure. Verdict: use it as the cell-body engine, not the neurite engine.",
+   "neurite_support": "No native neurite class; star-convex shape prior actively hostile to long thin branches (reasoned estimate from geometry; no PC12-neurite evaluation found in the paper)",
+   "code": "https://github.com/MouseLand/cellpose",
+   "license": "Code: BSD-3-Clause (permissive, fine for student + commercial-free use). CAVEAT from official README: ALL pretrained models and the annotated Cellpose dataset are CC-BY-NC (non-commercial) — fine for a thesis, not for a product. The README badge says 'GPL v3' but the LICENSE file is BSD-3-Clause (verified both; GitHub API reports bsd-3-clause).",
+   "compute": "Inference: tiny on RTX A5000 (seconds/image, ViT-L ~300M params, fits in <10 GB VRAM with margin to spare). Fine-tuning: hours overnight on A5000 (small CNN-flow decoder head trained on your 70 images + ROIs; the documented workflow assumes dozens of images, not thousands — the BIBM 2025 data-efficiency study (arXiv:2511.04803) confirms Cellpose fine-tunes effectively on small labeled sets).",
+   "small_data_fit": "Best-in-class: Cellpose 2.0 was explicitly designed for human-in-the-loop training on tens of images; n=70 labeled images + second batch is exactly the intended regime.",
+   "effort": "Low (pip install, GUI or 10-line API; train_Cellpose-SAM.ipynb provided)",
+   "verdict": "recommend",
+   "notes": "W6-gate zero-shot run: use cpsam_v2 (or cpdino) with a calibrated diameter; expect good cell-body instance masks on phase contrast, expect neurite loss. Fine-tune track: 2-5 h GPU + a few hundred clicks of ROI corrections; produces your own per-class models you own (train on your own labels — your labels aren't subject to CC-BY-NC). Instance masks: YES (labelmap) — best candidate for touching-cell counting."
+  },
+  {
+   "name": "StarDist 2D/3D (v1, plus 2025 single-shot extension)",
+   "type": "instance detector (star-convex polygon radii + NMS)",
+   "what_it_does": "CNN predicts per-pixel polygon radii along N rays + probability; NMS yields instances. Pretrained 2D_versatile_fluo (DSB2018 nuclei) and 2D_versatile_he. Multi-class instance+classification supported; built-in stardist.matching for PQ/precision/recall. 2025 paper (arXiv:2504.12078) shows single-shot star-convex variants beating Cellpose baseline on spatially-correlated objects.",
+   "pc12_fit": "Weaker than Cellpose zero-shot on phase contrast: pretrained models are FLUORESCENCE-nuclei / H&E only — no phase-contrast pretrained weight; zero-shot on PC12 brightfield/phase will underperform Cellpose (inference estimate; the MIDL 2026 survey lists StarDist among models that degrade on out-of-domain label-free data). BUT StarDist is the easiest to fine-tune from scratch on n=70: small U-Net-like model, ~1 h on A5000, TF or PyTorch. Same star-convex limitation: cell bodies fine, neurites no. 2D_versatile_fluo CAN be applied to your fluorescence channel if you have a body/stain channel and it happens to look like DSB2018-ish objects.",
+   "neurite_support": "No (star-convex shape prior; cannot represent long thin branches)",
+   "code": "https://github.com/stardist/stardist",
+   "license": "BSD-3-Clause (verified via GitHub API)",
+   "compute": "Inference: seconds/image on A5000. Fine-tune: ~1-2 h on A5000 for n≈50 images (well-trodden; notebook examples in repo).",
+   "small_data_fit": "Good for fine-tune track (designed for small datasets, strong augmentations), poor zero-shot for PC phase contrast.",
+   "effort": "Low",
+   "verdict": "baseline",
+   "notes": "Keep as the classic baseline in the 5-fold CV comparison table; its matching module (IoU-based PQ/F1) is a convenient drop-in metric implementation. Does NOT give a neurite class. Instance masks: YES."
+  },
+  {
+   "name": "CellSAM (vanvalenlab, Caltech)",
+   "type": "foundation model (SAM encoder + CellFinder box detector + box-prompted mask decoder)",
+   "what_it_does": "Object detector (CellFinder) proposes boxes that prompt SAM to emit cell instance masks. Trained on 10 datasets (mammalian cells, yeast, bacteria; brightfield, fluorescence, phase included). Published in Nature Methods 2025 (s41592-025-02879-w); pip-installable; napari plugin; few-shot learning demonstrated (improves with a few annotated examples per domain).",
+   "pc12_fit": "Phase contrast is in its training distribution, so zero-shot is plausible for cell bodies (medium estimate; paper claims human-level across modalities). The MIDL 2026 benchmark (checked) ranks CellSAM BELOW CellPose-SAM and μ-SAM+APG but above plain SAM/SAM3 on microscopy, with its weakest generalization under domain shift because each box maps 1:1 to a mask — a missed detection is unrecoverable. Neurites: NO — box-then-mask is a cell-body paradigm; a long neurite gets an ill-shaped box and a blobby mask.",
+   "neurite_support": "No native neurite class; box prompt prior biased to compact objects",
+   "code": "https://github.com/vanvalenlab/cellSAM",
+   "license": "Apache-2.0 (verified via GitHub API) for code; evaluation dataset includes Cellpose data under CC-BY-NC. SAM backbone itself: Apache-2.0 (facebookresearch/segment-anything, verified).",
+   "compute": "Inference: SAM-ViT-L ~2.5 GB weights; comfortably on A5000 24 GB (few seconds/image with the detector+SAM cascade). Few-shot adaptation needs only a handful of annotated examples (paper demo) — no heavy training. Full fine-tuning of SAM components is NOT the intended workflow (repo ships inference + light adaptation only; no full training code).",
+   "small_data_fit": "Good zero-shot/few-shot; not designed for full fine-tuning on your labels.",
+   "effort": "Low (pip install git+...; one-line API segment_cellular_image)",
+   "verdict": "baseline",
+   "notes": "Worth running in the W6 zero-shot gate as the second zero-shot model (different failure mode from Cellpose: detector-driven). Instance masks: YES. No neurite class."
+  },
+  {
+   "name": "μ-SAM / micro-sam (computational-cell-analytics, Göttingen) — the 'SAM for microscopy' model family",
+   "type": "foundation model (fully fine-tuned SAM + segmentation decoder + watershed/APG)",
+   "what_it_does": "Fine-tunes the ENTIRE SAM for promptable microscopy segmentation, adds a decoder predicting foreground + boundary/center distances → watershed instance segmentation (AIS); MIDL 2026 adds automatic prompt generation (APG) on top, which 'consistently improves label-free microscopy and is competitive with CellPose-SAM' (their words; arXiv:2603.17845). Trained on ~17k light-microscopy images / >2M objects. Has pretrained light-microscopy models for cells, nuclei, bacteria, organoids, mitochondria.",
+   "pc12_fit": "This is the most directly relevant model you named but misremembered as 'ISCE': the MIDL 2026 benchmark (checked in full) evaluates μ-SAM on exactly label-free (phase/differential-interference) microscopy cell datasets and μ-SAM+APG is a top-3 method on that modality. Zero-shot on PC12-style phase contrast: good-to-strong for cell bodies (evidence-backed). Neurites: NO native neurite model, but the architecture (distance-transform + watershed) and the repo's documented workflow explicitly support training new models from instance labelmaps — it is the most neurite-adjacent SAM tool. Even so, watershed-from-objects is still not built for 2-px thin tubes; you'd need neurite masks in training and should expect partial success, best verified empirically.",
+   "neurite_support": "No pretrained neurite model; trainable on your neurite labelmaps (distance-transform+watershed is a reasonable but unproven prior for thin branching structures — treat as experiment, not plan)",
+   "code": "https://github.com/computational-cell-analytics/micro-sam",
+   "license": "MIT (verified via GitHub API) for micro-sam; SAM weights Apache-2.0",
+   "compute": "Inference on A5000: fine (ViT-L). Training new model variants: repo ships training code (used to build the pretrained models) — on A6000 48 GB with n=70 images this is hours-to-one-overnight, not a problem.",
+   "small_data_fit": "Zero-shot good (evidence); few-shot via promptable mode (click a cell) excellent for interactive validation; full fine-tune on n=70 plausible but the paper's models used 17k images — fine-tune from their pretrained checkpoint, don't train from scratch.",
+   "effort": "Medium (pip install micro-sam; pretrained models auto-download; napari-based interactive workflow)",
+   "verdict": "recommend",
+   "notes": "Strong second recommendation alongside Cellpose-SAM; also the reference implementation of APG (free performance lift over AIS without retraining). Instance masks: YES. Cite μ-SAM + MIDL2026 benchmark paper for your architecture choices."
+  },
+  {
+   "name": "SAM / SAM 2 (facebookresearch, zero-shot with auto mask generation)",
+   "type": "general-purpose foundation model",
+   "what_it_does": "Prompt-based instance segmentation; 'zero-shot' = automatic mask generation (point grid + NMS) or manual/semi-auto point prompts.",
+   "pc12_fit": "Weak-to-mediocre for automated batch cell segmentation in phase contrast. Evidence (MIDL 2026, checked): 'SAM itself fails at difficult microscopy segmentation tasks'; AMG 'performs worse for microscopy'; SAM2 was found inferior to SAM and 'did not segment any objects' on several datasets. For PC12 specifically (faint halo, low contrast, neurite clutter) zero-shot AMG will over- and under-segment badly. It shines as an INTERACTIVE tool: click-once/click-twice per cell gives near-human masks — useful for annotation workflow and XAI demos, not for the production gate. Fine-tuning SAM (LoRA/full) at 24-48 GB is feasible (LoRA fine-tunes in hours on a 24 GB card; full ViT-L fine-tune fits 48 GB), but you would be re-implementing what Cellpose-SAM/μ-SAM already did better for cells. SAM2 adds video — irrelevant for 2D stills.",
+   "neurite_support": "No; prompt-driven compact-object bias",
+   "code": "https://github.com/facebookresearch/segment-anything (SAM2: facebookresearch/sam2)",
+   "license": "Apache-2.0 (verified)",
+   "compute": "SAM-ViT-L inference ~2-4 GB VRAM; LoRA fine-tune 24 GB OK; full fine-tune 48 GB OK.",
+   "small_data_fit": "Few-shot via prompting: yes. Full fine-tune at n=70: not worth it vs specialized models.",
+   "effort": "Low for inference, High for meaningful adaptation",
+   "verdict": "watch",
+   "notes": "Only worth including as (a) interactive annotation assistant, (b) negative-control baseline in the zero-shot gate to show why domain-specialized FMs matter. Instance masks: yes (per prompt). No neurite class."
+  },
+  {
+   "name": "HoVer-Net (Graham, Vu, ... Rajpoot; official PyTorch repo vqdang/hover_net)",
+   "type": "trainable two-branch U-Net (horizontal+vertical instance + classification head)",
+   "what_it_does": "U-Net with 2 heads: (1) horizontal & vertical distance-to-centroid channels → instance boundaries via local-maximum segmentation (separates touching/clustered objects), (2) type-prob head for per-instance classification. Pretrained CoNSeP/PanNuke/MoNuSAC/Kumar/CPM17 checkpoints (histology H&E). The instance head is the architectural ancestor of 'two-channel distance' instance networks used widely in nuclei work.",
+   "pc12_fit": "Wrong-domain zero-shot (histology H&E only; no phase-contrast pretrained weights) — do NOT zero-shot it. Value is as the fine-tune architecture to study/compare: it is the closest architectural ancestor to a two-class (body+neurite) pipeline: you can (a) use the inst head to predict BODY instances, and (b) replace/augment the type head with a neurite-semantics head or run a second HoVer-Net instance head on a neurite channel. Small-data behavior: original trained on CoNSeP (~100 images) with strong augmentation — n≈70 is in the paper's regime, so 5-fold CV on your data is realistic; each fold's training is ~1 day on a 1080Ti per the paper's era → a few hours on A5000.",
+   "neurite_support": "Not out of the box (heads are nucleus-instance + type). The H/V distance formulation works for any compact-ish object; for neurites you would need a dedicated branch or a different head — it is the right base to experiment on, not a neurite tool itself.",
+   "code": "https://github.com/vqdang/hover_net",
+   "license": "MIT (verified via GitHub API; note: PanNuke/MoNuSAC-derived checkpoints carry CC-BY-NC-SA 4.0 per the README)",
+   "compute": "Inference ~1-2 GB VRAM; training a 256x256-patch model: single A5000, hours per epoch, ~10-50 epochs → overnight per CV fold comfortably.",
+   "small_data_fit": "Good (trained on ~100 images originally); augmentation pipeline (noise, shift, intensity) is part of the repo and important at n=70.",
+   "effort": "Medium (patch extraction script, config.py-driven, some friction: torch 1.6 era code, Google-Drive checkpoints; PyTorch reimplementation reproduces paper results within 0.005 DICE)",
+   "verdict": "recommend",
+   "notes": "Use as your 'train-from-scratch' architecture candidate to compare against Cellpose-SAM fine-tuning; it directly yields per-instance outputs (bbox, centroid, contour, type) that feed your morphometrics and it is the honest baseline for the 'can a 2019 two-head U-Net beat a 2025 foundation model at n=70?' question — a strong thesis result either way. Instance masks: YES. No native neurite class."
+  },
+  {
+   "name": "SAM 3 (Meta, 2025)",
+   "type": "general-purpose foundation model (text/example-prompted DETR-style instances)",
+   "what_it_does": "Segment Anything v3: 'cell'-text-prompted direct instance segmentation, includes some microscopy in training.",
+   "pc12_fit": "The MIDL 2026 benchmark (first systematic microscopy evaluation of SAM3, checked) shows SAM3 underperforms the microscopy-specialized FMs and is prompt-sensitive ('blob' sometimes beats 'cell'; 'nucleus' not recognized on some datasets). Zero-shot on PC12: medium-low estimate; useful as a novelty baseline, not as the workhorse.",
+   "neurite_support": "No",
+   "code": "https://github.com/facebookresearch/sam3 (code status: check repo; paper arXiv:2506.18841)",
+   "license": "Apache-2.0 (SAM3 repo — verify on download)",
+   "compute": "Large ViT; fine on A6000 48 GB; 24 GB tight but workable with fp16.",
+   "small_data_fit": "Prompting only; no practical fine-tune path shipped.",
+   "effort": "Medium (research-grade code)",
+   "verdict": "watch",
+   "notes": "Mention in related work; optional baseline if time remains."
+  },
+  {
+   "name": "CellViT++ / CellViT (CellProfiler/2024-2025 foundation model for histopathology cells)",
+   "type": "foundation model (ViT decoder over Cellpose/SAM encoders)",
+   "what_it_does": "Foundation model for cell/nuclei segmentation benchmarked in kidney pathology studies (arXiv:2510.01287, 2411.00078 — both checked abstracts) against Cellpose/StarDist/Cellpose-SAM. Aimed at H&E tissue, not live-cell phase contrast.",
+   "pc12_fit": "Domain mismatch (fixed histopathology). No PC12/phase-contrast evaluation found.",
+   "neurite_support": "No",
+   "code": "see CellProfiler ecosystem (not verified in depth)",
+   "license": "unverified",
+   "compute": "unverified",
+   "small_data_fit": "unverified",
+   "effort": "n/a",
+   "verdict": "skip",
+   "notes": "Histopathology-oriented; not worth the integration cost for a live-cell PC12 thesis. Included for completeness since it appears in 2025 benchmark papers."
+  },
+  {
+   "name": "MoCell",
+   "type": "claimed 2023 cell-segmentation model (from task brief)",
+   "what_it_does": "Unverified: no paper, arXiv record, or code repo under this name for cell segmentation could be located via arXiv full-text search, bioRxiv API, GitHub repo search, or Crossref. (GitHub 'MoCell' hits are unrelated: a 2019 MOEA evolutionary-algorithm paper and a 2025 terminal-tool.) Possibly a misremembered name (candidates: MoCell might be conflated with MoNuSeg, a 2018 nuclei SEGMENTATION DATASET, or with 'Micro-SAM').",
+   "pc12_fit": "n/a — unverified",
+   "neurite_support": "n/a — unverified",
+   "code": "unverified — none found",
+   "license": "unverified",
+   "compute": "n/a",
+   "small_data_fit": "n/a",
+   "effort": "n/a",
+   "verdict": "skip",
+   "notes": "Do not cite. If the lab heard this name, ask for the paper link; otherwise drop from the survey."
+  },
+  {
+   "name": "DICE (foundation model, 2023-2025, per task brief)",
+   "type": "claimed segmentation foundation model (from task brief)",
+   "what_it_does": "Unverified as a 2023-2025 segmentation foundation model. The verified 'Dice' hits are: (a) DICE-XMBD (Front. Genet. 2021, github.com/xmuyulab/Dice-XMBD) — a 2021 U-Net-based IMC cell segmenter, NOT a foundation model; (b) the DICE loss function. No 2023-2025 'DICE' cell-segmentation foundation model with code was found via Crossref/GitHub/arXiv.",
+   "pc12_fit": "n/a — unverified",
+   "neurite_support": "n/a — unverified",
+   "code": "unverified (DICE-XMBD exists at github.com/xmuyulab/Dice-XMBD but is 2021 IMC-specific)",
+   "license": "unverified",
+   "compute": "n/a",
+   "small_data_fit": "n/a",
+   "effort": "n/a",
+   "verdict": "skip",
+   "notes": "Do not cite as a 2023-2025 foundation model. Possibly conflated with Dice loss or DICE-XMBD."
+  },
+  {
+   "name": "Cell-Clarity",
+   "type": "claimed foundation model (from task brief)",
+   "what_it_does": "Unverified as a cell-segmentation foundation model: no matching paper found on arXiv, bioRxiv API, Crossref, or GitHub. 'Cell-Clarity' appears in unrelated contexts (a single-cell transcriptomics evaluation context at Microsoft Research is about scRNA-seq FMs, not imaging). Possibly a misremembered name (candidates: CellCLIP? Cell-SAM? 'Cell-Classifier'?).",
+   "pc12_fit": "n/a — unverified",
+   "neurite_support": "n/a — unverified",
+   "code": "unverified — none found",
+   "license": "unverified",
+   "compute": "n/a",
+   "small_data_fit": "n/a",
+   "effort": "n/a",
+   "verdict": "skip",
+   "notes": "Do not cite; request the original reference from whoever named it."
+  }
+ ],
+ "techniques": [
+  {
+   "name": "Human-in-the-loop fine-tuning (Cellpose 2.0 workflow) on n≈70 labeled images",
+   "category": "training strategy",
+   "how_it_helps": "Turns 70 labeled PC12 images into a custom body-class model that should beat zero-shot; official, documented, GUI-supported; the BIBM2025 study (arXiv:2511.04803, abstract checked) empirically studies exactly this data-efficiency/transfer question for Cellpose.",
+   "verdict": "adopt — this is the primary fine-tune track",
+   "effort": "Low: hours of GPU + ~1-2 h of label QA per model",
+   "notes": "Split by image (5 folds); use the second batch arriving in ~2 weeks as an independent external test to avoid overfit claims."
+  },
+  {
+   "name": "APG (automatic prompt generation) on μ-SAM — MIDL 2026",
+   "category": "inference-time instance segmentation",
+   "how_it_helps": "Free performance lift on label-free microscopy with zero retraining; combines detector-derived point prompts with SAM promptable masks + NMS. Implemented and documented in micro-sam.",
+   "verdict": "adopt — cheap win in W6 gate",
+   "effort": "Low (config flags in micro-sam)",
+   "notes": "arXiv:2603.17845 (checked in full) — cite as the method for prompt-based instance refinement."
+  },
+  {
+   "name": "Prompt-engineered SAM via CellFinder-style detector (CellSAM strategy)",
+   "category": "adaptation strategy",
+   "how_it_helps": "Illustrates the three SAM→microscopy adaptation strategies (prompt-derived, decoder-on-encoder, full fine-tune) that the MIDL 2026 paper systematizes; useful framing for the thesis architecture chapter.",
+   "verdict": "reference",
+   "effort": "n/a",
+   "notes": "Use the paper's taxonomy (strategies 1-3) to justify your architecture choice in the write-up."
+  },
+  {
+   "name": "Semi-supervised/unsupervised adaptation to unlabeled lab images (SelfAdapt, arXiv:2508.11411; fuzzy-logic + spatial stats GUI, arXiv:2508.15979)",
+   "category": "training strategy",
+   "how_it_helps": "Your lab has unknown-count unlabeled phase-contrast images — SelfAdapt (ICCVW 2025, abstract checked) adapts Cellpose-style models to unlabeled target domains; a defensible W8-W10 experiment to harvest value from unlabeled data without labels.",
+   "verdict": "watch — feasible stretch goal if W7 goes well",
+   "effort": "Medium",
+   "notes": "Both papers benchmark against Cellpose/StarDist on phase-contrast, so their protocols transfer."
+  },
+  {
+   "name": "Two-head body+neurite network (HoVer-Net inst head + separate neurite head or dual-instance network)",
+   "category": "architecture",
+   "how_it_helps": "The only reviewed architecture that gives you BOTH a body instance output and a pluggable second semantic/instance head from a single backbone; closest architectural ancestor to your task (per task brief; verified against official repo README).",
+   "verdict": "recommend as the in-house architecture candidate",
+   "effort": "Medium (repo is 2019-era PyTorch; expect to modernize dataloader for 2-channel PC+fluo input)",
+   "notes": "Train body head on body masks; for neurites, either (a) a second instance head trained on neurite masks, or (b) a segmentation head for the neurite class — the H/V distance trick does NOT generalize to thin tubes, so use plain binary segmentation for the neurite branch and let classical morphometrics (skeletonize → length/branch/angle) do the counting/length/angle extraction, matching the planned hybrid design."
+  },
+  {
+   "name": "Zero-shot gate protocol: 3 FMs × 2 modalities before any fine-tuning",
+   "category": "evaluation",
+   "how_it_helps": "W6 gate: run cpsam_v2/cpdino (Cellpose), μ-SAM+APG (micro-sam), CellSAM, (+SAM-AMG as weak baseline) on all 70 labeled images; compute per-class DSC + clDice (neurite proxy = 'does anything capture the thin structures') + count error; the MIDL 2026 mSA/IoU-matching protocol (thresholds 0.5-0.95) is a ready-made metric recipe.",
+   "verdict": "adopt",
+   "effort": "Low (1-2 days incl. eval plumbing)",
+   "notes": "Image-level 5-fold split from day 1; zero-shot numbers become the 'foundation model prior' row in every results table."
+  },
+  {
+   "name": "Neurite-specific representation: semantic mask + post-hoc graph (skeleton), not instance detection",
+   "category": "architecture decision",
+   "how_it_helps": "None of the verified FMs handles neurites as instances; the field's neurite tools (NeuroQuantify, AutoNeuriteJ — already in your known-prior-work list) treat neurites as a MASK and derive count/length/angle via skeletonization. Keep that split: FM/DL only proposes the binary neurite mask (fine-tune a U-Net branch or a second Cellpose-class model if you must), morphometrics (skimage.skeletonize → graph) does counting/length/direction. This keeps every metric (clDice, Betti error) well-defined.",
+   "verdict": "adopt",
+   "effort": "Low",
+   "notes": "Betti-0/Betti-1 of the neurite mask graph gives exactly the topology error you planned to report."
+  }
+ ],
+ "bold_ideas": [
+  {
+   "idea": "Neurite-aware two-class flow-field (Cellpose-style vectors) with a tubular shape prior: train the flow decoder on BOTH body and neurite labelmaps from your 70+ images, adding a small anisotropy-aware loss so thin tubes get directed flow instead of star-convex collapse.",
+   "why_now": "Cellpose-SAM proves the flow-decoder+foundation-backbone recipe generalizes superhumanly (bioRxiv 2025.04.28.651001, checked); nobody has published a flow-field model for PC12 neurite classes — the gap is real and the code (cellpose train pipeline) is MIT/BSD-licensed and 2-student-sized.",
+   "feasibility": "High: reuse Cellpose training code, swap in 2-class labels; 70 images is enough because you fine-tune from their pretrained weights; 5-fold CV overnight on A5000.",
+   "effort": "Medium (2-3 weeks incl. eval)",
+   "risk": "Star-convex dynamics may still truncate 2-px branches; mitigation = keep the neurite branch as plain semantic segmentation and only apply the flow field to bodies (i.e., the safe version is exactly the two-head HoVer-Net-style plan).",
+   "differentiator": "First flow-field body+neurite joint model on phase contrast for a small-data thesis; directly feeds clDice + Betti metrics.",
+   "verdict": "feasible and differentiated — make it the 'novelty' claim with the two-head U-Net as the safe fallback."
+  },
+  {
+   "idea": "APG-style prompt recycling: use zero-shot Cellpose-SAM/μ-SAM predictions as pseudo-labels to pretrain the in-house two-head network, then fine-tune on the 70 human labels (semi-supervised distillation; pattern proven in kidney-pathology studies arXiv:2411.00078 / 2510.01287, abstracts checked).",
+   "why_now": "You have unknown-quantity unlabeled lab images + 70 labeled ones; distillation is the standard, publishable bridge between foundation-model priors and small labeled data.",
+   "feasibility": "High: inference + label export from both FMs is trivial; train with the HoVer-Net or nnU-Net codebase.",
+   "effort": "Medium",
+   "risk": "Pseudo-label error in thin neurites could teach wrong topology; gate with clDice before/after pseudo-training.",
+   "differentiator": "Quantifies 'how much of the gain is the foundation model prior' — a clean ablation the reviewers will like.",
+   "verdict": "feasible, low-risk, high value."
+  },
+  {
+   "idea": "Betti-guided loss: add Betti-0/Betti-1 (Euler characteristic / persistent homology on the neurite mask) of the predicted mask to the segmentation loss so the network is explicitly penalized for broken/extra branches.",
+   "why_now": "You already plan Betti error as a report metric; making it a training signal is a genuine, small, verifiable contribution (topological losses exist in the MRI/vascular literature but not for neurite morphometrics at this scale).",
+   "feasibility": "High: Betti numbers of a binary 2D mask are cheap (scikit-image + giotto-tda or pure connected-component counting); loss term = |B1_pred - B1_gt| per image.",
+   "effort": "Low-Medium (a few days)",
+   "risk": "Gradient flow through topology is non-smooth; use the relaxed Euler-characteristic (boundary pixel count + component count) formulation instead of exact persistence.",
+   "differentiator": "Ties the XAI/topology story (your Betti metric) to the model itself — a coherent thesis narrative.",
+   "verdict": "feasible stretch goal for W10+; cheap to try, easy to drop."
+  }
+ ],
+ "sources": [
+  {
+   "title": "Cellpose repo README (models, CC-BY-NC data notice, install, training, v4.2 DINO models)",
+   "url": "https://raw.githubusercontent.com/MouseLand/cellpose/main/README.md",
+   "supports": "Cellpose-SAM architecture/backbones, license data caveat, fine-tune workflow, tile sizes/diameter scaling",
+   "checked": true
+  },
+  {
+   "title": "Cellpose LICENSE file (BSD-3-Clause, HHMI)",
+   "url": "https://raw.githubusercontent.com/MouseLand/cellpose/main/LICENSE",
+   "supports": "code license is BSD-3-Clause (permissive)",
+   "checked": true
+  },
+  {
+   "title": "GitHub API: MouseLand/cellpose (license bsd-3-clause, 2.4k stars)",
+   "url": "https://api.github.com/repos/MouseLand/cellpose",
+   "supports": "repo metadata + license cross-check",
+   "checked": true
+  },
+  {
+   "title": "Cellpose models docs (built-in models cpsam/cpsam_v2/cpdino, user-trained models, BioImage.IO export)",
+   "url": "https://cellpose.readthedocs.io/en/latest/models.html",
+   "supports": "current model lineup and fine-tune/export workflow",
+   "checked": true
+  },
+  {
+   "title": "Cellpose-SAM: superhuman generalization for cellular segmentation (Pachitariu, Rariden, Stringer 2025, bioRxiv 10.1101/2025.04.28.651001)",
+   "url": "https://www.biorxiv.org/content/10.1101/2025.04.28.651001",
+   "supports": "SAM-backbone Cellpose, robustness properties, human-consensus bound claim, CC-BY-NC",
+   "checked": true
+  },
+  {
+   "title": "Cellpose 1 paper (Stringer et al. 2021, Nature Methods 18:100-106) — citation from official README",
+   "url": "https://www.cellpose.org",
+   "supports": "star-convex flow architecture; phase-contrast training domain",
+   "checked": false
+  },
+  {
+   "title": "StarDist repo README (pretrained 2D_versatile_fluo/he, matching module, install)",
+   "url": "https://raw.githubusercontent.com/stardist/stardist/master/README.md",
+   "supports": "StarDist capabilities, pretrained modality coverage (fluorescence/H&E only — no phase contrast), built-in instance metrics",
+   "checked": true
+  },
+  {
+   "title": "GitHub API: stardist/stardist (BSD-3-Clause)",
+   "url": "https://api.github.com/repos/stardist/stardist",
+   "supports": "license + activity",
+   "checked": true
+  },
+  {
+   "title": "Cell Detection with Star-convex Polygons (Schmidt et al. MICCAI 2018, arXiv:1806.03535)",
+   "url": "https://arxiv.org/abs/1806.03535",
+   "supports": "star-convex shape prior rationale",
+   "checked": true
+  },
+  {
+   "title": "Revisiting foundation models for cell instance segmentation (Archit & Pape, MIDL 2026, arXiv:2603.17845) — read in full",
+   "url": "https://arxiv.org/html/2603.17845",
+   "supports": "HEAD-TO-HEAD: CellPose-SAM, CellSAM, μ-SAM(+APG), CellPose3, SAM-AMG, SAM2, SAM3 across 36 datasets incl. label-free (phase-type) microscopy; SAM2 inferior; SAM3 prompt-sensitive; CellPose-SAM & APG top-3 on label-free; CellSAM below the top; taxonomy of SAM-adaptation strategies",
+   "checked": true
+  },
+  {
+   "title": "μ-SAM / micro-sam repo (computational-cell-analytics, MIT)",
+   "url": "https://api.github.com/repos/computational-cell-analytics/micro-sam",
+   "supports": "code, license, topics (cell/nuclei/mitochondria segmentation, automatic segmentation)",
+   "checked": true
+  },
+  {
+   "title": "μ-SAM paper (Archit et al. 2025, referenced as Archit 2025a in MIDL2026 paper)",
+   "url": "https://www.nature.com/articles/s41592-025-02563-5",
+   "supports": "17k light-microscopy images / 2M objects training scale; AIS method",
+   "checked": false
+  },
+  {
+   "title": "CellSAM repo README (vanvalenlab, Apache-2.0; Nature Methods 2025 preprint link)",
+   "url": "https://raw.githubusercontent.com/vanvalenlab/cellSAM/master/README.md",
+   "supports": "CellSAM architecture (CellFinder + SAM), pip install, modality coverage incl. phase",
+   "checked": true
+  },
+  {
+   "title": "CellSAM: A Foundation Model for Cell Segmentation (Israel et al. bioRxiv 10.1101/2023.11.17.567630, v5 checked via bioRxiv API; Nat Methods 2025: s41592-025-02879-w)",
+   "url": "https://www.biorxiv.org/content/10.1101/2023.11.17.567630",
+   "supports": "zero-shot + few-shot claims, dataset composition (10 datasets), deployment at cellsam.deepcell.org",
+   "checked": true
+  },
+  {
+   "title": "GitHub API: vanvalenlab/cellSAM (Apache-2.0)",
+   "url": "https://api.github.com/repos/vanvalenlab/cellSAM",
+   "supports": "license",
+   "checked": true
+  },
+  {
+   "title": "SAM repo (facebookresearch/segment-anything, Apache-2.0)",
+   "url": "https://api.github.com/repos/facebookresearch/segment-anything",
+   "supports": "license, inference-only positioning",
+   "checked": true
+  },
+  {
+   "title": "HoVer-Net official PyTorch repo README (vqdang/hover_net, MIT; Graham et al. MedIA 2019)",
+   "url": "https://raw.githubusercontent.com/vqdang/hover_net/master/README.md",
+   "supports": "two-branch architecture, H/V distance instance head, pretrained checkpoints + licenses (CoNSeP/PanNuke/MoNuSAC), training/inference workflow, reported DICE/PQ/AJI, 256x256 fast mode",
+   "checked": true
+  },
+  {
+   "title": "GitHub API: vqdang/hover_net (MIT, 747 stars)",
+   "url": "https://api.github.com/repos/vqdang/hover_net",
+   "supports": "license, activity (last push 2023 — maintained but not actively developed)",
+   "checked": true
+  },
+  {
+   "title": "Data Efficiency and Transfer Robustness in Biomedical Image Segmentation with Cellpose (Zhao & Chen, BIBM 2025 workshop, arXiv:2511.04803)",
+   "url": "https://arxiv.org/abs/2511.04803",
+   "supports": "Cellpose fine-tune data-efficiency/transfer evidence (abstract only)",
+   "checked": true
+  },
+  {
+   "title": "SelfAdapt: Unsupervised Domain Adaptation of Cell Segmentation Models (Reith et al. ICCVW 2025, arXiv:2508.11411)",
+   "url": "https://arxiv.org/abs/2508.11411",
+   "supports": "adaptation to unlabeled lab images without annotation (abstract)",
+   "checked": true
+  },
+  {
+   "title": "Evaluating Cell AI Foundation Models in Kidney Pathology (Guo et al. arXiv:2411.00078) and New AI Cell Foundation Models (Wang et al. arXiv:2510.01287)",
+   "url": "https://arxiv.org/abs/2411.00078",
+   "supports": "foundation-model distillation/enrichment + CellViT/Cellpose-SAM benchmarking context (abstracts)",
+   "checked": true
+  },
+  {
+   "title": "Cellpose+ morphological feature extraction (Huaman et al. arXiv:2410.18738)",
+   "url": "https://arxiv.org/abs/2410.18738",
+   "supports": "precedent for Cellpose + morphometrics feature extraction in a stained-cell pipeline (abstract)",
+   "checked": true
+  },
+  {
+   "title": "NeuroQuantify (arXiv 2310.10978) and AutoNeuriteJ (PLOS ONE 2020)",
+   "url": "https://arxiv.org/abs/2310.10978",
+   "supports": "existing neurite DL/morphometrics baselines for the neurite branch (from task brief; not re-verified in this session — R3-NeuriteMorpho covers)",
+   "checked": false
+  },
+  {
+   "title": "GitHub searches: MoCell, DICE, Cell-Clarity, ISCE (multiple queries, 2026-09-22)",
+   "url": "https://api.github.com/search/repositories?q=MoCell&per_page=10",
+   "supports": "negative results: no verifiable cell-segmentation project exists under these exact names (arXiv/bioRxiv/Crossref also negative)",
+   "checked": true
+  }
+ ],
+ "bottom_line": "For the W6 zero-shot gate, run three verified, runnable foundation models on all 70 labeled images and keep the MIDL 2026 (arXiv:2603.17845) head-to-head as your justification: (1) Cellpose-SAM (cpsam_v2 or cpdino) — BSD-3 code, CC-BY-NC weights (fine for a thesis), best-documented fine-tuning on exactly your data scale, and the only FM ecosystem with a working human-in-the-loop training loop; (2) μ-SAM via micro-sam with APG (MIT) — top-3 on label-free microscopy in the benchmark and trainable on your own labelmaps; (3) CellSAM (Apache-2.0) as an independent detector-driven baseline. Expect all three to produce good cell-body instance masks on phase contrast (instance counting is solved by any of them) and none to produce neurite structures — every verified FM in this space is star-convex/box/compact-object centric, so neurites MUST stay a separate semantic-mask branch with classical skeleton-based morphometrics (count/length/angle from skimage graph; clDice + Betti on that mask). Fine-tune track: fine-tune Cellpose-SAM (a few hours on the A5000, image-level 5-fold) as the primary, keep HoVer-Net (MIT, small-data-proven, the two-head ancestor) as the honest in-house architecture baseline, and use the unlabeled lab images via pseudo-label distillation or SelfAdapt as the stretch result. Drop MoCell, 'DICE' and Cell-Clarity from the survey: no primary source exists under those names (verified negative), and treat 'ISCE' as a misremembering of μ-SAM/micro-sam. License posture for your deliverable is clean: BSD-3 (Cellpose, StarDist), MIT (micro-sam, HoVer-Net code; PanNuke-derived checkpoints CC-BY-NC-SA — avoid those checkpoints), Apache-2.0 (CellSAM, SAM) — all fine for a free, non-commercial student tool, with the only NC caveat being Cellpose's pretrained weights and dataset."
+}

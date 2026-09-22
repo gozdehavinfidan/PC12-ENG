@@ -8,12 +8,11 @@
 | Fact | Status |
 |------|--------|
 | A dataset exists (from İzmir Katip Çelebi Biomed Eng dept) | `[BASE]` |
-| Modalities: **phase-contrast** + **fluorescence** microscopy | `[BASE]` |
+| Modalities: **phase-contrast** + **fluorescence** microscopy | `[BASE26]` |
 | **≈ 70 images are already LABELED** | `[CONFIRMED]` user, W1 |
 | **A further batch arrives in ~2 weeks**, size unknown | `[CONFIRMED]` user, W1 → İP7 |
+| **Condition metadata: dose / timepoint / compound per image?** | `[OPEN]` **O1** → **T1.1** — gates how far **NTI** goes (D14) |
 | Resolution / format / pixel size | `[OPEN]` → **T1.1** |
-| Are the 70 images from ≥ 70 *independent wells/dishes*? | `[OPEN]` → **T1.1, critical for splitting** (see §5) |
-| Pixel size (µm/px) | `[OPEN]` → needed for µm units |
 | Current labeling state (raw / partial / none) | `[OPEN]` → T1.1 |
 | License / reuse rights / any identifiers | `[OPEN]` → T1.1 (data card) |
 
@@ -29,7 +28,7 @@ Images (count, size, fmt)    : ≈70 LABELED [CONFIRMED W1]; size/format [OPEN]
   └ batch 2                  : arriving ~W3, count [OPEN]  → İP7
 Independent wells/dishes     : [OPEN]  ← governs the split unit, see §5
 Pixel size / scale           : [OPEN]  ← required before any µm-unit output
-Conditions (NGF? timepoints?): [OPEN]
+Conditions (dose/timepoint/cmpd) : O1 [OPEN] ← governs NTI calibration depth (D14)
 Class definitions present    : [OPEN] — do the existing labels match our scheme (§2)?
 Existing labels?             : YES, ≈70. Format/convention [OPEN]
   └ labeled by whom, to what protocol? : [OPEN]  ← decides whether we can trust them

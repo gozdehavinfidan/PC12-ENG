@@ -27,7 +27,7 @@ I = Informed.
 | Metric validity (biological meaning) | C | **A/R** |
 | XAI layer | **A/R** | C |
 | Dashboard (project tracker) | **A/R** | I |
-| Desktop app (NeuroMind) | **A/R** | C |
+| Desktop app (IntelliCell-style, D14) | **A/R** | C |
 | Report generation | R | **A/R** |
 | Presentation content (biology) | I | **A/R** |
 | Presentation content (method/ML) | **A/R** | I |
