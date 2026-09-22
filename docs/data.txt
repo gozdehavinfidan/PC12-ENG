@@ -1,0 +1,42 @@
+# =========================================================================
+# PC12 ENG400 — OLAY GUNLUGU (veritabani)
+# =========================================================================
+#
+# Bu dosya sitenin veritabanidir. SADECE SONA EKLENIR, hicbir satir
+# degistirilmez veya silinmez.
+#
+# NEDEN BOYLE: Gozde ve Berke ayni hafta degisiklik yaparsa ikisi de dosyanin
+# SONUNA satir ekler -> git bunu catismasiz birlestirir. Tek bir gorev listesini
+# ikisi de duzenleseydi her hafta merge catismasi cikardi.
+#
+# NASIL CALISIR: docs/data.js baslangic durumudur (baseline). Site once onu
+# okur, sonra buradaki olaylari sirayla uzerine uygular. Yani buradaki son
+# satir kazanir.
+#
+# FORMAT (6 alan, | ile ayrilir):
+#   ZAMAN|KISI|EYLEM|HEDEF|DEGER|ID
+#
+#   ZAMAN : ISO 8601, orn. 2026-09-22T10:30:00Z
+#   KISI  : ML (Gozde) | BM (Berke)
+#   EYLEM : status | pct | join | note | task | del
+#   HEDEF : gorev id (T1.1 gibi), 'task' icin yeni id
+#   DEGER : eyleme gore degisir
+#   ID    : 8 hex karakter, olaya ozel kimlik.
+#           NEDEN: yazma istegi gonderilip cevabi kaybolursa, tekrar denerken
+#           ayni olayin ikinci kez eklenmesini bu kimlik engeller. Ayni id iki
+#           kez gecerse sadece bir kez uygulanir.
+#           5 alanli eski satirlar da gecerlidir; id satirdan turetilir.
+#
+# EYLEMLER:
+#   status | T1.1 | done                | a1b2c3d4
+#   pct    | T1.1 | 60                  | a1b2c3d5
+#   join   | T1.1 |                     | a1b2c3d6   (KISI kendini ekler, sahip -> EK)
+#   note   | T1.1 | serbest metin       | a1b2c3d7
+#   task   | Y1   | IP2;Baslik;ML;5;6   | a1b2c3d8   (ip;baslik;sahip;basl;bitis)
+#   del    | Y1   |                     | a1b2c3d9   (gizler, gecmis korunur)
+#
+# NOT: Deger icinde | karakteri varsa %7C yazin. Satir sonu kullanilamaz.
+#
+# BU DOSYAYI ELLE DUZENLEMEYIN diye bir kural yok - ama sadece SONA ekleyin.
+# Siteden "kaydet" dediginizde satirlar buraya otomatik eklenir.
+# =========================================================================

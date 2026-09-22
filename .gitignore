@@ -1,0 +1,57 @@
+# ---------------------------------------------------------------------------
+# GitHub Pages (free tier) requires a PUBLIC repo.
+# Everything below must therefore NEVER be committed.
+# ---------------------------------------------------------------------------
+
+# Unpublished TUSEB grant application - do not publish
+*.pdf
+Tuseb_2025_Basvuru_Eren.pdf
+
+# Raw / labeled microscopy data (not ours to redistribute; also large)
+data/
+raw/
+masks/
+preprocessed/
+*.tif
+*.tiff
+*.czi
+*.nd2
+
+# Model weights + runs
+*.pt
+*.pth
+*.onnx
+*.ckpt
+runs/
+checkpoints/
+wandb/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# OS / editor
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+
+# Kaynak girdiler - teslim edilecek dosya degil, yayinlanmasi gerekmiyor.
+# Depo herkese acik (ucretsiz Pages public repo istiyor), o yuzden disarida.
+
+# Orijinal boy fotografi. Dashboard'un ihtiyaci olan yuze kirpilmis hali
+# docs/assets/gozde.jpg olarak zaten commit ediliyor; bu ham dosya gerekmiyor.
+gozde pp.png
+
+# Baska yerden alinan arayuz mockup'lari (telif bize ait degil, siteye de girmiyor)
+example ui.png
+example ui base.png
+
+# Yayimlanmamis TUSEB basvurusunun cozumlenmis icerigi ve ona atif yapan log.
+# Yerelde kalir (siz okursunuz), herkese acik depoya girmez.
+llm-wiki/02-BASE-PROJECT-TUSEB.md
+llm-wiki/LOG.md
