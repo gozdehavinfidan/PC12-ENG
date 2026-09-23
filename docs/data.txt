@@ -65,3 +65,8 @@
 2026-09-22T18:40:00Z|ML|note|T0.2|6 paralel literatür arastirmasi bitti (R1-R6, birincil kaynaklar) - 16-ARCHITECTURE-RESEARCH yazildi; D13 kabul edildi (iki-kollu mimari + soft-clDice + 5-seed ensemble); 04/05/08/13/14/15/README guncellendi|a3f7c2e1
 2026-09-22T21:30:00Z|ML|note|T3.5|D14: konsept kanonu = TUSEB 2026 NTI basvurusu (bolumler) - 02 yeniden yazildi, 00/03/04/06/07/08/12/13/README uym edildi, T3.5 NTI modulu eklendi, O1 acik (metadata sorusu T1.1)|8d41a2c7
 2026-09-22T22:10:00Z|ML|note|T0.2|KLAVUZ.html yazildi - beyaz arka planli tek dosya proje klavuzu (konsept + TUSEB raporu + pipeline + bizim tasarim noktalarimiz), tarayiciyla dogrulandi; README + gitignore guncellendi|b9e3f7a2
+2026-09-23T16:52:07Z|BM|task|YF3A8|IP0;week2 presentation;BM;2;2|a5bc5d59
+2026-09-23T16:52:18Z|BM|status|YF3A8|doing|1126e2be
+2026-09-23T16:52:19Z|BM|pct|YF3A8|10|51313ac0
+2026-09-23T16:52:21Z|BM|pct|YF3A8|50|b6793ea7
+2026-09-23T16:52:41Z|BM|msg|ML|meraha|705d3f82
