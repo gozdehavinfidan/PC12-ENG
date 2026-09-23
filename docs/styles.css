@@ -201,7 +201,10 @@ a { color:inherit; }
 .kpi .v { font-size:46px; font-weight:700; letter-spacing:-.02em; line-height:1.05; }
 .kpi .k { font-size:14.5px; color:var(--ink-2); margin-top:7px; font-weight:600;
           text-transform:uppercase; letter-spacing:.06em; }
-.kpi .bar { max-width:240px; margin-left:auto; margin-right:auto; height:9px; border-radius:99px;
+/* width:100% is load-bearing: .kpi is a flex column and the auto side margins
+   shrink a flex item to its content width - an empty track has none, so the
+   bar was laid out 0px wide and never visible on any KPI. */
+.kpi .bar { width:100%; max-width:240px; margin-left:auto; margin-right:auto; height:9px; border-radius:99px;
             background:rgba(0,0,0,.07); margin-top:15px; overflow:hidden; }
 .kpi .bar i { display:block; height:100%; border-radius:99px;
               background:linear-gradient(90deg,var(--lime),var(--green));
@@ -358,34 +361,98 @@ a { color:inherit; }
    whose `all:unset` resets `position` and is declared later in this file,
    so a bare .hd-add rule lost the cascade and the button stayed static. */
 .card > h3 .hd-add { position:absolute; right:0; top:50%; transform:translateY(-50%); }
+/* On a phone the 74px gutter is narrower than "+ ADD RISK", so the pinned
+   button slid over the title. There, the button drops under the heading
+   instead - still centred, still next to what it adds to. */
+@media (max-width:560px) {
+  .card > h3.has-add { padding-inline:0; flex-direction:column; gap:10px; }
+  .card > h3 .hd-add { position:static; transform:none; }
+}
 
-.rk-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:11px; }
-.rk { all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column;
-      gap:7px; padding:13px 14px; border-radius:var(--r-s); background:var(--panel-2);
-      box-shadow:inset 0 0 0 1px var(--line); text-align:left; }
-.rk:hover { background:#fff; box-shadow:inset 0 0 0 1px rgba(31,39,36,.18), 0 2px 8px rgba(31,39,36,.08); }
+/* High-severity count turns red only when it is non-zero: a red "0" would be
+   an alarm about nothing. */
+.kpi.is-hot .v { color:#b54848; }
+
+/* ---- risk list ---- */
+.rk-side { min-width:0; display:flex; flex-direction:column; gap:12px; }
+/* Segmented control: one pill track, the selected slice lifted onto white -
+   reads as "a view of the same list", not as three separate actions. */
+.rk-tabs { display:inline-flex; align-self:center; gap:3px; padding:3px; border-radius:99px;
+           background:var(--panel-2); box-shadow:inset 0 0 0 1px var(--line); }
+.rk-tab { all:unset; cursor:pointer; display:inline-flex; align-items:center; gap:7px;
+          padding:6px 14px; border-radius:99px; font-size:12.5px; color:var(--ink-2); }
+.rk-tab b { font-size:11px; font-weight:700; color:var(--ink-3); background:rgba(31,39,36,.06);
+            border-radius:99px; padding:0 7px; line-height:18px; }
+.rk-tab:hover { color:var(--ink); }
+.rk-tab.on { background:#fff; color:var(--ink); font-weight:700; box-shadow:0 1px 3px rgba(31,39,36,.14); }
+.rk-tab.on b { background:var(--lime-soft); color:#3d4a16; }
+.rk-tab:focus-visible { outline:2px solid var(--teal); outline-offset:1px; }
+
+.rk-list { display:flex; flex-direction:column; gap:9px; }
+.rk { all:unset; box-sizing:border-box; cursor:pointer; display:grid;
+      grid-template-columns:auto 1fr auto; gap:14px; align-items:center;
+      padding:12px 14px 12px 12px; border-radius:var(--r-s); background:var(--panel-2);
+      box-shadow:inset 0 0 0 1px var(--line), inset 4px 0 0 var(--c); text-align:left;
+      transition:transform .12s ease, box-shadow .12s ease, background .12s ease; }
+.rk:hover { background:#fff; transform:translateY(-1px);
+            box-shadow:inset 0 0 0 1px rgba(31,39,36,.14), inset 4px 0 0 var(--c), 0 4px 12px rgba(31,39,36,.08); }
 .rk:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
-/* A resolved risk stays on the board but stops competing for attention. */
-.rk.done { opacity:.6; }
+/* A resolved risk stays in the register but stops competing for attention. */
+.rk.done { opacity:.62; }
 .rk.done .rk-text { text-decoration:line-through; text-decoration-color:rgba(31,39,36,.35); }
+.rk-score { width:48px; height:48px; border-radius:12px; display:flex; flex-direction:column;
+            align-items:center; justify-content:center; background:#fff;
+            box-shadow:inset 0 0 0 1.5px var(--c); }
+.rk-score b { font-size:19px; font-weight:700; line-height:1; color:var(--ink); }
+.rk-score em { font-style:normal; font-size:9.5px; color:var(--ink-3); margin-top:3px; letter-spacing:.02em; }
+.rk-body { min-width:0; display:flex; flex-direction:column; gap:4px; }
 .rk-top { display:flex; align-items:center; gap:8px; }
 .rk-id { font-size:11px; font-weight:700; color:var(--ink-3); letter-spacing:.03em; }
-.rk-who { margin-left:auto; display:flex; }
+.rk-who { display:flex; }
 .rk-ok { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.07em;
          color:#2f7d5b; background:#dff1e6; border-radius:99px; padding:2px 8px; }
 .rk-text { font-size:13.5px; line-height:1.45; color:var(--ink); }
-.rk-mit { font-size:12px; line-height:1.5; color:var(--ink-3); }
-.rk-fix { font-size:12px; line-height:1.5; color:#2f7d5b; }
+.rk-mit, .rk-fix { font-size:12px; line-height:1.5; color:var(--ink-2); }
+.rk-fix { color:#2f7d5b; }
+/* Inline label for the secondary line - says what the line IS without a
+   second row of chrome. */
+.rk-mit i, .rk-fix i { font-style:normal; font-size:10px; font-weight:700; text-transform:uppercase;
+                       letter-spacing:.08em; color:var(--ink-3); margin-right:7px; }
+.rk-fix i { color:#2f7d5b; }
 
-.dc-list { display:flex; flex-direction:column; gap:7px; }
+/* ---- decision log ---- */
+.dl-leg { margin-bottom:14px; }
+.dl-leg span { text-transform:capitalize; }
+/* The rail is drawn by the list itself, so it spans exactly the weeks shown. */
+.dlog { list-style:none; margin:0; padding:0; position:relative; display:flex; flex-direction:column; gap:12px; }
+.dlog::before { content:''; position:absolute; left:23px; top:14px; bottom:14px; width:2px;
+                background:var(--line); border-radius:2px; }
+.dlog li { display:grid; grid-template-columns:48px 1fr; gap:12px; align-items:start; position:relative; }
+/* Same week pill as the Timeline header: dark = presentation, struck = midterm,
+   teal = final, teal text = this week. */
+.dlog-w { justify-self:center; min-width:42px; text-align:center; padding:5px 0; border-radius:8px;
+          font-size:12px; font-weight:700; color:var(--ink-2); background:var(--panel);
+          box-shadow:inset 0 0 0 1px var(--line); position:relative; z-index:1; }
+.dlog-w.sunum { background:#1f2724; color:#eef3e2; box-shadow:none; }
+.dlog-w.vize  { background:#e8e5dd; text-decoration:line-through; }
+.dlog-w.final { background:var(--teal-soft); }
+.dlog-w.now   { box-shadow:0 0 0 2px var(--teal); color:var(--teal); }
+.dlog-w.now.sunum { color:#a8e6c8; }
+.dlog-items { display:flex; flex-direction:column; gap:6px; min-width:0; }
 .dc { all:unset; box-sizing:border-box; cursor:pointer; display:grid;
-      grid-template-columns:auto 1fr auto auto; gap:10px; align-items:center;
-      padding:9px 11px; border-radius:var(--r-s); background:var(--panel-2); font-size:12.5px; }
+      grid-template-columns:auto 1fr auto; gap:10px; align-items:center;
+      padding:9px 11px 9px 13px; border-radius:var(--r-s); background:var(--panel-2); font-size:13px;
+      box-shadow:inset 3px 0 0 var(--c); transition:background .12s ease; }
 .dc:hover { background:var(--lime-soft); }
 .dc:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
 .dc-id { font-size:11px; font-weight:700; color:var(--ink-3); }
 .dc-t { min-width:0; color:var(--ink); line-height:1.35; }
-.dc-w { font-size:11px; color:var(--ink-3); white-space:nowrap; }
+
+
+@media (prefers-reduced-motion: reduce) {
+  .rk, .dc { transition:none; }
+  .rk:hover { transform:none; }
+}
 
 /* An empty register should teach, not just say "nothing here". */
 .empty.big { text-align:center; padding:26px 16px; font-size:14px; color:var(--ink-2); line-height:1.6; }
@@ -393,12 +460,6 @@ a { color:inherit; }
 .dw-sec .opt { font-weight:400; text-transform:none; letter-spacing:0; color:var(--ink-3); }
 .sbtn.dst { text-transform:capitalize; }
 
-/* ---- next sunum -------------------------------------------------------- */
-.sunum-next { background:linear-gradient(135deg,var(--lime-soft),var(--teal-soft)); border:none; }
-.sunum-next .wk { font-size:13px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#4a6b3e; }
-.sunum-next h4 { font-size:19px; margin:7px 0 10px; }
-.sunum-next .claim { background:rgba(255,255,255,.62); border-radius:var(--r-s); padding:11px 13px; font-size:14.5px; font-style:italic; }
-.sunum-next .meta { margin-top:11px; font-size:13.5px; color:var(--ink-2); display:flex; gap:16px; flex-wrap:wrap; }
 
 /* ---- log --------------------------------------------------------------- */
 .log { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; max-height:440px; overflow-y:auto; }
@@ -445,17 +506,85 @@ a { color:inherit; }
 .dirty { font-size:13.5px; color:var(--amber); font-weight:600; }
 
 /* ---- sunum view -------------------------------------------------------- */
-.sunum-list { display:flex; flex-direction:column; gap:16px; }
-.sunum-card { border-left:5px solid var(--line); }
-.sunum-card.is-next { border-left-color:var(--lime); background:var(--panel); }
-.sunum-card.is-past { opacity:.62; }
-.sunum-card .hd { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
-.sunum-card .hd b { font-size:19px; }
-.sunum-card dl { display:grid; grid-template-columns:120px 1fr; gap:7px 14px; margin:0; font-size:14.5px; }
-.sunum-card dt { color:var(--ink-3); font-size:13px; text-transform:uppercase; letter-spacing:.05em; padding-top:2px; }
-.sunum-card dd { margin:0; }
-.sunum-card .claim-t { font-style:italic; background:var(--lime-soft); border-radius:var(--r-s); padding:9px 12px; }
-.sunum-card .fb { color:var(--ink-2); }
+/* One card per presentation week, in a 3-up grid (two rows for six weeks).
+   Cards are flex columns with the actions pinned to the bottom, so the two
+   buttons line up across a row whatever length the topic is. */
+.pz-summary { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:10px 22px;
+              margin:0 0 16px; font-size:13.5px; color:var(--ink-2); }
+.pz-summary b { color:var(--ink); }
+/* One pip per presentation: filled = deck uploaded. Reads as progress without
+   a percentage that would imply the decks are interchangeable. */
+.pz-meter { display:inline-flex; gap:4px; }
+.pz-meter i { width:18px; height:8px; border-radius:99px; background:rgba(31,39,36,.1); }
+.pz-meter i.on { background:linear-gradient(90deg,var(--lime),var(--green)); }
+
+.pz-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+.pz { display:flex; flex-direction:column; gap:12px; min-width:0; padding:18px 18px 16px;
+      background:var(--panel); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow);
+      transition:transform .15s ease, box-shadow .15s ease; }
+.pz:hover { transform:translateY(-2px); box-shadow:0 2px 4px rgba(31,39,36,.05), 0 12px 28px rgba(31,39,36,.09); }
+/* The next presentation carries the Overview's "next sunum" gradient, so the
+   same event looks the same on both pages. */
+.pz.is-next { background:linear-gradient(150deg,var(--lime-soft),var(--teal-soft)); border-color:transparent; }
+/* Past decks stay fully usable (re-open to rehearse or review), so they are
+   quietened, not faded out. */
+.pz.is-past { background:var(--panel-2); box-shadow:none; }
+.pz.is-past .pz-topic { color:var(--ink-2); }
+
+.pz-hd { display:flex; align-items:center; gap:10px; }
+/* Same pill as the Timeline's presentation weeks: dark with light text. */
+.pz-w { font-size:13px; font-weight:700; padding:4px 10px; border-radius:8px;
+        background:#1f2724; color:#eef3e2; letter-spacing:.02em; }
+.pz-w.now { box-shadow:0 0 0 2px var(--teal); color:#a8e6c8; }
+.pz.is-past .pz-w { background:#e8e5dd; color:var(--ink-2); }
+.pz-date { font-size:12.5px; color:var(--ink-2); white-space:nowrap; }
+.pz-date i { font-style:normal; color:var(--ink-3); }
+.pz-tag { margin-left:auto; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+          padding:3px 9px; border-radius:99px; background:#fff; color:#3d4a16; box-shadow:0 1px 2px rgba(31,39,36,.1); }
+.pz-tag.past { background:transparent; color:var(--ink-3); box-shadow:inset 0 0 0 1px var(--line); }
+
+.pz-topic { font-size:17px; line-height:1.35; font-weight:700; color:var(--ink); margin:2px 0 0;
+            text-wrap:balance; min-height:2.7em; }
+.pz-who { display:flex; align-items:center; gap:9px; font-size:12.5px; color:var(--ink-2); min-height:26px; }
+.pz-who b { color:var(--ink); }
+.pz-who em { display:block; font-style:normal; font-size:11px; color:var(--ink-3);
+             overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:26ch; }
+.pz-none { color:var(--ink-3); font-style:italic; }
+.pz-local { color:#8a5620; }
+.pz-busy { display:inline-flex; align-items:center; gap:8px; }
+.pz-busy i { width:13px; height:13px; border-radius:50%; border:2px solid var(--line);
+             border-top-color:var(--teal); animation:pz-spin .8s linear infinite; }
+@keyframes pz-spin { to { transform:rotate(360deg); } }
+.pz-err { font-size:12px; color:#8f3838; background:var(--red-soft); border-radius:8px; padding:6px 10px; }
+
+.pz-act { margin-top:auto; display:flex; align-items:center; gap:8px; padding-top:4px; }
+.pz-start { display:inline-flex; align-items:center; justify-content:center; gap:8px; flex:1;
+            font-size:13px; padding:9px 14px; }
+.pz-start svg { width:13px; height:13px; fill:currentColor; flex:0 0 auto; }
+.pz.is-next .pz-start:not([disabled]) { background:#1f2724; box-shadow:0 4px 14px rgba(31,39,36,.22); }
+/* Disabled is visibly inert - no hover dimming pretending it can be pressed. */
+.btn[disabled] { cursor:not-allowed; background:rgba(31,39,36,.08); color:var(--ink-3); box-shadow:none; }
+.btn[disabled]:hover { opacity:1; }
+.btn.ghost[disabled] { background:transparent; }
+.pz-up { display:inline-flex; align-items:center; justify-content:center; gap:7px; white-space:nowrap;
+         font-size:13px; padding:9px 14px; }
+.pz-up svg { width:13px; height:13px; fill:currentColor; flex:0 0 auto; }
+/* No deck yet: Upload is the primary action and fills the row; Start stays
+   visible but compact, as a preview of what the upload unlocks. */
+.pz-act:not(.has-deck) .pz-up { flex:1; }
+.pz-act:not(.has-deck) .pz-start { flex:0 0 auto; }
+.pz-act.has-deck .pz-up { font-size:12px; padding:8px 12px; }
+.pz-act.has-deck .pz-up:hover { background:#fff; color:var(--ink); opacity:1; }
+
+.pz-foot { margin:16px 0 0; text-align:center; font-size:12px; color:var(--ink-3); }
+.pz-foot b { color:var(--ink-2); }
+
+@media (max-width:1180px) { .pz-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:640px)  { .pz-grid { grid-template-columns:1fr; } .pz-topic { min-height:0; } }
+@media (prefers-reduced-motion: reduce) {
+  .pz, .pz:hover { transition:none; transform:none; }
+  .pz-busy i { animation-duration:2.4s; }
+}
 
 /* ---- risks / decisions tables ------------------------------------------ */
 table.plain { width:100%; border-collapse:collapse; font-size:14px; }
@@ -470,6 +599,9 @@ table.plain td { padding:9px 10px 9px 0; border-top:1px solid var(--line); verti
 .st.accepted { background:var(--green-soft); color:#2c6b48; }
 .st.proposed { background:var(--teal-soft);  color:#22636f; }
 .st.open     { background:var(--amber-soft); color:#8a5620; }
+/* A decision can be set to rejected from its panel; it had no style, so the
+   badge rendered as plain text. */
+.st.rejected { background:var(--red-soft);   color:#8f3838; }
 
 .empty { color:var(--ink-3); font-size:14px; font-style:italic; }
 
@@ -604,17 +736,23 @@ table.plain td { padding:9px 10px 9px 0; border-top:1px solid var(--line); verti
   .nav { flex-direction:row; flex-wrap:wrap; } .side-foot { display:none; }
   .main { padding:16px; }
   .g4 { grid-template-columns:1fr; } .board { grid-template-columns:1fr; }
-  .sunum-card dl { grid-template-columns:1fr; gap:2px 0; }
-  .sunum-card dt { margin-top:8px; }
 }
 
 /* ================= interaction UI ================= */
 
 .mini-label { font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-3); font-weight:700; margin:14px 0 7px; }
-#meBox, #syncBox { padding:0 10px; }
+/* All three sidebar sections share one gutter. #msgBox had none, so
+   "Notifications" and its empty line started 10px left of "Me" and the save
+   box. Labels are centred like the brand and the nav above them. */
+#meBox, #msgBox, #syncBox { padding:0 10px; }
+#meBox .mini-label, #msgBox .mini-label { text-align:center; }
+#msgBox .mini-label { justify-content:center; }
+#msgBox .msgs .empty { text-align:center; padding:2px 0 0; }
 .me-row { display:flex; gap:6px; }
-.me { all:unset; cursor:pointer; display:flex; align-items:center; gap:7px; padding:6px 9px 6px 6px;
-      border-radius:99px; font-size:12px; color:var(--ink-2); border:1px solid var(--line); flex:1; }
+/* The chips stretch to share the row, so their content is centred in them -
+   otherwise avatar + name sat against the left edge of a wide pill. */
+.me { all:unset; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px;
+      padding:6px 10px; border-radius:99px; font-size:12px; color:var(--ink-2); border:1px solid var(--line); flex:1; }
 .me.on { background:var(--lime-soft); border-color:transparent; color:var(--ink); font-weight:700; }
 .me:hover { background:var(--panel-2); }
 
@@ -671,7 +809,7 @@ table.plain td { padding:9px 10px 9px 0; border-top:1px solid var(--line); verti
 
 @media (max-width:720px){
   .dw { width:100%; }
-  #meBox, #syncBox { padding:0; }
+  #meBox, #msgBox, #syncBox { padding:0; }
   .mini-label { margin-top:8px; }
 }
 
@@ -708,6 +846,12 @@ body.side-collapsed .nav .ico svg { width:27px; height:27px; }
 body.side-collapsed .nav button[aria-selected="true"] .ico { opacity:1; }
 
 @media (max-width:720px){
+  /* The bare `.side { position:sticky }` above comes AFTER the phone layout's
+     `position:static` and has the same specificity, so it won: on a phone the
+     full-height sidebar stuck to the top and covered the page as you scrolled.
+     Restated here, later still. relative, not static, so it stays a
+     positioning context. */
+  .side { position:relative; }
   .side-toggle { position:static; margin-left:auto; }
   body.side-collapsed .side { width:auto; flex:none; }
   body.side-collapsed .nav .lbl { display:inline; }
@@ -729,3 +873,24 @@ body.side-collapsed .nav button[aria-selected="true"] .ico { opacity:1; }
 .col h4 { min-width:0; }
 .mini-board .more.link { cursor:pointer; color:var(--teal); font-weight:700; }
 .mini-board .more.link:hover { text-decoration:underline; }
+
+/* ---- empty "slot" shared by the risk register and the decision log ---- */
+.ep { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+      text-align:center; padding:28px 22px; border-radius:var(--r);
+      border:1.5px dashed rgba(31,39,36,.16); background:linear-gradient(160deg,var(--panel-2),var(--panel)); }
+.ep-t { font-size:15px; color:var(--ink); }
+.ep p { margin:0; max-width:46ch; font-size:12.5px; line-height:1.6; color:var(--ink-3); }
+.ep-x { display:flex; flex-direction:column; align-items:center; gap:8px; margin:4px 0 2px; }
+.ep-how { font-size:12px; color:var(--ink-2); display:inline-flex; flex-wrap:wrap; justify-content:center; gap:6px; align-items:center; }
+.ep-how i { font-style:normal; color:var(--ink-3); }
+.ep .btn { margin-top:4px; }
+
+
+/* Folder mark shown in place of an avatar when a deck came in through git
+   and its author is not one of us (or the author lookup was unavailable). */
+.pz-git { width:23px; height:23px; flex:0 0 auto; border-radius:50%; background:var(--panel-2);
+          box-shadow:inset 0 0 0 1px var(--line); position:relative; }
+.pz-git::before { content:''; position:absolute; left:6px; top:8px; width:11px; height:8px;
+                  border-radius:2px; background:var(--ink-3); }
+.pz-git::after  { content:''; position:absolute; left:6px; top:6px; width:5px; height:3px;
+                  border-radius:1px 1px 0 0; background:var(--ink-3); }

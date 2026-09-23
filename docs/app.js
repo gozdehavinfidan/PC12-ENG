@@ -169,7 +169,7 @@
 
   var badLines = 0, dupLines = 0, orphanLines = 0;
   var ACTORS  = /^(ML|BM)$/;
-  var ACTIONS = /^(status|pct|join|leave|note|task|del|msg|read|risk|riskfix|riskopen|dec|decst)$/;
+  var ACTIONS = /^(status|pct|join|leave|note|task|del|msg|read|risk|riskfix|riskopen|dec|decst|deck)$/;
   var TS_RE   = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
   var ID_RE   = /^[0-9a-f]{8}$/;
 
@@ -224,6 +224,10 @@
     st.decisions = (D.decisions || []).map(function (d) {
       return { id:d.id, title:d.title, w:d.w, status:d.status || 'open', by:null, ts:null };
     });
+    // Uploaded slide decks, keyed by presentation week. The FILE lives in the
+    // repo (docs/presentations/W<n>.html); the log only records that it was
+    // uploaded, by whom and when - the same "who did it" fact as everything else.
+    st.decks = {};
     var byRisk = {}, byDec = {};
     st.risks.forEach(function (r) { byRisk[r.id] = r; });
     st.decisions.forEach(function (d) { byDec[d.id] = d; });
@@ -272,6 +276,17 @@
                    w: parseInt(dp[1], 10) || NOW, status: dp[2] || 'open',
                    by: ev.actor, ts: ev.ts };
         st.decisions.push(nd); byDec[nd.id] = nd;
+        return;
+      }
+      if (ev.action === 'deck') {
+        // TARGET = "W<n>", VALUE = "<site path>;<original file name>".
+        // Handled before the task lookup: the target is a week, not a task.
+        // LAST write wins, unlike risks: re-uploading replaces the deck file
+        // at the same path, so the newest event is the one describing it.
+        var dw = parseInt(String(ev.target).replace(/^W/, ''), 10);
+        var dv = String(ev.value).split(';');
+        if (!dw || !/^presentations\/W\d+\.html$/.test(dv[0] || '')) { orphanLines++; return; }
+        st.decks[dw] = { w: dw, path: dv[0], file: dv[1] || '', by: ev.actor, ts: ev.ts, id: ev.id };
         return;
       }
       if (ev.action === 'decst') {
@@ -415,6 +430,39 @@
   }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
+  /* ---- deck upload: one binary-safe file PUT via the Contents API ----
+     A deck is committed as its raw BYTES, not as text: b64enc() above goes
+     through TextEncoder, which is right for data.txt but would re-encode a deck
+     saved in any other charset. Chunked so a multi-MB deck does not blow the
+     argument limit of String.fromCharCode.apply. */
+  function b64bytes(buf) {
+    var u8 = new Uint8Array(buf), bin = '', CH = 0x8000;
+    for (var i = 0; i < u8.length; i += CH) bin += String.fromCharCode.apply(null, u8.subarray(i, i + CH));
+    return btoa(bin);
+  }
+  // The site is served from the folder data.txt lives in (docs/), so a deck at
+  // site path "presentations/W4.html" is the repo file "docs/presentations/W4.html".
+  function repoPathFor(sitePath) {
+    var cfg = repoCfg(), dir = cfg ? cfg.path.replace(/[^/]*$/, '') : 'docs/';
+    return dir + sitePath;
+  }
+  function ghFileSha(cfg, path) {
+    var u = 'https://api.github.com/repos/' + cfg.owner + '/' + cfg.repo + '/contents/' +
+            path + '?ref=' + encodeURIComponent(cfg.branch) + '&t=' + Date.now();
+    return fetch(u, { headers: ghHeaders(), cache: 'no-store' }).then(function (r) {
+      if (r.status === 404) return { ok: true, sha: null };           // first upload
+      if (!r.ok) return { ok: false, status: r.status };
+      return r.json().then(function (j) { return { ok: true, sha: j.sha }; });
+    });
+  }
+  function ghPutFile(cfg, path, b64, sha, msg) {
+    var u = 'https://api.github.com/repos/' + cfg.owner + '/' + cfg.repo + '/contents/' + path;
+    var body = { message: msg, content: b64, branch: cfg.branch };
+    if (sha) body.sha = sha;                   // replacing needs the current sha
+    return fetch(u, { method: 'PUT', headers: ghHeaders(), body: JSON.stringify(body) })
+      .then(function (r) { return { ok: r.ok, status: r.status }; });
+  }
+
   // GET -> append only ids the remote lacks -> conditional PUT -> on conflict,
   // bounded randomized backoff (a single retry loses events when two people save
   // at once). The outbox survives until a re-read proves the ids landed.
@@ -491,8 +539,8 @@
   }
   function doneCount() { return STATE.tasks.filter(function (t) { return t.status === 'done'; }).length; }
 
-  function kpiCard(k, v, pct) {
-    return '<div class="card kpi"><div class="v">' + esc(v) + '</div><div class="k">' + esc(k) + '</div>' +
+  function kpiCard(k, v, pct, cls) {
+    return '<div class="card kpi' + (cls ? ' ' + cls : '') + '"><div class="v">' + esc(v) + '</div><div class="k">' + esc(k) + '</div>' +
       (pct === null ? '' : '<div class="bar"><i style="width:' + Math.max(0, Math.min(100, pct)) + '%"></i></div>') + '</div>';
   }
 
@@ -799,6 +847,9 @@
         return who + ' recorded a decision: <b>' + esc(String(ev.value).split(';')[0]) + '</b>';
       case 'decst':
         return who + ' marked <b>' + esc(ev.target) + '</b> as <b>' + esc(ev.value) + '</b>';
+      case 'deck':
+        return who + ' uploaded the <b>' + esc(ev.target) + '</b> presentation' +
+               (sunumTopic(ev.target) ? ': <b>' + esc(sunumTopic(ev.target)) + '</b>' : '');
       case 'note':
         // Clipped here, shown in full on the task itself. An untrimmed note is
         // often several lines and buries every other update under one entry.
@@ -843,7 +894,6 @@
   }
 
   function renderOverview() {
-    var ns = nextSunum();
     var sw = (D.weeks || []).filter(function (x) { return x.type === 'sunum'; }).map(function (x) { return x.w; });
     var remaining = sw.filter(function (w) { return w >= NOW; }).length;
 
@@ -853,20 +903,15 @@
       // The status breakdown now lives in the top row instead of a separate card.
       '<div class="card stat-tile"><h3>Task status</h3>' + statusRing() + '</div>';
 
-    var nsHtml = ns ? ('<div class="card sunum-next">' +
-        '<div class="wk">Next presentation &middot; Week ' + ns.w + (ns.ms ? ' &middot; ' + ns.ms : '') + '</div>' +
-        '<h4>' + esc(ns.demo) + '</h4>' +
-        '<div class="claim">&ldquo;' + esc(ns.claim) + '&rdquo;</div>' +
-        '<div class="meta"><span style="display:inline-flex;align-items:center;gap:8px"><b>Speaker:</b>' + whoHTML(ns.speaker) + '</span>' +
-        '<span><b>Fallback:</b> ' + esc(ns.fallback) + '</span></div></div>')
-      : '<div class="card"><h3>Sunum</h3><p class="empty">No presentations left.</p></div>';
+    // The "Next presentation" card (demo / claim / speaker / fallback) was
+    // removed: the Presentations page now carries the next presentation, and
+    // "Presentations left" above already counts them.
 
     // Timeline gets the FULL width: at 1.35fr it was still scrolling on a
     // laptop, which was the user's actual complaint about it being too small.
     return '<div class="grid g4">' + kpi + '</div>' +
       '<div class="card panel-lime" style="margin-top:16px"><h3>Project timeline</h3>' + miniTimeline() + '</div>' +
       '<div class="card" style="margin-top:16px"><h3>Task board</h3>' + miniBoard() + '</div>' +
-      '<div style="margin-top:16px">' + nsHtml + '</div>' +
       '<div class="card" style="margin-top:16px"><h3>Last updates</h3>' +
         lastUpdates() + '</div>';
   }
@@ -983,18 +1028,241 @@
       '<div class="board">' + cols + '</div>';
   }
 
+  /* ---------------- PRESENTATIONS: upload a deck, start it ----------------
+     Each presentation week is one card: its topic, who uploaded the deck, an
+     upload button and a start button. The deck is a single self-contained
+     .html file, committed to docs/presentations/W<n>.html so GitHub Pages
+     serves it to both of us; the upload itself is a "deck" event in data.txt.
+
+     A deck can arrive two ways, and both end in the same folder:
+       - the Upload button here (commits the file + logs who, via the token);
+       - dropping W<n>.html into docs/presentations/ and pushing with git.
+     The FOLDER is therefore the source of truth: every presentation week is
+     checked for presentations/W<n>.html, logged or not. For a git-added deck
+     the uploader comes from the file's last commit (GitHub's public API).
+
+     State, none of which belongs in the log:
+       localDeck[w] - a blob: URL of the file THIS browser just picked. The
+                      uploader can start at once, before Pages has published.
+       deckLive[id] - has the committed file actually appeared on Pages yet?
+                      Probed with HEAD; a commit takes ~1 min to go live, and a
+                      Start button that opens a 404 is worse than a disabled one.
+       upState[w]   - an upload in flight, or its error.
+       gitBy[w]     - who last committed a deck that has no upload event. */
+  var localDeck = {}, deckLive = {}, upState = {}, gitBy = {};
+  // Cache-buster for decks found in the folder: fresh per page load, so a deck
+  // pushed a minute ago is not served from yesterday's browser cache.
+  var LOAD_V = Date.now().toString(36);
+  var DECK_MAX = 25 * 1024 * 1024;       // a slide deck, not a video archive
+
+  function sunumTopic(target) {
+    var w = parseInt(String(target).replace(/^W/, ''), 10), t = '';
+    (D.sunum || []).forEach(function (s) { if (s.w === w) t = s.topic || ''; });
+    return t;
+  }
+  // The class is on Thursday, so a presentation is on the Thursday of its week,
+  // counted from the same anchor that decides the current week.
+  function sunumDate(w) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((D.meta && D.meta.w1Thursday) || '');
+    if (!m || badAnchor) return null;
+    return new Date(+m[1], +m[2] - 1, +m[3] + (w - 1) * 7);
+  }
+  function whenText(d) {
+    if (!d) return '';
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var n = Math.round((d - today) / 86400000);
+    return n === 0 ? 'today' : n === 1 ? 'tomorrow' : n === -1 ? 'yesterday'
+         : n > 0 ? 'in ' + n + ' days' : Math.abs(n) + ' days ago';
+  }
+  var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  /* Where week w's deck is, and under which key its probe result is kept.
+     A logged upload uses its event id in the URL: a replaced deck becomes a NEW
+     url, so neither the browser nor the Pages CDN can hand back the old file. */
+  function deckSrc(w) {
+    var d = (STATE.decks || {})[w];
+    return d ? { key: d.id, url: d.path + '?v=' + d.id, ev: d }
+             : { key: 'f' + w, url: 'presentations/W' + w + '.html?v=' + LOAD_V, ev: null };
+  }
+  function probeDeck(src, tries) {
+    // file:// cannot be probed. A logged deck is let through (git pull may have
+    // brought the file); an unlogged one stays off rather than open a 404.
+    if (location.protocol === 'file:') { deckLive[src.key] = src.ev ? 'live' : 'absent'; return; }
+    var st = deckLive[src.key];
+    if (st === 'live' || st === 'probing' || st === 'absent' || st === 'missing') return;
+    deckLive[src.key] = 'probing';
+    fetch(src.url, { method: 'HEAD', cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error(String(r.status));
+      deckLive[src.key] = 'live';
+      if (!src.ev) loadGitAuthor(parseInt(src.key.slice(1), 10));
+      if (current() === 'sunum') render();
+    }).catch(function () {
+      // Nothing logged and nothing in the folder: simply no deck yet.
+      if (!src.ev) { deckLive[src.key] = 'absent'; if (current() === 'sunum') render(); return; }
+      // Logged but not served yet: Pages is still publishing. ~20 x 15 s = 5
+      // minutes, well past a normal build; after that it is missing, say so.
+      deckLive[src.key] = (tries || 0) >= 20 ? 'missing' : 'wait';
+      if (current() === 'sunum') render();
+      if (deckLive[src.key] === 'wait') setTimeout(function () {
+        if (deckLive[src.key] === 'wait') { deckLive[src.key] = null; probeDeck(src, (tries || 0) + 1); }
+      }, 15000);
+    });
+  }
+
+  /* Who put a git-added deck there: the last commit touching the file. Public
+     API, no token needed - but rate-limited to 60 calls/hour per visitor, so
+     the answer is cached for the tab and a failure just shows the plain line.
+     The commit name/login is matched to one of us by first name, accents
+     folded ("gozdehavinfidan" -> Gözde); anyone else keeps their git name. */
+  function fold(t) {
+    return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+  }
+  function loadGitAuthor(w) {
+    var cfg = repoCfg(); if (!cfg || gitBy[w]) return;
+    var ck = 'pc12.gitby.W' + w;
+    try { var c = JSON.parse(sessionStorage.getItem(ck) || 'null'); if (c) { gitBy[w] = c; return; } } catch (e) {}
+    gitBy[w] = { pending: true };
+    fetch('https://api.github.com/repos/' + cfg.owner + '/' + cfg.repo + '/commits?per_page=1&sha=' +
+          encodeURIComponent(cfg.branch) + '&path=' + encodeURIComponent(repoPathFor('presentations/W' + w + '.html')))
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (arr) {
+        var c = arr && arr[0]; if (!c) throw new Error('none');
+        var au = (c.commit && c.commit.author) || {};
+        var name = au.name || '', login = (c.author && c.author.login) || '';
+        var hay = fold(name + ' ' + login), code = null;
+        (D.people || []).forEach(function (p) {
+          if (p.code !== 'EK' && fold(p.short) && hay.indexOf(fold(p.short)) >= 0) code = p.code;
+        });
+        gitBy[w] = { code: code, name: name || login, ts: au.date || '' };
+        try { sessionStorage.setItem(ck, JSON.stringify(gitBy[w])); } catch (e) {}
+      })
+      .catch(function () { gitBy[w] = { failed: true }; })
+      .then(function () { if (current() === 'sunum') render(); });
+  }
+
+  function uploadDeck(w, file) {
+    if (!/\.html?$/i.test(file.name)) { upState[w] = { err: 'Choose an .html file' }; render(); return; }
+    if (file.size > DECK_MAX) { upState[w] = { err: 'Over 25 MB — export a lighter deck' }; render(); return; }
+    // Kept for THIS session whatever happens next, so the person who uploads
+    // can always start their own deck, even offline or before Pages publishes.
+    if (localDeck[w]) URL.revokeObjectURL(localDeck[w]);
+    localDeck[w] = URL.createObjectURL(file);
+    var cfg = repoCfg();
+    if (location.protocol === 'file:' || !cfg) {
+      upState[w] = { local: true }; render(); return;
+    }
+    // No token yet: the deck is usable here, but not shared. Say THAT - not the
+    // file:// message - and continue the upload as soon as a token is entered.
+    if (!token) { upState[w] = { needToken: true }; render(); askToken(function () { uploadDeck(w, file); }); return; }
+    upState[w] = { busy: true }; render();
+    var site = 'presentations/W' + w + '.html', path = repoPathFor(site);
+    var msg = 'dashboard: ' + ME + ' uploads the W' + w + ' presentation';
+    file.arrayBuffer().then(function (buf) {
+      var b64 = b64bytes(buf), attempt = 0;
+      function put() {
+        return ghFileSha(cfg, path).then(function (cur) {
+          if (!cur.ok) throw { status: cur.status };
+          return ghPutFile(cfg, path, b64, cur.sha, msg);
+        }).then(function (res) {
+          // 409/422 = the sha went stale (the other person replaced it a moment
+          // ago). Re-read and retry a couple of times, like the log does.
+          if (!res.ok && (res.status === 409 || res.status === 422) && ++attempt < 3) return sleep(600).then(put);
+          if (!res.ok) throw { status: res.status };
+        });
+      }
+      return put();
+    }).then(function () {
+      upState[w] = null;
+      // ';' separates fields in VALUE; strip it from the name, keep the rest.
+      addEvent('deck', 'W' + w, site + ';' + file.name.replace(/;/g, ','));
+      pushOutbox();
+    }).catch(function (e) {
+      var s = e && e.status;
+      if (s === 401 || s === 403) token = null;           // bad token: ask again next time
+      upState[w] = { err: s === 401 || s === 403 ? 'Token not allowed to write — check it and retry'
+                        : 'Upload failed' + (s ? ' (' + s + ')' : ' — network error') };
+      render();
+    });
+  }
+
+  function startDeck(w) {
+    var src = deckSrc(w);
+    var url = localDeck[w] || (deckLive[src.key] === 'live' ? src.url : null);
+    if (url) window.open(url, '_blank', 'noopener');
+  }
+  // A week "has a deck" if it is in the folder, was logged, or was just picked here.
+  function hasDeck(w) {
+    var src = deckSrc(w);
+    return !!(localDeck[w] || src.ev || deckLive[src.key] === 'live');
+  }
+
+  function sunumCard(s, ns) {
+    var src = deckSrc(s.w), d = src.ev, local = localDeck[s.w], up = upState[s.w] || {};
+    var isNext = ns && s.w === ns.w, isPast = !isNext && s.w < NOW;
+    var date = sunumDate(s.w);
+    if (!local && !deckLive[src.key]) probeDeck(src, 0);
+    var state = deckLive[src.key], live = state === 'live', found = !d && live;
+    var has = !!(local || d || found);
+
+    // Start: enabled only when opening it would actually show the deck.
+    var canStart = !!(local || live), startLbl = 'Start presentation', why = '';
+    if (!canStart && d && state === 'missing') { startLbl = 'Deck not found'; why = 'The upload was recorded, but the file is not on the site.'; }
+    else if (!canStart && d) { startLbl = 'Publishing\u2026'; why = 'GitHub Pages is publishing it \u2014 usually under a minute.'; }
+    else if (!canStart) { startLbl = 'Start'; why = 'Upload a deck, or add presentations/W' + s.w + '.html to the folder.'; }
+
+    // Who put the deck there. The log's fact when there is one; for a deck that
+    // came in through git, its last commit; otherwise say what the state is.
+    var who, g = gitBy[s.w] || {};
+    if (up.busy) who = '<span class="pz-busy"><i></i>Uploading as ' + esc(person(ME).short) + '\u2026</span>';
+    else if (d) who = avatarHTML(d.by, 'sm') + '<span><b>' + esc(d.by === ME ? 'You' : person(d.by).short) + '</b> uploaded it ' +
+                      esc(relTime(d.ts)) + (d.file ? '<em>' + esc(d.file) + '</em>' : '') + '</span>';
+    else if (found && g.name) who = (g.code ? avatarHTML(g.code, 'sm') : '<span class="pz-git" aria-hidden="true"></span>') +
+                      '<span><b>' + esc(g.code ? (g.code === ME ? 'You' : person(g.code).short) : g.name) + '</b> added it ' +
+                      esc(relTime(g.ts)) + '<em>presentations/W' + s.w + '.html</em></span>';
+    else if (found) who = '<span class="pz-git" aria-hidden="true"></span><span><b>In the folder</b>' +
+                      '<em>presentations/W' + s.w + '.html</em></span>';
+    else if (local && up.needToken) who = '<span class="pz-local">Not uploaded yet \u2014 enter your GitHub token to share it.</span>';
+    else if (local) who = '<span class="pz-local">Only in this browser \u2014 open the dashboard from its Pages URL to share it.</span>';
+    else who = '<span class="pz-none">No deck uploaded yet</span>';
+
+    var tag = isNext ? '<span class="pz-tag">Up next</span>' : isPast ? '<span class="pz-tag past">Done</span>' : '';
+    return '<article class="pz' + (isNext ? ' is-next' : '') + (isPast ? ' is-past' : '') + '">' +
+      '<header class="pz-hd"><span class="pz-w' + (s.w === NOW ? ' now' : '') + '">W' + s.w + '</span>' +
+        '<span class="pz-date">' + (date ? 'Thu ' + date.getDate() + ' ' + MON[date.getMonth()] +
+          ' <i>\u00b7</i> ' + whenText(date) : '') + '</span>' + tag + '</header>' +
+      '<h3 class="pz-topic">' + esc(s.topic || ('Week ' + s.w + ' presentation')) + '</h3>' +
+      '<div class="pz-who">' + who + '</div>' +
+      (up.err ? '<div class="pz-err">' + esc(up.err) + '</div>' : '') +
+      // The emphasis follows the NEXT useful action: with no deck, uploading is
+      // the only thing to do, so it is the big dark button and Start shrinks;
+      // once a deck exists, Start takes over and upload becomes "Replace".
+      '<div class="pz-act' + (has ? ' has-deck' : '') + '">' +
+        '<button type="button" class="btn ' + (has ? 'ghost sm ' : '') + 'pz-up" data-deck-up="' + s.w + '"' +
+          (up.busy ? ' disabled' : '') + '><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5 3.8 6.7h2.7v4.1h3V6.7h2.7z"/>' +
+          '<path d="M3 12.3h10v1.4H3z"/></svg>' + (has ? 'Replace' : 'Upload deck') + '</button>' +
+        '<input type="file" accept=".html,.htm,text/html" hidden data-deck-in="' + s.w + '">' +
+        '<button type="button" class="btn pz-start" data-deck-go="' + s.w + '"' + (canStart ? '' : ' disabled') +
+          (why ? ' title="' + esc(why) + '"' : '') + '><svg viewBox="0 0 16 16" aria-hidden="true">' +
+          '<path d="M4.5 2.8v10.4L13 8z"/></svg>' + startLbl + '</button>' +
+      '</div></article>';
+  }
+
   function renderSunum() {
     var ns = nextSunum();
-    return '<div class="sunum-list">' + (D.sunum || []).slice().sort(function (a, b) { return a.w - b.w; }).map(function (s) {
-      var cls = 'card sunum-card' + (ns && s.w === ns.w ? ' is-next' : (s.w < NOW ? ' is-past' : ''));
-      return '<div class="' + cls + '"><div class="hd"><b>Week ' + s.w + '</b>' +
-        (s.ms ? '<span class="st proposed">' + esc(s.ms) + '</span>' : '') +
-        '<span style="display:inline-flex;align-items:center;gap:8px;color:var(--ink-3)">Speaker:' + whoHTML(s.speaker) + '</span>' +
-        (ns && s.w === ns.w ? '<span class="st accepted">NEXT</span>' : '') + '</div>' +
-        '<dl><dt>On screen</dt><dd>' + esc(s.demo) + '</dd>' +
-        '<dt>Claim</dt><dd class="claim-t">&ldquo;' + esc(s.claim) + '&rdquo;</dd>' +
-        '<dt>Fallback</dt><dd class="fb">' + esc(s.fallback) + '</dd></dl></div>';
-    }).join('') + '</div>';
+    var list = (D.sunum || []).slice().sort(function (a, b) { return a.w - b.w; });
+    var ready = list.filter(function (s) { return hasDeck(s.w); }).length;
+    var nd = ns ? sunumDate(ns.w) : null;
+    // One line above the grid answers the two questions people open this page
+    // with: when is the next one, and how many decks are still missing.
+    var head = '<div class="pz-summary">' +
+      (ns ? '<span><b>Next:</b> W' + ns.w + (nd ? ' \u00b7 ' + whenText(nd) : '') + '</span>' : '<span><b>All presentations are done</b></span>') +
+      '<span class="pz-meter" title="' + ready + ' of ' + list.length + ' decks ready">' +
+        list.map(function (s) { return '<i class="' + (hasDeck(s.w) ? 'on' : '') + '"></i>'; }).join('') +
+      '</span><span><b>' + ready + '</b> / ' + list.length + ' decks ready</span></div>';
+    return head + '<div class="pz-grid">' + list.map(function (s) { return sunumCard(s, ns); }).join('') + '</div>' +
+      '<p class="pz-foot">Upload here, or put <b>W&lt;week&gt;.html</b> (e.g. W4.html) in <b>docs/presentations/</b> and push \u2014 ' +
+      'either way it is picked up automatically. One self-contained file per deck (images embedded); ' +
+      'it is published with the dashboard, so anyone with the link can open it.</p>';
   }
 
   // data.js instructs the reader to paste run results into results[], but the
@@ -1004,7 +1272,7 @@
   // be indistinguishable from one measured as zero.
   function runsTable() {
     var rs = D.results || [];
-    if (!rs.length) return '<p class="empty">No runs yet. We do not invent numbers.</p>';
+    if (!rs.length) return '';           // no runs -> renderRisks() leaves the card out
     var num = function (v) { return (v === null || v === undefined || v === '') ? '&ndash;' : esc(String(v)); };
     var rows = rs.slice().reverse().map(function (r) {
       return '<tr><td><b>' + esc(r.run || '?') + '</b><br><span style="color:var(--ink-3)">' +
@@ -1026,46 +1294,128 @@
      raises a risk and the other can resolve it, and both acts are recorded in
      the same append-only log as everything else - so the register answers
      "who raised this, who closed it, and when" without anyone remembering. */
-  function riskCard(r) {
-    var open = r.status !== 'resolved';
-    return '<button type="button" class="rk' + (open ? '' : ' done') + '" data-risk="' + esc(r.id) + '">' +
-      '<span class="rk-top"><b class="rk-id">' + esc(r.id) + '</b>' +
-        '<span class="sev ' + sevWord(r.p, r.i).charAt(0) + '">' + sevWord(r.p, r.i) + '</span>' +
-        (open ? '' : '<span class="rk-ok">resolved</span>') +
-        '<span class="rk-who">' + avatarHTML(r.owner, 'sm') + '</span></span>' +
-      '<span class="rk-text">' + esc(r.text) + '</span>' +
-      (r.mit ? '<span class="rk-mit">' + esc(r.mit) + '</span>' : '') +
-      (!open && r.fix ? '<span class="rk-fix">' + esc(person(r.fixBy).short) + ': ' + esc(r.fix) + '</span>' : '') +
-      '</button>';
+  // Colours come from the palette tokens in styles.css (--red / --amber /
+  // --green / --teal), repeated here only because they are set inline as --c.
+  var SEV_COLOR = { high: '#ef8b8b', medium: '#f2b880', low: '#7dd3a0' };
+  var DEC_COLOR = { open: '#f2b880', proposed: '#5eb8c9', accepted: '#7dd3a0', rejected: '#ef8b8b' };
+  function riskScore(r) { return (r.p || 0) * (r.i || 0); }
+  // Which slice of the register is listed. Memory only: it is a way of
+  // looking, not a fact about the project, so it does not go in the log.
+  var riskFilter = 'open';
+
+  /* One risk = one row. The score leads because it is what the list is sorted
+     by; the colour stripe repeats the severity for a reader scanning the edge
+     of the list, the same device as the status stripe on the board columns. */
+  function riskRow(r) {
+    var open = r.status !== 'resolved', sev = sevWord(r.p, r.i);
+    return '<button type="button" class="rk' + (open ? '' : ' done') + '" data-risk="' + esc(r.id) + '" ' +
+        'style="--c:' + SEV_COLOR[sev] + '">' +
+      '<span class="rk-score"><b>' + riskScore(r) + '</b><em>P' + r.p + '\u00b7I' + r.i + '</em></span>' +
+      '<span class="rk-body">' +
+        '<span class="rk-top"><b class="rk-id">' + esc(r.id) + '</b>' +
+          '<span class="sev ' + sev.charAt(0) + '">' + sev + '</span>' +
+          (open ? '' : '<span class="rk-ok">resolved</span>') + '</span>' +
+        '<span class="rk-text">' + esc(r.text) + '</span>' +
+        (r.mit ? '<span class="rk-mit"><i>Plan</i>' + esc(r.mit) + '</span>' : '') +
+        (!open && r.fix ? '<span class="rk-fix"><i>' + esc(person(r.fixBy).short) + '</i>' + esc(r.fix) + '</span>' : '') +
+      '</span>' +
+      '<span class="rk-who">' + avatarHTML(r.owner, 'sm') + '</span></button>';
+  }
+
+  /* Decisions as a log down the weeks, not a flat list: "what did we settle,
+     and when" is the question W15 has to answer, and the week pill uses the
+     Timeline's colours so a decision made in a presentation week reads as one. */
+  function decisionLog(ds) {
+    if (!ds.length) return emptyPanel('No decisions yet', '', '', 'data-add-dec', '+ Record a decision');
+    var weeks = [], byW = {};
+    ds.forEach(function (d) {
+      var w = d.w || NOW;
+      if (!byW[w]) { byW[w] = []; weeks.push(w); }
+      byW[w].push(d);
+    });
+    weeks.sort(function (a, b) { return a - b; });
+    var counts = {}; ds.forEach(function (d) { counts[d.status] = (counts[d.status] || 0) + 1; });
+    var leg = DEC_ST.filter(function (k) { return counts[k]; }).map(function (k) {
+      return '<span><i style="background:' + DEC_COLOR[k] + '"></i>' + k + '<b>' + counts[k] + '</b></span>';
+    }).join('');
+    return '<div class="st-leg dl-leg">' + leg + '</div><ol class="dlog">' + weeks.map(function (w) {
+      var m = weekMeta(w);
+      return '<li><span class="dlog-w ' + m.type + (w === NOW ? ' now' : '') + '">W' + w + '</span>' +
+        '<div class="dlog-items">' + byW[w].map(function (d) {
+          return '<button type="button" class="dc" data-dec="' + esc(d.id) + '" style="--c:' +
+              (DEC_COLOR[d.status] || '#ddd') + '">' +
+            '<span class="dc-id">' + esc(d.id) + '</span>' +
+            '<span class="dc-t">' + esc(d.title) + '</span>' +
+            '<span class="st ' + esc(d.status) + '">' + esc(d.status) + '</span></button>';
+        }).join('') + '</div></li>';
+    }).join('') + '</ol>';
+  }
+
+  /* Shared first-run state for the register and the log: a dashed "slot"
+     that shows where content will go, what it means, and the one action that
+     fills it. The same shape in both cards, so an empty page reads as ready to
+     use rather than broken. */
+  function emptyPanel(title, text, extra, attr, btn) {
+    return '<div class="ep"><b class="ep-t">' + esc(title) + '</b>' + (text ? '<p>' + esc(text) + '</p>' : '') +
+      (extra ? '<div class="ep-x">' + extra + '</div>' : '') +
+      '<button type="button" class="btn sm" ' + attr + '>' + esc(btn) + '</button></div>';
   }
 
   function renderRisks() {
     var rs = (STATE.risks || []).slice();
+    // Highest score first; the id breaks ties so the order is stable between
+    // renders and a row does not jump when something unrelated changes.
+    rs.sort(function (a, b) { return riskScore(b) - riskScore(a) || (a.id < b.id ? -1 : 1); });
     var openR = rs.filter(function (r) { return r.status !== 'resolved'; });
     var doneR = rs.filter(function (r) { return r.status === 'resolved'; });
-    var risks = openR.concat(doneR).map(riskCard).join('') ||
-      '<p class="empty big">No risks yet.<br><span>Raise one when something could derail the project ' +
-      '\u2014 the other person can resolve it later, and both are recorded.</span></p>';
+    var highOpen = openR.filter(function (r) { return sevWord(r.p, r.i) === 'high'; }).length;
+    var ds = (STATE.decisions || []).slice();
+    var accepted = ds.filter(function (d) { return d.status === 'accepted'; }).length;
 
-    var ds = (STATE.decisions || []).slice().sort(function (a, b) { return (a.w || 0) - (b.w || 0); });
-    var dec = ds.map(function (d) {
-      return '<button type="button" class="dc" data-dec="' + esc(d.id) + '">' +
-        '<span class="dc-id">' + esc(d.id) + '</span>' +
-        '<span class="dc-t">' + esc(d.title) + '</span>' +
-        '<span class="dc-w">W' + esc(String(d.w)) + '</span>' +
-        '<span class="st ' + esc(d.status) + '">' + esc(d.status) + '</span></button>';
-    }).join('') ||
-      '<p class="empty big">No decisions yet.<br><span>Record one when you settle something ' +
-      'the project depends on, so W15 can explain why.</span></p>';
+    var shown = riskFilter === 'open' ? openR : riskFilter === 'resolved' ? doneR : openR.concat(doneR);
+    var tabs = [['open', 'Open', openR.length], ['resolved', 'Resolved', doneR.length], ['all', 'All', rs.length]]
+      .map(function (t) {
+        return '<button type="button" class="rk-tab' + (riskFilter === t[0] ? ' on' : '') + '" data-rkf="' + t[0] +
+          '" aria-pressed="' + (riskFilter === t[0]) + '">' + t[1] + '<b>' + t[2] + '</b></button>';
+      }).join('');
+    var list = shown.map(riskRow).join('') || (rs.length
+      ? '<p class="empty big">' + (riskFilter === 'open' ? 'No open risks.' : 'Nothing resolved yet.') +
+        '<br><span>' + (riskFilter === 'open' ? 'Every risk raised so far has been dealt with.'
+                                              : 'Resolve a risk from its panel, with a note on how.') + '</span></p>'
+      // First-run state teaches how a risk is scored (the number each row
+      // leads with), so the empty register explains itself.
+      : emptyPanel('No risks yet',
+          'Raise one when something could derail the project. The other person can resolve it later, and both acts are recorded.',
+          '<span class="ep-how"><b>Likelihood</b> 1\u20133 <i>\u00d7</i> <b>Impact</b> 1\u20133 <i>=</i> <b>score</b></span>' +
+          '<span class="ep-how"><span class="sev l">1\u20133 low</span><span class="sev m">4\u20136 medium</span>' +
+          '<span class="sev h">9 high</span></span>',
+          'data-add-risk', '+ Raise the first risk'));
 
-    return '<div class="card"><h3 class="has-add">Risk register' +
+    return '<div class="grid g4">' +
+        kpiCard('Open risks', String(openR.length), null) +
+        kpiCard('High severity', String(highOpen), null, highOpen ? 'is-hot' : '') +
+        // No bar on any of the four: one card with a bar sits its number
+        // higher than its neighbours, and "2 / 5" already says what it shows.
+        kpiCard('Decisions accepted', accepted + ' / ' + ds.length, null) +
+        kpiCard('Results logged', String((D.results || []).length), null) + '</div>' +
+      '<div class="card" style="margin-top:16px"><h3 class="has-add">Risk register' +
         '<button class="btn sm hd-add" id="addRiskBtn">+ Add risk</button></h3>' +
-        '<div class="rk-list">' + risks + '</div></div>' +
-      '<div class="grid g2" style="margin-top:16px;align-items:start">' +
-      '<div class="card"><h3 class="has-add">Decisions' +
-        '<button class="btn sm hd-add" id="addDecBtn">+ Add</button></h3>' +
-        '<div class="dc-list">' + dec + '</div></div>' +
-      '<div class="card"><h3>Results</h3>' + runsTable() + '</div></div>';
+        // No tabs before the first risk: three filters over nothing are
+        // controls that cannot do anything.
+        '<div class="rk-side">' + (rs.length ? '<div class="rk-tabs" role="group" aria-label="Filter risks">' + tabs + '</div>' : '') +
+          '<div class="rk-list">' + list + '</div></div></div>' +
+      // Results only appears once a run is pasted into data.js. Until then an
+      // empty card would be a heading over nothing, so the decision log gets
+      // the full row instead of half of it.
+      (function () {
+        var runs = runsTable();
+        var dec = '<div class="card"><h3 class="has-add">Decision log' +
+          '<button class="btn sm hd-add" id="addDecBtn">+ Add</button></h3>' + decisionLog(ds) + '</div>';
+        return runs
+          ? '<div class="grid g2" style="margin-top:16px;align-items:start">' + dec +
+            '<div class="card"><h3>Results</h3>' + runs + '</div></div>'
+          : '<div style="margin-top:16px">' + dec + '</div>';
+      })();
   }
 
   /* ---- risk drawer: read it, resolve it, or reopen it ---- */
@@ -1138,7 +1488,10 @@
     (STATE.decisions || []).forEach(function (x) { if (x.id === id) d = x; });
     if (!d) return;
     var btns = DEC_ST.map(function (k) {
-      return '<button class="sbtn dst' + (d.status === k ? ' on' : '') + '" data-st="' + k + '">' + k + '</button>';
+      // --c is what .sbtn.on paints. It was never set here, so the chosen
+      // status showed only as bold text on a transparent pill.
+      return '<button class="sbtn dst' + (d.status === k ? ' on' : '') + '" data-st="' + k + '" ' +
+             'style="--c:' + DEC_COLOR[k] + '">' + k + '</button>';
     }).join('');
     $('#drawer').innerHTML = '<div class="dw-back"></div><div class="dw">' +
       '<div class="dw-hd"><div><div class="id">Decision ' + esc(d.id) + ' &middot; W' + esc(String(d.w)) +
@@ -1438,8 +1791,11 @@
     if ($('#copyBtn')) $('#copyBtn').onclick = copyLines;
   }
 
-  function askToken() {
+  // `then` lets a caller that NEEDS the token (a deck upload) continue once it
+  // is entered, instead of the dialog always meaning "save the outbox".
+  function askToken(then) {
     var cfg = repoCfg();
+    if (typeof then !== 'function') then = null;
     $('#drawer').innerHTML = '<div class="dw-back"></div><div class="dw">' +
       '<div class="dw-hd"><h4>GitHub token</h4><button class="x" id="dwClose">&times;</button></div>' +
       '<div class="dw-sec"><p class="hint">Token <b>only while this tab is open</b> bellekte tutulur. ' +
@@ -1454,7 +1810,8 @@
     $('#tokSave').onclick = function () {
       var v = $('#tokIn').value.trim(); if (!v) return;
       token = v;                       // memory only - never localStorage
-      closeDrawer(); pushOutbox();
+      closeDrawer();
+      if (then) then(); else pushOutbox();
     };
     $('#tokIn').focus();
   }
@@ -1512,6 +1869,24 @@
     if ($('#addDecBtn')) $('#addDecBtn').onclick = openAddDecision;
     all('[data-risk]').forEach(function (b) { b.onclick = function () { openRisk(b.getAttribute('data-risk')); }; });
     all('[data-dec]').forEach(function (b) { b.onclick = function () { openDecision(b.getAttribute('data-dec')); }; });
+    // The file input stays hidden and a real button opens it: a <label> around
+    // an input is not keyboard-focusable, a button is.
+    all('[data-deck-up]').forEach(function (b) {
+      b.onclick = function () { var i = $('[data-deck-in="' + b.getAttribute('data-deck-up') + '"]'); if (i) i.click(); };
+    });
+    all('[data-deck-in]').forEach(function (inp) {
+      inp.onchange = function () {
+        if (inp.files && inp.files[0]) uploadDeck(parseInt(inp.getAttribute('data-deck-in'), 10), inp.files[0]);
+      };
+    });
+    all('[data-deck-go]').forEach(function (b) {
+      b.onclick = function () { startDeck(parseInt(b.getAttribute('data-deck-go'), 10)); };
+    });
+    all('[data-add-risk]').forEach(function (b) { b.onclick = openAddRisk; });
+    all('[data-add-dec]').forEach(function (b) { b.onclick = openAddDecision; });
+    all('[data-rkf]').forEach(function (b) {
+      b.onclick = function () { riskFilter = b.getAttribute('data-rkf'); render(); };
+    });
     all('.addcol').forEach(function (b) {
       b.onclick = function (e) { e.stopPropagation(); openAddTask(b.getAttribute('data-add')); };
     });

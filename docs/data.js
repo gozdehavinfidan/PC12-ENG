@@ -93,7 +93,7 @@ window.PC12_DATA = {
   // chart does not show. Colours live HERE, not in app.js.
   ips: [
     { id: "IP0", label: "WP0 \u2014 Project setup & planning", color:"#cbd5e1", desc:"Not in the course Gantt \u2014 ours. Weeks 1-2: repository and environment, the llm-wiki knowledge base, this dashboard, and the plan the rest of the project is measured against." },
-    { id: "IP1", label: "WP1 \u2014 Re-annotation of the existing dataset", color:"#5eb8c9", desc:"The ~70 microscopy images we already hold. Audit their labels, re-annotate them under a single frozen protocol, then preprocess and split them into cross-validation folds. This package is the critical path: everything downstream inherits its label quality." },
+    { id: "IP1", label: "WP1 \u2014 Relabelling of the existing dataset", color:"#5eb8c9", desc:"The ~70 microscopy images we already hold. Audit their labels, relabel them under a single frozen protocol, then preprocess and split them into cross-validation folds. This package is the critical path: everything downstream inherits its label quality." },
     { id: "IP2", label: "WP2 \u2014 Annotation of the incoming dataset", color:"#79c4a8", desc:"The batch that arrives later in the semester. Annotated under the SAME protocol as WP1 \u2014 otherwise old and new data cannot be pooled or compared, and the generalisation claim collapses." },
     { id: "IP3", label: "WP3 \u2014 Segmentation model development", color:"#7dd3a0", desc:"Train a model to delineate cell bodies and neurites. Foundation-model baseline first, then the training pipeline, a pilot to validate the architecture, tuning, and full 5-fold training. The architecture decision is made at WP3.4 on cross-validation evidence, not in advance." },
     { id: "IP4", label: "WP4 \u2014 Morphometric analysis & validation", color:"#c7d96b", desc:"Convert segmentation masks into quantitative morphology: separate touching cells into instances, extract neurite length, count and branching angle from the skeleton graph, formulate the Neural Toxicity Index, and validate every number against manual measurement (Bland-Altman)." },
@@ -114,7 +114,7 @@ window.PC12_DATA = {
     { id:"WP0.4", ip:"IP0", title:"Data inventory & annotation protocol",               owner:"BM", w:[2,2],   status:"todo",  pct:0,   ms:"M1" },
     { id:"WP0.5", ip:"IP0", title:"Project dashboard infrastructure",                 owner:"ML", w:[1,2],   status:"done",  pct:100, ms:"M1" },
 
-    { id:"WP1.1", ip:"IP1", title:"Dataset audit & re-annotation (~70 images)",     owner:"EK", w:[3,4],   status:"todo",  pct:0,   ms:"M2", note:"CRITICAL PATH. Who labeled the ~70 images, under what protocol? ALSO O1: is there dose/timepoint metadata? NTI (WP4.5) depends on the answer." },
+    { id:"WP1.1", ip:"IP1", title:"Dataset audit & relabelling (~70 images)",     owner:"EK", w:[3,4],   status:"todo",  pct:0,   ms:"M2", note:"CRITICAL PATH. Who labeled the ~70 images, under what protocol? ALSO O1: is there dose/timepoint metadata? NTI (WP4.5) depends on the answer." },
     { id:"WP1.2", ip:"IP1", title:"Preprocessing, augmentation & 5-fold split",       owner:"ML", w:[3,4],   status:"todo",  pct:0,   ms:"M2", note:"Split by IMAGE (ideally by well) and THEN patch. Patch-level leakage makes every DSC we report meaningless (R4)." },
     { id:"WP1.3", ip:"IP1", title:"[+] Inter-annotator agreement (10% double-annotated)",   owner:"EK", w:[4,4],   status:"todo",  pct:0,   ms:"M2", note:"Ours, not in the chart. The agreement score is the CEILING on any DSC we can honestly claim, and it is the W4 presentation claim." },
 
@@ -156,37 +156,42 @@ window.PC12_DATA = {
   ],
 
   // --- PRESENTATION WEEKS — the reason this dashboard exists ----------------
+  // "topic" = the short title shown on the Presentations page.
   // "claim" = the ONE sentence we defend that day. It is what separates a
-  // presentation from a status update.
+  // presentation from a status update. (demo/claim/fallback are planning
+  // notes kept here for us; the dashboard no longer displays them.)
+  // The slide deck itself is NOT listed here: it is uploaded from the
+  // Presentations page into docs/presentations/W<n>.html, and the upload is
+  // recorded in data.txt as a "deck" event (who, when).
   sunum: [
-    { w:2,  ms:"M1", speaker:"EK",
+    { w:2, topic:"Project plan & small-data strategy",  ms:"M1", speaker:"EK",
       demo:"This dashboard live + llm-wiki + pipeline diagram + class scheme + small-data strategy",
       claim:"We did not copy the TÜSEB proposal. We identified its real constraint (~70 labeled images) and redesigned the approach around it.",
       fallback:"Slides generated from the wiki markdown", ready:true },
 
-    { w:4,  ms:"M2", speaker:"BM",
+    { w:4, topic:"Data, labels & annotation agreement",  ms:"M2", speaker:"BM",
       demo:"Filled data card (70 images) + labeling protocol + annotator agreement score + before/after preprocessing + new-data status",
       claim:"Our labels are consistent enough to train on — and the number that proves it is also the ceiling on any DSC we can honestly report.",
       fallback:"Protocol + agreement measured on 5 images", ready:false },
 
-    { w:6,  ms:"M3", speaker:"ML",
+    { w:6, topic:"First end-to-end training",  ms:"M3", speaker:"ML",
       demo:"End-to-end training: patch pipeline -> pretrained U-Net -> prediction -> overlay; loss curves; first fold DSC; Cellpose-SAM zero-shot comparison",
       claim:"The pipeline is real and reproducible, and we already know whether a foundation model beats training our own.",
       fallback:"Deliberate overfit on 3 images — proves the pipeline is wired correctly", ready:false },
 
-    { w:9,  ms:"M4", speaker:"ML",
+    { w:9, topic:"Architecture chosen by cross-validation",  ms:"M4", speaker:"ML",
       demo:"5-fold CV mean ± std comparison table · chosen architecture and why · post-processing module (WP4.1): raw mask -> separated instances, with the cases it cannot separate shown honestly",
       claim:"We chose this architecture because cross-validation says so, not because it is fashionable — and we can already turn its output into countable cells.",
       fallback:"Comparison table only; instance separation on 3 images", ready:false,
       note:"Morphometry was moved OUT of this week: the chart schedules feature extraction (WP4.2) at W11-W12 and Bland-Altman evaluation (WP4.3) at W12. Promising measurements here would promise work that has not started." },
 
-    { w:11, ms:"M5", speaker:"ML",
+    { w:11, topic:"Expanded data, features & explainability", ms:"M5", speaker:"ML",
       demo:"Results including the new data (WP3.5 retrain on the expanded set) · first feature-extraction output (WP4.2, mid-package) · XAI overlays showing where the model looks",
       claim:"More data measurably moved the numbers, and we can already extract neurite geometry from the masks and show what the model attends to.",
       fallback:"Expanded-data comparison table + XAI overlays; feature extraction on 3 images", ready:false,
       note:"Systematic error analysis was moved OUT of this week: WP4.3 (metrics + error analysis, incl. Bland-Altman) is scheduled at W12. The failure taxonomy belongs to the W13 slot, where WP4.4 closes the improvement loop." },
 
-    { w:13, ms:"M6", speaker:"ML",
+    { w:13, topic:"The full system, piece by piece", ms:"M6", speaker:"ML",
       demo:"Closed improvement loop (error analysis -> model revision -> new numbers) · report generated from a real run · validated XAI layer · NTI computed for a dose series · UI shell showing real pipeline output",
       claim:"Every piece of the system works and produces a real report; what remains is wiring them into one executable, which the schedule puts in W14-15.",
       fallback:"CLI driving the real pipeline end to end, with the UI shell on mock data — stated clearly as two halves", ready:false },
