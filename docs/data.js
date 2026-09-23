@@ -42,8 +42,8 @@ window.PC12_DATA = {
     // its Thursday is over -> the next week starts Friday 00:00 local time.
     // w1Thursday is the ONLY calendar date in this project; the current week is
     // computed from it, so currentWeek never has to be hand-edited again.
-    // >>> If W1's Thursday is not 2026-09-24, fix THIS line and nothing else.
-    w1Thursday:  "2026-09-24",
+    // >>> If W1's Thursday is not 2026-09-17, fix THIS line and nothing else.
+    w1Thursday:  "2026-09-17",
     currentWeek: 1,              // fallback only (used if w1Thursday is invalid)
     updated:     "2026-09-22",   // <-- UPDATE EVERY WEEK (YYYY-MM-DD)
     totalWeeks:  15,

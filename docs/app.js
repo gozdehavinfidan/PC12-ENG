@@ -619,19 +619,37 @@
      is written straight into the markup: re-walking on every click would be
      noise rather than feedback, and it would also fight the short transition
      that already animates a genuine progress change. */
-  var tlIntroDone = false, tlIntroTimer = null;
-  function avatarMarker(pct, i) {
-    var pos = 'clamp(24px,' + pct + '%,calc(100% - 24px))';
-    if (tlIntroDone) return '<span class="avs" style="left:' + pos + '">';
+  /* The same walk runs on two charts - the overview's package timeline and the
+     full Gantt - so the "already played" state is kept PER CHART. One shared
+     flag would let the overview's intro (the landing view) mark the Gantt as
+     done before anyone had opened it, and the Gantt would never animate.
+     `edge` is how far the marker must stay from the bar's rounded ends: half
+     the avatar's width plus a little, so a 0% or 100% task stays inside. */
+  var INTROS = {
+    '.mini-tl': { sel: '.mini-tl .seg .avs[data-x]', done: false, timer: null },
+    '.gantt2':  { sel: '.gantt2 .g-bar .g-av[data-x]', done: false, timer: null }
+  };
+  function avatarMarker(pct, i, host, cls, edge) {
+    host = host || '.mini-tl'; cls = cls || 'avs'; edge = edge || 24;
+    var pos = 'clamp(' + edge + 'px,' + pct + '%,calc(100% - ' + edge + 'px))';
+    if (INTROS[host].done) return '<span class="' + cls + '" style="left:' + pos + '">';
     // 90ms per row: the packages resolve top-to-bottom instead of all at once,
     // which reads as a sequence rather than a twitch.
-    return '<span class="avs" style="left:24px;transition-delay:' + (i * 90) +
+    return '<span class="' + cls + '" style="left:' + edge + 'px;transition-delay:' + (i * 90) +
            'ms" data-x="' + pos + '">';
   }
   function playTimelineIntro() {
-    if (tlIntroDone) return;
-    var els = all('.mini-tl .seg .avs[data-x]');
-    if (!els.length) return;            // timeline is not the current view yet
+    Object.keys(INTROS).forEach(playIntro);
+  }
+  function playIntro(hostSel) {
+    var st = INTROS[hostSel];
+    if (st.done) return;
+    var els = all(st.sel);
+    if (!els.length) return;            // this chart is not the current view yet
+    // The longest stagger, not els.length * 90: on the Gantt every task of one
+    // package shares that package's delay, so the element count overstates it.
+    var maxDelay = els.reduce(function (m, el) {
+      return Math.max(m, parseInt(el.style.transitionDelay, 10) || 0); }, 0);
     // The flag is raised when the walk FINISHES, not when it starts. Startup
     // renders twice - once immediately, once when loadRemote() resolves - and
     // the second render replaces innerHTML, destroying mid-flight elements.
@@ -639,14 +657,13 @@
     // the animation was built, wiped ~50ms later, and never seen. Re-arming on
     // every render until the timer fires makes the last render the one that
     // actually plays, which is also the one holding the true data.
-    if (tlIntroTimer) clearTimeout(tlIntroTimer);
-    tlIntroTimer = setTimeout(function () { tlIntroDone = true; },
-                              1150 + els.length * 90 + 120);
-    var host = $('.mini-tl');
+    if (st.timer) clearTimeout(st.timer);
+    st.timer = setTimeout(function () { st.done = true; }, 1150 + maxDelay + 120);
+    var host = $(hostSel);
     var reduce = window.matchMedia &&
                  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) {
-      clearTimeout(tlIntroTimer); tlIntroDone = true;
+      clearTimeout(st.timer); st.done = true;
       els.forEach(function (el) {
         el.style.transitionDelay = '0ms';
         el.style.left = el.getAttribute('data-x');
@@ -855,47 +872,90 @@
   }
 
   function renderGantt() {
-    var WCOL = weekColW();
-    var head = '<th class="lbl">Task</th>';
+    // Week header. Every week shows only its number; the special weeks are
+    // told apart by their header colour, decoded by the legend under the
+    // chart (same pattern as the overview timeline). The current week is
+    // marked here and by a band below.
+    var head = '';
     for (var w = 1; w <= TOTAL; w++) {
       var m = weekMeta(w);
-      // Was 'SUNUM'/'KAPALI' - Turkish that survived the English translation
-      // because these are built in JS, not in the markup that got translated.
-      var tag = m.type === 'sunum' ? 'TALK' : m.type === 'vize' ? 'CLOSED' : m.type === 'final' ? 'FINAL' : '';
-      head += '<th class="wk-h ' + m.type + '">W' + w + (tag ? '<small>' + tag + '</small>' : '<small>&nbsp;</small>') + '</th>';
+      head += '<div class="wk ' + m.type + (w === NOW ? ' now' : '') + '">' +
+              '<b>W' + w + '</b></div>';
     }
-    var body = '';
-    (D.ips || []).forEach(function (ip) {
-      var rows = tasksOf(ip.id);
-      if (!rows.length) return;
-      // Same affordance as the overview timeline: the package header opens its
-      // detail panel here too, so the two views do not disagree about whether a
-      // package name is something you can click.
-      body += '<tr class="ip-row"><td colspan="' + (TOTAL + 1) + '">' +
-              '<button type="button" class="ip-btn" data-pkg="' + esc(ip.id) + '">' +
-              esc(ip.label) + '</button></td></tr>';
-      rows.forEach(function (t) {
-        body += '<tr class="task" data-task="' + esc(t.id) + '"><td class="lbl">' + esc(t.id) + ' &middot; ' + esc(t.title) +
-                (t.w ? '' : ' <span class="unsched">- date TBD</span>') + '</td>';
-        for (var w2 = 1; w2 <= TOTAL; w2++) {
-          var mm = weekMeta(w2), inner = '';
-          if (t.w && w2 === t.w[0]) {
-            var span = t.w[1] - t.w[0] + 1;
-            var pct = t.status === 'done' ? 100 : (t.pct || 0);
-            inner = '<div class="bar' + (t.status === 'done' ? ' done' : '') + '" style="background:' +
-              ownerBg(t.owner) + ';right:' + (3 - (span - 1) * WCOL) + 'px" title="' +
-              esc(t.id + ' ' + t.title + ' (' + pct + '%)') + '">' + esc(t.owner) + '</div>';
-          }
-          body += '<td class="cell' + (mm.type !== 'work' ? ' ' + mm.type : '') + '">' + inner + '</td>';
+
+    // One band per week behind the rows, plus a line on the current week.
+    var bands = '';
+    for (var b = 1; b <= TOTAL; b++) {
+      var bm = weekMeta(b);
+      bands += '<i class="' + bm.type + (b === NOW ? ' now' : '') + '"></i>';
+    }
+
+    var rows = '';
+    (D.ips || []).forEach(function (ip, ipi) {
+      var list = tasksOf(ip.id);
+      if (!list.length) return;
+      // Everything belonging to one work package goes inside ONE element, so a
+      // soft card can be drawn behind the package header AND its task rows at
+      // once. Before this, group and task rows were flat siblings and the only
+      // cue for "which bars belong to WP3" was the label column - useless once
+      // you had scrolled right and were reading bars against the week bands.
+      var block = '<div class="g-row g-group">' +
+        '<div class="g-side"><button type="button" class="ip-btn" data-pkg="' + esc(ip.id) + '">' +
+          esc(ip.label) + '</button></div>' +
+        '<div class="g-track"></div></div>';
+
+      list.forEach(function (t) {
+        var bar = '';
+        if (t.w) {
+          var left = ((t.w[0] - 1) / TOTAL) * 100, width = ((t.w[1] - t.w[0] + 1) / TOTAL) * 100;
+          var pct = t.status === 'done' ? 100 : (t.pct || 0);
+          bar = '<button type="button" class="g-bar st-' + esc(t.status) + '" data-task="' + esc(t.id) + '" ' +
+            'style="left:' + left.toFixed(3) + '%;width:' + width.toFixed(3) + '%;background:' + ownerBg(t.owner) + '" ' +
+            'title="' + esc(t.id + ' · ' + t.title + ' — W' + t.w[0] +
+              (t.w[1] !== t.w[0] ? '-W' + t.w[1] : '') + ' · ' + pct + '%') + '">' +
+            // The progress fill was styled in the CSS but never rendered, so a
+            // task at 70% looked identical to one at 0%.
+            '<i class="g-fill" style="width:' + pct + '%"></i>' +
+            // Avatar rides the progress point, exactly like the overview chart
+            // (same marker + intro code). The % label travels with it, on the
+            // side that has room: right of the avatar in the first half of the
+            // bar, left of it in the second, so it never runs off the bar's end.
+            // Team tasks draw two overlapped avatars, hence the wider edge.
+            avatarMarker(pct, ipi, '.gantt2', 'g-av' + (pct >= 55 ? ' flip' : ''),
+                         t.owner === 'EK' ? 21 : 15) +
+              avatarHTML(t.owner, 'sm') +
+              '<span class="g-pc">' + pct + '%</span></span></button>';
+        } else {
+          bar = '<span class="g-none">no dates yet</span>';
         }
-        body += '</tr>';
+        block += '<div class="g-row">' +
+          '<div class="g-side"><button type="button" class="g-name" data-task="' + esc(t.id) + '">' +
+            '<span class="g-id">' + esc(t.id) + '</span>' + esc(t.title) + '</button></div>' +
+          '<div class="g-track">' + bar + '</div></div>';
       });
+
+      // The tints are the package colour at ~8% and ~20% alpha. 8-digit hex
+      // rather than color-mix(): ipColor() always returns a 6-digit hex, and
+      // plain hex needs no support caveat on an offline, file:// -opened page.
+      var c = ipColor(ip.id);
+      rows += '<div class="g-pkg" style="--ipt:' + esc(c) + '14;--ipe:' + esc(c) + '33">' +
+        block + '</div>';
     });
-    var legend = (D.people || []).map(function (p) {
-      return '<span class="who">' + avatarHTML(p.code, 'sm') + '<span class="nm">' + esc(p.name) + '</span></span>';
-    }).join('&nbsp;&nbsp;&middot;&nbsp;&nbsp;');
-    return '<div class="card"><h3>Timeline</h3><div class="tl-legend">' + legend + '</div>' +
-      '<div class="scroll-x"><table class="gantt"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div></div>';
+
+    var key = '<div class="tl-key">' +
+      '<span><i class="k sunum"></i>Presentation week</span>' +
+      '<span><i class="k vize"></i>Midterm — no work planned</span>' +
+      '<span><i class="k final"></i>Final week</span>' +
+      '<span><i class="k nowk"></i>This week (W' + NOW + ')</span></div>';
+
+    return '<div class="card">' +
+      '<div class="scroll-x"><div class="gantt2" style="--n:' + TOTAL + '">' +
+        '<div class="g-row g-head"><div class="g-side"></div>' +
+          '<div class="g-track"><div class="g-weeks">' + head + '</div></div></div>' +
+        '<div class="g-body"><div class="g-bands"><div class="g-side"></div>' +
+          '<div class="g-track"><div class="g-cols">' + bands + '</div></div></div>' +
+          rows + '</div>' +
+      '</div></div>' + key + '</div>';
   }
 
   function renderBoard() {
@@ -910,15 +970,16 @@
             (t.w ? '<span>W' + t.w[0] + (t.w[1] !== t.w[0] ? '-' + t.w[1] : '') + '</span>' : '<span>no date</span>') +
             '<span>' + (t.status === 'done' ? 100 : (t.pct || 0)) + '%</span>' +
             (t.notes.length ? '<span class="nb" title="notes">' + t.notes.length + ' notes</span>' : '') + '</div>' +
-          (t.note ? '<div class="note">' + esc(t.note) + '</div>' : '') + '</div>';
+          // The planning note (t.note) is not repeated on the card: it made the
+          // cards long and uneven. It is shown in the task drawer on click.
+          '</div>';
       }).join('') || '<div class="empty">-</div>';
       return '<div class="col" data-col="' + c + '" style="--c:' + STATUS[c].color + '">' +
         '<h4>' + STATUS[c].label +
         '<span>' + items.length + '<button class="addcol" data-add="' + c + '" title="Add a task to this column">+</button></span>' +
         '</h4>' + cards + '</div>';
     }).join('');
-    return '<div class="exportbar"><button class="btn" id="addTaskBtn">+ Add task</button>' +
-      '<span class="hint">Click a card to change status, join it, or add a note. Dragging works too.</span></div>' +
+    return '<div class="exportbar"><button class="btn" id="addTaskBtn">+ Add task</button></div>' +
       '<div class="board">' + cols + '</div>';
   }
 
@@ -1434,7 +1495,15 @@
     });
     all('[data-task]').forEach(function (el) {
       el.addEventListener('click', function (e) {
-        if (e.target.closest('input,button,select')) return;
+        // The guard exists so a control INSIDE a card (an input, a nested
+        // action button) does not also open the task. But some task elements
+        // ARE buttons themselves - the Gantt bars, the Gantt task names, the
+        // status tiles - and a blanket "any button cancels" silently killed
+        // their click. This has now been the same bug three times, so the
+        // rule is stated once, properly: a control cancels only when it is a
+        // DIFFERENT element than the task target.
+        var ctl = e.target.closest('input,select,button');
+        if (ctl && ctl !== el) return;
         openTask(el.getAttribute('data-task'));
       });
     });

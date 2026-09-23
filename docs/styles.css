@@ -207,6 +207,118 @@ a { color:inherit; }
               background:linear-gradient(90deg,var(--lime),var(--green));
               transition:width .5s cubic-bezier(.4,0,.2,1); }
 
+/* ---- TIMELINE (grid, replaced the old <table> gantt) --------------------
+   The table forced every bar into one cell and stretched it with a negative
+   `right` offset computed from a hard-coded column width - which is why the
+   column width had to be duplicated in JS and CSS and kept drifting. A grid
+   with percentage-positioned bars needs neither: the track is 100% of the
+   weeks and a bar is simply (week-1)/N wide. */
+.gantt2 { --side:300px; --gap:16px; --wkw:76px;
+          min-width:calc(var(--side) + var(--gap) + var(--n) * var(--wkw));
+          display:flex; flex-direction:column; }
+.g-row { display:grid; grid-template-columns:var(--side) 1fr; gap:var(--gap); align-items:center;
+         position:relative; z-index:1; }
+.g-track { position:relative; min-width:0; height:34px; }
+
+/* The label column stays put while the weeks scroll under it - on a chart
+   this wide, a bar you have scrolled to is useless if its name has gone. */
+.g-side { position:sticky; left:0; z-index:4; background:var(--panel);
+          min-width:0; display:flex; align-items:center; gap:8px; padding-right:6px; }
+
+.g-head { position:sticky; top:0; z-index:5; background:var(--panel); padding-bottom:4px; }
+.g-head .g-track { height:auto; }
+.g-weeks { display:grid; grid-template-columns:repeat(var(--n),1fr); gap:0; }
+.g-weeks .wk { display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
+               gap:3px; padding:4px 2px 7px; border-radius:9px 9px 0 0; }
+.g-weeks .wk b { font-size:13px; font-weight:700; color:var(--ink-2); line-height:1; }
+.g-weeks .wk.sunum { background:#1f2724; }
+.g-weeks .wk.sunum b { color:#eef3e2; }
+.g-weeks .wk.vize  { background:#e8e5dd; }
+.g-weeks .wk.vize b { text-decoration:line-through; }
+.g-weeks .wk.final { background:var(--teal-soft); }
+.g-weeks .wk.now b { color:var(--teal); }
+.g-weeks .wk.now.sunum b { color:#a8e6c8; }
+
+.g-body { position:relative; display:flex; flex-direction:column; gap:5px; padding-top:4px; }
+/* Bands are one absolutely-placed layer, so rows do not each redraw them. */
+/* Must repeat the row grid: without it the band layer's track started at x=0
+   and the week bands ran underneath the label column. */
+.g-bands { position:absolute; inset:0; pointer-events:none; z-index:0;
+           display:grid; grid-template-columns:var(--side) 1fr; gap:var(--gap); }
+.g-bands .g-side { background:transparent; position:static; }
+.g-bands .g-track { height:100%; }
+.g-cols { position:absolute; inset:0; display:grid; grid-template-columns:repeat(var(--n),1fr); }
+.g-cols > i { display:block; margin:0 2px; border-radius:10px; background:rgba(31,39,36,.022); }
+.g-cols > i.sunum { background:var(--lime-soft); }
+.g-cols > i.vize  { background:repeating-linear-gradient(45deg,rgba(31,39,36,.09),rgba(31,39,36,.09) 5px,rgba(31,39,36,.02) 5px,rgba(31,39,36,.02) 11px); }
+.g-cols > i.final { background:var(--teal-soft); }
+.g-cols > i.now   { box-shadow:inset 0 0 0 2px var(--teal); }
+
+/* One soft card per work package, behind its header row and all of its task
+   rows, so a bar read at W11 still tells you which package it belongs to.
+   Vertical padding only: .g-bands re-declares the same `--side 1fr` grid on an
+   absolutely placed layer, so horizontal padding here would slide the bars off
+   the week columns they are measured against. z-index 1 puts the card above
+   the bands (z-index 0) but below the bars, and the 8% tint is weak enough
+   that the presentation / midterm / final bands still read through it. */
+.g-pkg { position:relative; z-index:1; display:flex; flex-direction:column; gap:5px;
+         padding:7px 0 9px; border-radius:14px; background:var(--ipt);
+         box-shadow:inset 0 0 0 1px var(--ipe); }
+.g-pkg + .g-pkg { margin-top:9px; }
+/* .g-side is sticky and must stay opaque (bars scroll under it), so it cannot
+   simply let the card show through - it paints the identical tint over the
+   panel colour instead, which composites to the same result as the track half. */
+.g-pkg .g-side { background:linear-gradient(var(--ipt),var(--ipt)), var(--panel); }
+
+.g-group { margin-top:12px; }
+/* The card's own padding now provides the gap between packages. */
+.g-pkg > .g-group { margin-top:0; }
+/* The package button is the only thing in its label cell, so it takes the
+   whole width of the label column and centres the name in it. box-sizing
+   because `all:unset` resets it to content-box, which would add the 8px side
+   padding on top of the full width. */
+.g-group .ip-btn { flex:1 1 auto; min-width:0; box-sizing:border-box; text-align:center; }
+
+/* Wraps rather than ellipsises. A truncated task name in a Gantt is the one
+   thing you cannot recover by looking harder, and the row simply grows - the
+   bar stays vertically centred because the row is a centred grid. */
+.g-name { all:unset; box-sizing:border-box; cursor:pointer; min-width:0; display:flex;
+          align-items:baseline; gap:8px; padding:4px 7px; border-radius:7px;
+          font:inherit; font-size:12.5px; color:var(--ink-2); line-height:1.35;
+          overflow-wrap:break-word; }
+.g-name:hover { background:var(--panel-2); color:var(--ink); }
+.g-name:focus-visible { outline:2px solid var(--teal); outline-offset:1px; }
+.g-id { font-size:10.5px; font-weight:700; color:var(--ink-3); flex:0 0 auto; }
+
+.g-bar { all:unset; box-sizing:border-box; cursor:pointer; position:absolute; top:4px; bottom:4px;
+         border-radius:99px; overflow:hidden; display:flex; align-items:center; gap:6px;
+         padding:0 9px 0 3px; z-index:2; box-shadow:0 1px 3px rgba(31,39,36,.16);
+         transition:transform .12s ease, box-shadow .12s ease; }
+.g-bar:hover { transform:translateY(-1px); box-shadow:0 3px 10px rgba(31,39,36,.24); z-index:3; }
+.g-bar:focus-visible { outline:2px solid var(--ink); outline-offset:2px; }
+.g-fill { position:absolute; left:0; top:0; bottom:0; background:rgba(255,255,255,.42); }
+/* Avatar marker at the task's progress point - same geometry and timing as
+   .mini-tl .seg .avs on the overview, so both charts move identically. */
+.g-av { position:absolute; top:50%; transform:translate(-50%,-50%); z-index:1;
+        display:flex; align-items:center; transition:left .45s cubic-bezier(.4,0,.2,1); }
+.gantt2.tl-intro .g-av { transition:left 1.15s cubic-bezier(.22,.61,.36,1); }
+@media (prefers-reduced-motion: reduce) {
+  .g-av, .gantt2.tl-intro .g-av { transition:none; }
+}
+.g-av .av { border-width:0; }
+/* The % hangs off the marker's side, so centring (translate -50%) is about the
+   avatar alone and the label never shifts it. .flip = second half of the bar. */
+.g-pc { position:absolute; top:50%; transform:translateY(-50%); left:calc(100% + 5px);
+        font-size:10.5px; font-weight:700; color:#22302a; white-space:nowrap; }
+.g-av.flip .g-pc { left:auto; right:calc(100% + 5px); }
+.g-bar.st-done { opacity:.62; }
+.g-none { position:absolute; left:2px; top:50%; transform:translateY(-50%);
+          font-size:11.5px; font-style:italic; color:var(--ink-3); }
+
+.tl-key .k.nowk { background:#fff; box-shadow:inset 0 0 0 2px var(--teal); }
+
+@media (max-width:820px) { .gantt2 { --side:170px; --gap:10px; } .g-name { font-size:11.5px; } }
+
 /* ---- task-status breakdown (replaced the donut) ------------------------- */
 /* ---- status gauge (half circle) ---- */
 .ring-wrap { display:flex; flex-direction:column; align-items:center; gap:6px; }
@@ -295,28 +407,6 @@ a { color:inherit; }
 
 /* ---- gantt ------------------------------------------------------------- */
 .scroll-x { overflow-x:auto; }
-.gantt { border-collapse:separate; border-spacing:0; width:100%; min-width:1290px; font-size:13px; }
-.gantt th, .gantt td { padding:0; }
-.gantt thead th { position:sticky; top:0; background:var(--panel); z-index:2; }
-.gantt .lbl { width:420px; min-width:420px; text-align:left; padding:6px 12px 6px 0; font-weight:500; color:var(--ink-2); }
-.gantt .wk-h { width:var(--wk-w); min-width:var(--wk-w); text-align:center; font-size:12.5px; color:var(--ink-3); font-weight:600; padding-bottom:8px; }
-.gantt .wk-h.sunum { color:#1f2724; }
-.gantt .wk-h.sunum small { background:#1f2724; color:#eef3e2; border-radius:5px; padding:1px 3px; }
-.gantt .wk-h.vize { color:var(--ink-3); }
-.gantt .wk-h.vize small { color:#8f3838; }
-.gantt .wk-h small { display:block; font-size:10.5px; font-weight:700; letter-spacing:.04em; }
-.gantt .ip-row td { padding-top:16px; font-weight:700; font-size:14px; color:var(--ink); }
-.gantt .cell { border-left:1px solid var(--line); height:30px; position:relative; }
-.gantt .cell.sunum { background:var(--lime-soft); }
-.gantt .cell.vize  { background:repeating-linear-gradient(45deg,rgba(0,0,0,.10),rgba(0,0,0,.10) 5px,rgba(0,0,0,.03) 5px,rgba(0,0,0,.03) 11px); }
-.gantt .cell.final { background:var(--teal-soft); }
-.gantt .bar { position:absolute; z-index:2; left:3px; right:3px; top:6px; height:18px; border-radius:99px; display:flex; align-items:center; padding:0 8px; font-size:12px; font-weight:700; color:#22302a; overflow:hidden; white-space:nowrap; }
-.gantt .bar.done { opacity:.55; }
-.gantt .bar.todo { opacity:.85; }
-.gantt .bar .fill { position:absolute; left:0; top:0; bottom:0; background:rgba(255,255,255,.4); }
-.gantt .ms { display:inline-block; width:0;height:0;border:5px solid transparent;border-bottom-color:var(--violet); vertical-align:middle; }
-.gantt tr.task:hover .lbl { color:var(--ink); }
-.gantt .unsched { color:var(--ink-3); font-style:italic; font-size:13px; }
 
 /* ---- board ------------------------------------------------------------- */
 /* Four equal stage columns plus a narrower exception column. Blocked is not
@@ -347,9 +437,8 @@ a { color:inherit; }
 .tcard .f  { display:flex; align-items:center; justify-content:center; flex-wrap:wrap;
              gap:8px; font-size:13px; color:var(--ink-3); }
 .chip { border-radius:99px; padding:1px 8px; font-size:12px; font-weight:700; color:#22302a; }
-.note { font-size:12.5px; line-height:1.5; color:var(--amber); margin-top:8px; }
 
-.exportbar { display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+.exportbar { display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
 .btn { all:unset; cursor:pointer; background:var(--ink); color:var(--bg); padding:8px 15px; border-radius:99px; font-size:14px; font-weight:600; }
 .btn.ghost { background:transparent; color:var(--ink-2); border:1px solid var(--line); }
 .btn:hover { opacity:.88; }
@@ -541,7 +630,6 @@ table.plain td { padding:9px 10px 9px 0; border-top:1px solid var(--line); verti
 .btn.sm { padding:6px 12px; font-size:12px; }
 .btn.w  { display:block; width:100%; text-align:center; box-sizing:border-box; margin-bottom:6px; }
 .hint { font-size:11.5px; color:var(--ink-3); line-height:1.45; }
-.exportbar .hint { flex:1; min-width:200px; }
 .tl-legend { display:flex; flex-wrap:wrap; justify-content:center; gap:14px; font-size:12px;
              color:var(--ink-2); margin-bottom:16px; }
 .tcard .nb { color:var(--teal); font-weight:700; }
