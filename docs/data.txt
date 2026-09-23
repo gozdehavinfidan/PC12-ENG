@@ -18,7 +18,8 @@
 #
 #   ZAMAN : ISO 8601, orn. 2026-09-22T10:30:00Z
 #   KISI  : ML (Gozde) | BM (Berke)
-#   EYLEM : status | pct | join | note | task | del | msg | read
+#   EYLEM : status | pct | join | leave | note | task | del | msg | read
+#           risk | riskfix | riskopen | dec | decst
 #   HEDEF : gorev id (T1.1 gibi), 'task' icin yeni id
 #   DEGER : eyleme gore degisir
 #   ID    : 8 hex karakter, olaya ozel kimlik.
@@ -31,11 +32,25 @@
 #   status | T1.1 | done                | a1b2c3d4
 #   pct    | T1.1 | 60                  | a1b2c3d5
 #   join   | T1.1 |                     | a1b2c3d6   (KISI kendini ekler, sahip -> EK)
+#   leave  | T1.1 |                     | a1b2c3da   (KISI gorevden ayrilir; SADECE
+#                                                     sahip EK iken anlamli, sahip
+#                                                     diger kisiye gecer. Tek sahip
+#                                                     ayrilamaz: sahipsiz gorev olmaz.)
 #   note   | T1.1 | serbest metin       | a1b2c3d7
 #   task   | Y1   | IP2;Baslik;ML;5;6   | a1b2c3d8   (ip;baslik;sahip;basl;bitis)
 #   del    | Y1   |                     | a1b2c3d9   (gizler, gecmis korunur)
 #   msg    | BM   | serbest metin       | a1b2c3da   (HEDEF = alici: ML ya da BM)
 #   read   | a1b2c3da |                 | a1b2c3db   (HEDEF = okunan mesajin ID'si)
+#   risk   | Rab12 | metin;olasilik;etki;sahip;plan | a1b2c3dc
+#                                                     (olasilik/etki 1-3)
+#   riskfix| Rab12 | nasil cozuldu       | a1b2c3dd   (riski KAPATIR)
+#   riskopen| Rab12 |                    | a1b2c3de   (tekrar acar)
+#   dec    | Dcd34 | baslik;hafta;durum  | a1b2c3df
+#                                         (durum: open|proposed|accepted|rejected)
+#   decst  | Dcd34 | accepted            | a1b2c3e0
+#
+# RISK/KARAR: data.js'te bu iki liste BOS. Riskleri ve kararlari siteden
+# ekliyorsunuz; boylece kimin actigi ve kimin kapattigi da kayit altinda.
 #
 # MESAJLAR: 'msg' bir kisiden digerine not birakir; olayin kendi ID'si ayni
 # zamanda mesajin kimligidir. "Okundu" demek mesaji SILMEZ - sadece o ID'ye

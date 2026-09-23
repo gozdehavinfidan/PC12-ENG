@@ -192,42 +192,20 @@ window.PC12_DATA = {
       fallback:"CLI driving the real pipeline end to end, with the UI shell on mock data — stated clearly as two halves", ready:false },
   ],
 
-  risks: [
-    { id:"R1", text:"Dataset is small (~70 images)",                         p:3, i:3, owner:"EK", status:"open",
-      mit:"Pretrained encoder + patch-based training + 5-fold CV + foundation-model baseline (15-SMALL-DATA-STRATEGY)" },
-    { id:"R2", text:"The existing 70 labels may follow a different protocol", p:2, i:3, owner:"BM", status:"open",
-      mit:"Ask in WP1.1. If they differ: either re-label or match their protocol. Finding out in W6 costs weeks." },
-    { id:"R3", text:"Training too slow / compute limits",                     p:1, i:2, owner:"ML", status:"open",
-      mit:"Resolved by D12 (A5000 24GB + A6000 48GB). Compute is no longer the binding constraint; labeled data still is." },
-    { id:"R4", text:"Patch leakage -> meaningless but high DSC",              p:2, i:3, owner:"ML", status:"open",
-      mit:"Split by image (ideally by well), THEN patch. Assert that fold image-id sets are disjoint." },
-    { id:"R5", text:"New data is late → WP2 (W9-W11) has nothing to label",   p:2, i:3, owner:"BM", status:"open",
-      mit:"The chart now SCHEDULES the new dataset (WP2.1 at W9-W10), so it is a commitment, not a bonus. If the batch slips past W9: fall back to reporting on the existing ~70 images and say so — WP3.5 then becomes a re-run, not an expansion." },
-    { id:"R6", text:"Overlapping / touching cells -> counting error",         p:3, i:2, owner:"ML", status:"open",
-      mit:"Instance segmentation (Cellpose-SAM) or watershed; report what cannot be separated instead of hiding it." },
-    { id:"R7", text:"12-REFERENCES.md unverified — fabricated-citation risk",  p:3, i:3, owner:"EK", status:"open",
-      mit:"Verify every entry before it enters the report. Until then cite ONLY from 14-REFERENCES-VERIFIED.md." },
-  ],
+  // --- RISKS \u2014 WRITTEN FROM THE DASHBOARD, NOT HERE -------------------
+  // Empty on purpose. Use "+ Add risk" in Risks & decisions: one of you raises
+  // it, the other can resolve it with a note, and both acts land in
+  // docs/data.txt. Anything typed here instead would be a second source of
+  // truth that the site cannot edit.
+  // (The seven risks that used to sit here are in git history, commit a01a70d,
+  //  if you want them back as a starting point.)
+  risks: [],
 
-  // Index only — the reasoning lives in DECISIONS.md.
-  decisions: [
-    { id:"D0",  title:"Class scheme: background / cell_body / neurite",        w:2,  status:"accepted" },
-    { id:"D1",  title:"Primary model: U-Net family (pretrained encoder)",      w:2,  status:"proposed" },
-    { id:"D2",  title:"Neurite geometry: skeleton + graph (skan)",             w:5,  status:"proposed" },
-    { id:"D3",  title:"Instance separation depth",                             w:9,  status:"proposed" },
-    { id:"D4",  title:"Application framework",                                 w:10, status:"open" },
-    { id:"D5",  title:"Units (µm vs px)",                                      w:3,  status:"open" },
-    { id:"D6",  title:"Rotation augmentation vs the angle metric",             w:4,  status:"proposed" },
-    { id:"D7",  title:"Dashboard = static data.js (not data.json)",            w:1,  status:"accepted" },
-    { id:"D8",  title:"No assigned architecture track; decided at W9 by CV",   w:1,  status:"accepted" },
-    { id:"D9",  title:"Small-data strategy (pretraining + patches + 5-fold CV)",w:1,  status:"accepted" },
-    { id:"D10", title:"New data batch ≈ W3 — WP7 is now a commitment",         w:1,  status:"accepted" },
-    { id:"D11", title:"Dashboard database: data.txt event log + in-memory token", w:1, status:"accepted" },
-    { id:"D12", title:"Compute confirmed: A5000 24GB + A6000 48GB",            w:1,  status:"accepted" },
-    { id:"D13", title:"Two-branch architecture + soft-clDice + 5-seed ensemble", w:1,  status:"accepted" },
-    { id:"D14", title:"Concept canon = TÜSEB 2026 (NTI); architecture is ours",  w:1,  status:"accepted" },
-    { id:"D15", title:"WBS + calendar adopted from the updated course Gantt",   w:1,  status:"accepted" },
-  ],
+  // --- DECISIONS \u2014 index only, also written from the dashboard --------
+  // The REASONING lives in llm-wiki/DECISIONS.md. This list is just the index
+  // the dashboard shows, and it is now filled in with "+ Add" rather than by
+  // editing this file. D0-D15 remain in the wiki and in git history.
+  decisions: [],
 
   // Run results — pasted in BY HAND. If there is no number, leave it null.
   // Never invent one.

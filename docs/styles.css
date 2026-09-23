@@ -73,7 +73,12 @@ a { color:inherit; }
 }
 .nav button:hover { background:var(--panel-2); color:var(--ink); }
 .nav button[aria-selected="true"] { background:var(--lime-soft); color:var(--ink); font-weight:600; }
-.nav .ico { width:24px; font-size:21px; line-height:1; text-align:center; opacity:.85; }
+/* SVG now, not a glyph: fixed box so the labels stay on one baseline, and
+   currentColor so the icon follows the selected/hover state for free. */
+.nav .ico { width:26px; height:26px; flex:0 0 auto; display:inline-grid;
+            place-items:center; opacity:.72; }
+.nav .ico svg { width:24px; height:24px; display:block; }
+.nav button:hover .ico, .nav button[aria-selected="true"] .ico { opacity:1; }
 
 /* ---- notifications ---- */
 #msgBox { margin-top:10px; }
@@ -189,9 +194,12 @@ a { color:inherit; }
 
 /* ---- KPI --------------------------------------------------------------- */
 .kpi { text-align:center; }
-.kpi { justify-content:center; padding:22px 20px; }
+/* display:flex is the fix, not justify-content - that line was already here
+   but the card is a block, so it did nothing and the content sat 23px from the
+   top of a 217px card with 90px empty underneath. */
+.kpi { display:flex; flex-direction:column; justify-content:center; padding:14px 18px; }
 .kpi .v { font-size:46px; font-weight:700; letter-spacing:-.02em; line-height:1.05; }
-.kpi .k { font-size:15px; color:var(--ink-2); margin-top:9px; font-weight:600;
+.kpi .k { font-size:14.5px; color:var(--ink-2); margin-top:7px; font-weight:600;
           text-transform:uppercase; letter-spacing:.06em; }
 .kpi .bar { max-width:240px; margin-left:auto; margin-right:auto; height:9px; border-radius:99px;
             background:rgba(0,0,0,.07); margin-top:15px; overflow:hidden; }
@@ -199,16 +207,79 @@ a { color:inherit; }
               background:linear-gradient(90deg,var(--lime),var(--green));
               transition:width .5s cubic-bezier(.4,0,.2,1); }
 
-/* ---- donut ------------------------------------------------------------- */
-.donut-wrap { display:flex; align-items:center; gap:22px; flex-wrap:wrap; }
-.donut { width:132px; height:132px; flex:0 0 132px; position:relative; }
-.donut svg { transform:rotate(-90deg); }
-.donut .mid { position:absolute; inset:0; display:grid; place-items:center; text-align:center; }
-.donut .mid b { font-size:24px; display:block; }
-.donut .mid span { font-size:12.5px; color:var(--ink-3); }
-.legend { display:flex; flex-direction:column; gap:7px; font-size:14px; }
-.legend i { width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:8px; }
-.legend .n { color:var(--ink-3); margin-left:6px; }
+/* ---- task-status breakdown (replaced the donut) ------------------------- */
+/* ---- status gauge (half circle) ---- */
+.ring-wrap { display:flex; flex-direction:column; align-items:center; gap:6px; }
+.gauge { position:relative; width:204px; height:114px; }
+.gauge svg { display:block; overflow:visible; }
+.gauge .seg { transition:d .45s cubic-bezier(.22,.61,.36,1); }
+/* The bed sits under the ticks so the band still reads as one shape when the
+   ticks are too sparse to imply an edge. */
+/* Faint neutral, not white: the card is white now, so a white bed was
+   invisible and the hatched band lost its shape between the ticks. */
+.gauge .hatch-bed { fill:none; stroke:rgba(31,39,36,.045); stroke-linecap:round; }
+.gauge .hatch line { stroke:#9aa39e; stroke-width:2.4; stroke-linecap:round; opacity:.7; }
+/* Sits inside the arc, hugging the baseline like a gauge readout. */
+.gauge-mid { position:absolute; left:0; right:0; bottom:2px; text-align:center; line-height:1; }
+.gauge-mid b { font-size:38px; font-weight:700; letter-spacing:-.02em; color:var(--ink); }
+.gauge-mid b span { font-size:20px; color:var(--ink-3); }
+.gauge-mid em { display:block; font-style:normal; margin-top:5px; font-size:10.5px;
+                letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3); }
+.st-leg { display:flex; flex-wrap:wrap; justify-content:center; gap:6px 14px;
+          font-size:13px; color:var(--ink-2); }
+.st-leg span { display:inline-flex; align-items:center; gap:6px; }
+/* Legend marker echoes the reference: a small upright bar, not a dot. The
+   "upcoming" marker is striped, matching the hatched band in the gauge. */
+.st-leg i { width:4px; height:16px; border-radius:2px; flex:0 0 auto; }
+.st-leg .is-todo i { background:repeating-linear-gradient(180deg,#aab3ae 0 2px,transparent 2px 4px); }
+.st-leg b { font-weight:700; color:var(--ink); }
+
+/* ---- risk register & decisions (team-written) ---- */
+/* The add button is taken OUT of the flex flow and pinned right. With
+   margin-left:auto it pushed the title off-centre, so cards with a button had
+   left-aligned headings and cards without one stayed centred - the headings in
+   the same row no longer lined up. Symmetric padding keeps the title optically
+   centred while the button overlays the right gutter. */
+.card > h3 { position:relative; }
+.card > h3.has-add { padding-inline:74px; }
+/* Scoped through the heading on purpose: the button also carries .btn,
+   whose `all:unset` resets `position` and is declared later in this file,
+   so a bare .hd-add rule lost the cascade and the button stayed static. */
+.card > h3 .hd-add { position:absolute; right:0; top:50%; transform:translateY(-50%); }
+
+.rk-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:11px; }
+.rk { all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column;
+      gap:7px; padding:13px 14px; border-radius:var(--r-s); background:var(--panel-2);
+      box-shadow:inset 0 0 0 1px var(--line); text-align:left; }
+.rk:hover { background:#fff; box-shadow:inset 0 0 0 1px rgba(31,39,36,.18), 0 2px 8px rgba(31,39,36,.08); }
+.rk:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
+/* A resolved risk stays on the board but stops competing for attention. */
+.rk.done { opacity:.6; }
+.rk.done .rk-text { text-decoration:line-through; text-decoration-color:rgba(31,39,36,.35); }
+.rk-top { display:flex; align-items:center; gap:8px; }
+.rk-id { font-size:11px; font-weight:700; color:var(--ink-3); letter-spacing:.03em; }
+.rk-who { margin-left:auto; display:flex; }
+.rk-ok { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.07em;
+         color:#2f7d5b; background:#dff1e6; border-radius:99px; padding:2px 8px; }
+.rk-text { font-size:13.5px; line-height:1.45; color:var(--ink); }
+.rk-mit { font-size:12px; line-height:1.5; color:var(--ink-3); }
+.rk-fix { font-size:12px; line-height:1.5; color:#2f7d5b; }
+
+.dc-list { display:flex; flex-direction:column; gap:7px; }
+.dc { all:unset; box-sizing:border-box; cursor:pointer; display:grid;
+      grid-template-columns:auto 1fr auto auto; gap:10px; align-items:center;
+      padding:9px 11px; border-radius:var(--r-s); background:var(--panel-2); font-size:12.5px; }
+.dc:hover { background:var(--lime-soft); }
+.dc:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
+.dc-id { font-size:11px; font-weight:700; color:var(--ink-3); }
+.dc-t { min-width:0; color:var(--ink); line-height:1.35; }
+.dc-w { font-size:11px; color:var(--ink-3); white-space:nowrap; }
+
+/* An empty register should teach, not just say "nothing here". */
+.empty.big { text-align:center; padding:26px 16px; font-size:14px; color:var(--ink-2); line-height:1.6; }
+.empty.big span { display:inline-block; margin-top:6px; font-size:12.5px; color:var(--ink-3); }
+.dw-sec .opt { font-weight:400; text-transform:none; letter-spacing:0; color:var(--ink-3); }
+.sbtn.dst { text-transform:capitalize; }
 
 /* ---- next sunum -------------------------------------------------------- */
 .sunum-next { background:linear-gradient(135deg,var(--lime-soft),var(--teal-soft)); border:none; }
@@ -517,21 +588,10 @@ table.plain td { padding:9px 10px 9px 0; border-top:1px solid var(--line); verti
 }
 
 /* status breakdown rendered inside a top-row KPI-sized card */
-.stat-tile { display:flex; flex-direction:column; justify-content:center; padding:22px 20px; }
-.stat-tile > h3 { font-size:15px; margin-bottom:16px; color:var(--ink); font-weight:700;
-                  text-transform:uppercase; letter-spacing:.06em; }
-/* donut kartin SAGINDA, aciklama solda */
-.stat-tile .donut-wrap { gap:18px; justify-content:flex-start;
-                         align-items:center; flex-wrap:nowrap; }
-.stat-tile .donut { width:92px; height:92px; flex:0 0 92px; }
-.stat-tile .donut svg { width:92px; height:92px; }
-.stat-tile .donut .mid { display:none; }   /* halkanin icindeki yazi kaldirildi */
-.stat-tile .legend { font-size:13.5px; gap:10px; text-align:left; flex:1; min-width:0; }
-.stat-tile .legend > div { white-space:nowrap; display:flex; align-items:center; }
-.stat-tile .legend .n { margin-left:auto; padding-left:8px; }
-.stat-tile .legend i { width:12px; height:12px; border-radius:4px; }
-.stat-tile .legend .n { font-weight:700; color:var(--ink); }
-@media (max-width:1080px){ .stat-tile .donut-wrap { justify-content:flex-start; } }
+.stat-tile { display:flex; flex-direction:column; justify-content:center;
+             padding:14px 18px; }
+.stat-tile > h3 { font-size:14px; margin-bottom:4px; color:var(--ink-2); font-weight:700;
+                  text-transform:uppercase; letter-spacing:.09em; }
 
 /* ---- kapatilabilir kenar cubugu ------------------------------------------ */
 .side-toggle {
@@ -553,7 +613,11 @@ body.side-collapsed #msgBox,
 body.side-collapsed #syncBox { display:none; }
 body.side-collapsed .brand { padding:34px 0 12px; }
 body.side-collapsed .nav button { padding:14px 0; }
-body.side-collapsed .nav .ico { font-size:24px; width:auto; }
+/* Bigger in the rail: with the labels gone the icon is the only thing left
+   to recognise a view by, so it gets the room the label used to take. */
+body.side-collapsed .nav .ico { width:30px; height:30px; opacity:.85; }
+body.side-collapsed .nav .ico svg { width:27px; height:27px; }
+body.side-collapsed .nav button[aria-selected="true"] .ico { opacity:1; }
 
 @media (max-width:720px){
   .side-toggle { position:static; margin-left:auto; }

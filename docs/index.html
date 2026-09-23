@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>PC12 Morphology Analysis — ENG401 Dashboard</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>&#129516;</text></svg>">
-<link rel="stylesheet" href="styles.css?v=21">
+<link rel="stylesheet" href="styles.css?v=39">
 </head>
 <body>
 
@@ -21,11 +21,34 @@
     </div>
 
     <nav class="nav" role="tablist" aria-label="Views">
-      <button data-v="overview" role="tab" aria-selected="true"><span class="ico">◧</span><span class="lbl">Overview</span></button>
-      <button data-v="gantt"    role="tab" aria-selected="false"><span class="ico">▤</span><span class="lbl">Timeline</span></button>
-      <button data-v="board"    role="tab" aria-selected="false"><span class="ico">▥</span><span class="lbl">Task board</span></button>
-      <button data-v="sunum"    role="tab" aria-selected="false"><span class="ico">◈</span><span class="lbl">Presentations</span></button>
-      <button data-v="risk"     role="tab" aria-selected="false"><span class="ico">⚑</span><span class="lbl">Risks &amp; decisions</span></button>
+      <button data-v="overview" role="tab" aria-selected="true" aria-label="Overview" title="Overview"><span class="ico">
+        <!-- dashboard: four panels -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="7.6" height="7.6" rx="1.7"/><rect x="13.4" y="3" width="7.6" height="7.6" rx="1.7"/>
+          <rect x="3" y="13.4" width="7.6" height="7.6" rx="1.7"/><rect x="13.4" y="13.4" width="7.6" height="7.6" rx="1.7"/>
+        </svg></span><span class="lbl">Overview</span></button>
+      <button data-v="gantt"    role="tab" aria-selected="false" aria-label="Timeline" title="Timeline"><span class="ico">
+        <!-- gantt: staggered bars -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" aria-hidden="true">
+          <line x1="3.4" y1="6.2" x2="13" y2="6.2"/><line x1="8.6" y1="12" x2="20.6" y2="12"/><line x1="5.4" y1="17.8" x2="15.4" y2="17.8"/>
+        </svg></span><span class="lbl">Timeline</span></button>
+      <button data-v="board"    role="tab" aria-selected="false" aria-label="Task board" title="Task board"><span class="ico">
+        <!-- kanban: columns of unequal height -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3.2" width="5.2" height="17.6" rx="1.6"/><rect x="9.4" y="3.2" width="5.2" height="11.4" rx="1.6"/>
+          <rect x="15.8" y="3.2" width="5.2" height="14.5" rx="1.6"/>
+        </svg></span><span class="lbl">Task board</span></button>
+      <button data-v="sunum"    role="tab" aria-selected="false" aria-label="Presentations" title="Presentations"><span class="ico">
+        <!-- presentation screen on a stand -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2.8" y="3.6" width="18.4" height="12.4" rx="2"/><line x1="12" y1="16" x2="12" y2="20.4"/>
+          <line x1="8.4" y1="20.4" x2="15.6" y2="20.4"/><path d="M7.6 12.2 10.6 9l2.6 2.4L16.6 7.4"/>
+        </svg></span><span class="lbl">Presentations</span></button>
+      <button data-v="risk"     role="tab" aria-selected="false" aria-label="Risks and decisions" title="Risks &amp; decisions"><span class="ico">
+        <!-- warning triangle -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3.6 21.6 20H2.4z"/><line x1="12" y1="10" x2="12" y2="14.2"/><line x1="12" y1="17" x2="12" y2="17.05"/>
+        </svg></span><span class="lbl">Risks &amp; decisions</span></button>
     </nav>
 
     <!-- who am I: sets the author of every event appended to data.txt -->
@@ -56,7 +79,7 @@
 <!-- ?v=N is a cache-buster. Browsers (and the GitHub Pages CDN) happily serve a
      stale data.js for a long time, which would show Berke last week's board.
      BUMP THIS NUMBER whenever you change data.js, app.js or styles.css. -->
-<script src="data.js?v=21"></script>
-<script src="app.js?v=21"></script>
+<script src="data.js?v=39"></script>
+<script src="app.js?v=39"></script>
 </body>
 </html>

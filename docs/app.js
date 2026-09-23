@@ -77,11 +77,11 @@
   var NOW = computeWeek();
 
   var STATUS = {
-    todo:    { label: 'Upcoming',    color: '#bcc3ba' },  // grey  - not begun
-    doing:   { label: 'In progress', color: '#f0c74e' },  // yellow- being worked
-    review:  { label: 'In review',   color: '#f0a05a' },  // orange- waiting on us
-    done:    { label: 'Done',        color: '#6ec894' },  // green - finished
-    blocked: { label: 'Blocked',     color: '#ef8b8b' }   // red   - stuck
+    todo:    { label: 'Upcoming',    color: '#a9b2ad' },  // grey   - not begun
+    doing:   { label: 'In progress', color: '#e5b32b' },  // yellow - being worked
+    review:  { label: 'In review',   color: '#ee9445' },  // orange - waiting on us
+    done:    { label: 'Done',        color: '#3fae7c' },  // green  - finished
+    blocked: { label: 'Blocked',     color: '#e0706c' }   // red    - stuck
   };
   var STATUS_ORDER = ['todo', 'doing', 'review', 'done'];
   // Kisi renkleri: Gozde yumusak mor, Berke yumusak mavi.
@@ -169,7 +169,7 @@
 
   var badLines = 0, dupLines = 0, orphanLines = 0;
   var ACTORS  = /^(ML|BM)$/;
-  var ACTIONS = /^(status|pct|join|note|task|del|msg|read)$/;
+  var ACTIONS = /^(status|pct|join|leave|note|task|del|msg|read|risk|riskfix|riskopen|dec|decst)$/;
   var TS_RE   = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
   var ID_RE   = /^[0-9a-f]{8}$/;
 
@@ -213,6 +213,20 @@
                status:t.status, pct:t.pct || 0, ms:t.ms || null, note:t.note || null, notes:[] };
     }) };
     st.msgs = [];
+    // Risks and decisions start from whatever data.js ships (currently nothing -
+    // the team writes their own) and are then built up by events, exactly like
+    // tasks. Keeping them in the same append-only log means "who raised this"
+    // and "who closed it" are recorded facts, not something to remember.
+    st.risks = (D.risks || []).map(function (r) {
+      return { id:r.id, text:r.text, p:r.p, i:r.i, owner:r.owner, mit:r.mit || '',
+               status:r.status || 'open', by:null, ts:null, fixBy:null, fixTs:null, fix:'' };
+    });
+    st.decisions = (D.decisions || []).map(function (d) {
+      return { id:d.id, title:d.title, w:d.w, status:d.status || 'open', by:null, ts:null };
+    });
+    var byRisk = {}, byDec = {};
+    st.risks.forEach(function (r) { byRisk[r.id] = r; });
+    st.decisions.forEach(function (d) { byDec[d.id] = d; });
     var by = {}; st.tasks.forEach(function (t) { by[t.id] = t; });
     var seen = {}, readIds = {};
     dupLines = 0; orphanLines = 0;
@@ -230,6 +244,42 @@
         return;
       }
       if (ev.action === 'read') { readIds[ev.target] = 1; return; }
+      if (ev.action === 'risk') {
+        if (byRisk[ev.target]) return;                     // first write wins
+        var rp = String(ev.value).split(';');
+        var nr = { id: ev.target, text: rp[0] || '(untitled risk)',
+                   p: Math.max(1, Math.min(3, parseInt(rp[1], 10) || 2)),
+                   i: Math.max(1, Math.min(3, parseInt(rp[2], 10) || 2)),
+                   owner: rp[3] || ev.actor, mit: rp[4] || '',
+                   status: 'open', by: ev.actor, ts: ev.ts, fixBy: null, fixTs: null, fix: '' };
+        st.risks.push(nr); byRisk[nr.id] = nr;
+        return;
+      }
+      if (ev.action === 'riskfix' || ev.action === 'riskopen') {
+        var rr = byRisk[ev.target];
+        if (!rr) { orphanLines++; return; }
+        if (ev.action === 'riskfix') {
+          rr.status = 'resolved'; rr.fix = ev.value; rr.fixBy = ev.actor; rr.fixTs = ev.ts;
+        } else {
+          rr.status = 'open'; rr.fix = ''; rr.fixBy = null; rr.fixTs = null;
+        }
+        return;
+      }
+      if (ev.action === 'dec') {
+        if (byDec[ev.target]) return;
+        var dp = String(ev.value).split(';');
+        var nd = { id: ev.target, title: dp[0] || '(untitled decision)',
+                   w: parseInt(dp[1], 10) || NOW, status: dp[2] || 'open',
+                   by: ev.actor, ts: ev.ts };
+        st.decisions.push(nd); byDec[nd.id] = nd;
+        return;
+      }
+      if (ev.action === 'decst') {
+        var dd = byDec[ev.target];
+        if (!dd) { orphanLines++; return; }
+        if (/^(open|proposed|accepted|rejected)$/.test(ev.value)) dd.status = ev.value;
+        return;
+      }
       // Resolve a legacy id BEFORE the lookup, never INSTEAD of it: being in
       // the alias map is not proof the mapped task exists. Map, then look up;
       // a miss falls through to the orphan counter below exactly as an
@@ -266,6 +316,13 @@
         if (!isNaN(n)) { t.pct = Math.max(0, Math.min(100, n)); if (t.status === 'todo' && t.pct > 0) t.status = 'doing'; }
       } else if (ev.action === 'join') {
         if (t.owner !== ev.actor && t.owner !== 'EK') t.owner = 'EK';   // idempotent
+      } else if (ev.action === 'leave') {
+        // Only meaningful on a SHARED task: the leaver steps off, the other
+        // person keeps it. There is deliberately no "unassigned" state, so a
+        // sole owner cannot leave - that would orphan the task, and a task
+        // nobody owns is how work disappears. The drawer does not offer the
+        // button in that case; an event that arrives anyway is a no-op.
+        if (t.owner === 'EK') t.owner = (ev.actor === 'ML' ? 'BM' : 'ML');
       } else if (ev.action === 'note') {
         t.notes.push({ by: ev.actor, ts: ev.ts, text: ev.value });
       } else if (ev.action === 'del') {
@@ -439,25 +496,103 @@
       (pct === null ? '' : '<div class="bar"><i style="width:' + Math.max(0, Math.min(100, pct)) + '%"></i></div>') + '</div>';
   }
 
-  function donut() {
-    var counts = {};
-    STATE.tasks.forEach(function (t) { counts[t.status] = (counts[t.status] || 0) + 1; });
-    var total = STATE.tasks.length || 1, C = 2 * Math.PI * 52, off = 0, segs = '', leg = '';
-    ['done', 'review', 'doing', 'todo', 'blocked'].forEach(function (k) {
-      var n = counts[k] || 0; if (!n) return;
-      var len = C * (n / total);
-      segs += '<circle cx="66" cy="66" r="52" fill="none" stroke="' + STATUS[k].color +
-              '" stroke-width="26" stroke-dasharray="' + len.toFixed(2) + ' ' + (C - len).toFixed(2) +
-              '" stroke-dashoffset="' + (-off).toFixed(2) + '"></circle>';
-      off += len;
-      leg += '<div><i style="background:' + STATUS[k].color + '"></i>' + STATUS[k].label +
-             '<span class="n">' + n + '</span></div>';
-    });
-    return '<div class="donut-wrap"><div class="donut"><svg width="132" height="132" viewBox="0 0 132 132">' +
-      '<circle cx="66" cy="66" r="52" fill="none" stroke="rgba(0,0,0,.08)" stroke-width="26"></circle>' + segs +
-      '</svg><div class="mid"><div><b>' + doneCount() + '/' + STATE.tasks.length + '</b><span>tasks done</span></div></div></div>' +
-      '<div class="legend">' + leg + '</div></div>';
+  /* Task status gauge - a half-circle, in the style the user referenced.
+     Three things make it read where a full ring did not:
+       1. 180 degrees instead of 360, so every slice gets twice the arc for
+          the same share of the data;
+       2. round caps and a real gap, so neighbouring slices never merge;
+       3. UPCOMING is drawn as radial ticks rather than a solid fill. In the
+          reference that hatched band is the "not yet" portion, and here it
+          literally is - not-started work. A hatched area recedes, so the
+          coloured slices finally carry the eye instead of being swamped by a
+          grey block that was 89% of the chart.
+     A floor still applies to the coloured slices (a 1-task status is 3.6% =
+     6.4 degrees, which is a nub), so the arc is a shape cue and the exact
+     counts live in the legend and in each slice's tooltip. */
+  // Every present slice gets BASE_SHARE of the half circle, and the remainder
+  // is handed out in proportion. The earlier version clamped thin slices to a
+  // flat floor, which had a worse failure than being small: Done (2 tasks) and
+  // In progress (1 task) both hit the floor and came out at exactly the same
+  // 14.4 degrees, so the chart asserted they were equal. base+proportional
+  // keeps the order intact (24.2 vs 19.3 degrees today) and still sums to 1.
+  var BASE_SHARE = 0.08;
+  function polar(cx, cy, r, deg) {
+    var a = deg * Math.PI / 180;
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
   }
+  function arcD(cx, cy, r, a0, a1) {
+    var p0 = polar(cx, cy, r, a0), p1 = polar(cx, cy, r, a1);
+    return 'M' + p0[0].toFixed(2) + ' ' + p0[1].toFixed(2) +
+           ' A' + r + ' ' + r + ' 0 ' + ((a1 - a0) > 180 ? 1 : 0) + ' 1 ' +
+           p1[0].toFixed(2) + ' ' + p1[1].toFixed(2);
+  }
+  function statusRing() {
+    var order = ['done', 'review', 'doing', 'todo', 'blocked'];
+    var counts = {}, present = [];
+    order.forEach(function (k) {
+      var n = STATE.tasks.filter(function (t) { return t.status === k; }).length;
+      counts[k] = n;
+      if (n) present.push(k);
+    });
+    var total = STATE.tasks.length || 1;
+
+    // base = a visible minimum for every status that exists; the rest of the
+    // circle is split in proportion, so bigger is always drawn bigger.
+    var base = Math.min(BASE_SHARE, 0.9 / present.length);   // never overflow
+    var rest = 1 - base * present.length;
+    var share = {};
+    present.forEach(function (k) { share[k] = base + (counts[k] / total) * rest; });
+
+    // Reference proportion is a chunky ring: stroke about a third of the
+    // radius. 24/80 lands there, and the larger radius buys back the arc
+    // length the thicker round caps eat.
+    var W = 204, H = 114, CX = W / 2, CY = 100, R = 80, SW = 24;
+    // 4.5 degrees, not 2.6: at radius 58 the old gap was 2.6px, which the two
+    // round caps simply swallowed, so two adjacent thin slices read as one
+    // pill. The gap has to clear the caps, not just exist.
+    var A0 = 180, SWEEP = 180, GAP = present.length > 1 ? 4.5 : 0;
+    var parts = '', cursor = A0;
+
+    present.forEach(function (k) {
+      var span = SWEEP * share[k];
+      var a0 = cursor + GAP / 2, a1 = cursor + span - GAP / 2;
+      if (a1 <= a0) a1 = a0 + 0.6;            // a gap must never erase a slice
+      var tip = '<title>' + esc(STATUS[k].label) + ': ' + counts[k] + ' of ' + total + '</title>';
+
+      if (k === 'todo') {
+        // Radial ticks: the "not yet" band. Spaced by angle so the density
+        // stays even however wide the band is.
+        var ticks = '', step = 2.6;
+        for (var a = a0 + 0.8; a <= a1 - 0.8; a += step) {
+          var i0 = polar(CX, CY, R - SW / 2 + 2, a), i1 = polar(CX, CY, R + SW / 2 - 2, a);
+          ticks += '<line x1="' + i0[0].toFixed(2) + '" y1="' + i0[1].toFixed(2) +
+                   '" x2="' + i1[0].toFixed(2) + '" y2="' + i1[1].toFixed(2) + '"></line>';
+        }
+        parts += '<g class="hatch">' + tip +
+                 '<path d="' + arcD(CX, CY, R, a0, a1) + '" class="hatch-bed" ' +
+                 'stroke-width="' + SW + '"></path>' + ticks + '</g>';
+      } else {
+        parts += '<path class="seg" d="' + arcD(CX, CY, R, a0, a1) + '" fill="none" stroke="' +
+                 STATUS[k].color + '" stroke-width="' + SW + '" stroke-linecap="round">' +
+                 tip + '</path>';
+      }
+      cursor += span;
+    });
+
+    var leg = present.map(function (k) {
+      return '<span class="' + (k === 'todo' ? 'is-todo' : '') + '">' +
+             '<i style="background:' + STATUS[k].color + '"></i>' +
+             esc(STATUS[k].label) + '<b>' + counts[k] + '</b></span>';
+    }).join('');
+
+    return '<div class="ring-wrap">' +
+      '<div class="gauge"><svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H +
+        '" role="img" aria-label="Task status breakdown">' + parts + '</svg>' +
+        '<div class="gauge-mid"><b>' + doneCount() + '<span>/' + STATE.tasks.length + '</span></b>' +
+        '<em>done</em></div></div>' +
+      '<div class="st-leg">' + leg + '</div></div>';
+  }
+
 
   // One set of week columns drawn behind ALL rows -> continuous vertical bands.
   function weekCols(withLabels) {
@@ -612,6 +747,10 @@
     var t = taskById(ALIAS[id] || id);
     return t ? t.title : id;
   }
+  function clip(str, n) {
+    var t = String(str);
+    return t.length > n ? t.slice(0, n - 1).replace(/\s+\S*$/, '') + '\u2026' : t;
+  }
   function activityHTML(ev) {
     var mine = ev.actor === ME;
     var who = mine ? 'You' : esc(person(ev.actor).short || ev.actor);
@@ -630,6 +769,19 @@
         return who + ' set ' + tgt + ' to <b>' + esc(ev.value) + '%</b>';
       case 'join':
         return who + ' joined ' + tgt + ' \u2014 it is now shared';
+      case 'leave':
+        return who + ' left ' + tgt;
+      case 'risk':
+        return who + ' raised a risk: <b>' + esc(String(ev.value).split(';')[0]) + '</b>';
+      case 'riskfix':
+        return who + ' resolved risk <b>' + esc(ev.target) + '</b>' +
+               (ev.value ? ': \u201c' + esc(clip(ev.value, 80)) + '\u201d' : '');
+      case 'riskopen':
+        return who + ' reopened risk <b>' + esc(ev.target) + '</b>';
+      case 'dec':
+        return who + ' recorded a decision: <b>' + esc(String(ev.value).split(';')[0]) + '</b>';
+      case 'decst':
+        return who + ' marked <b>' + esc(ev.target) + '</b> as <b>' + esc(ev.value) + '</b>';
       case 'note':
         // Clipped here, shown in full on the task itself. An untrimmed note is
         // often several lines and buries every other update under one entry.
@@ -682,7 +834,7 @@
       kpiCard('Overall progress', pctDone() + '%', pctDone()) +
       kpiCard('Presentations left', String(remaining), Math.round((sw.length - remaining) / (sw.length || 1) * 100)) +
       // The status breakdown now lives in the top row instead of a separate card.
-      '<div class="card panel-grad stat-tile"><h3>Task status</h3>' + donut() + '</div>';
+      '<div class="card stat-tile"><h3>Task status</h3>' + statusRing() + '</div>';
 
     var nsHtml = ns ? ('<div class="card sunum-next">' +
         '<div class="wk">Next presentation &middot; Week ' + ns.w + (ns.ms ? ' &middot; ' + ns.ms : '') + '</div>' +
@@ -805,22 +957,164 @@
       '</tr></thead><tbody>' + rows + '</tbody></table></div>';
   }
 
+  function sevWord(p, i) { var v = (p || 0) * (i || 0); return v >= 9 ? 'high' : v >= 4 ? 'medium' : 'low'; }
+
+  /* Risks and decisions are written BY THE TEAM, from here. They used to be a
+     static list in data.js that nobody could change without editing a file,
+     which meant in practice they were never changed at all. Now one person
+     raises a risk and the other can resolve it, and both acts are recorded in
+     the same append-only log as everything else - so the register answers
+     "who raised this, who closed it, and when" without anyone remembering. */
+  function riskCard(r) {
+    var open = r.status !== 'resolved';
+    return '<button type="button" class="rk' + (open ? '' : ' done') + '" data-risk="' + esc(r.id) + '">' +
+      '<span class="rk-top"><b class="rk-id">' + esc(r.id) + '</b>' +
+        '<span class="sev ' + sevWord(r.p, r.i).charAt(0) + '">' + sevWord(r.p, r.i) + '</span>' +
+        (open ? '' : '<span class="rk-ok">resolved</span>') +
+        '<span class="rk-who">' + avatarHTML(r.owner, 'sm') + '</span></span>' +
+      '<span class="rk-text">' + esc(r.text) + '</span>' +
+      (r.mit ? '<span class="rk-mit">' + esc(r.mit) + '</span>' : '') +
+      (!open && r.fix ? '<span class="rk-fix">' + esc(person(r.fixBy).short) + ': ' + esc(r.fix) + '</span>' : '') +
+      '</button>';
+  }
+
   function renderRisks() {
-    var sev = function (p, i) { var v = (p || 0) * (i || 0); return v >= 9 ? 'h' : v >= 4 ? 'm' : 'l'; };
-    var sevT = function (p, i) { var v = (p || 0) * (i || 0); return v >= 9 ? 'high' : v >= 4 ? 'medium' : 'low'; };
-    var rows = (D.risks || []).map(function (r) {
-      return '<tr><td><b>' + esc(r.id) + '</b></td><td>' + esc(r.text) + '</td>' +
-        '<td><span class="sev ' + sev(r.p, r.i) + '">' + sevT(r.p, r.i) + '</span></td>' +
-        '<td>' + avatarHTML(r.owner, 'sm') + '</td><td>' + esc(r.mit) + '</td></tr>';
-    }).join('') || '<tr><td colspan="5" class="empty">No risks recorded.</td></tr>';
-    var dec = (D.decisions || []).map(function (d) {
-      return '<tr><td>' + esc(d.id) + ' - ' + esc(d.title) + '</td><td style="width:56px;color:var(--ink-3)">W' + d.w +
-        '</td><td style="width:104px"><span class="st ' + esc(d.status) + '">' + esc(d.status) + '</span></td></tr>';
-    }).join('') || '<tr><td colspan="3" class="empty">-</td></tr>';
-    return '<div class="card"><h3>Risk register</h3><table class="plain"><thead><tr><th>#</th><th>Risk</th><th>Severity</th><th>Owner</th><th>Mitigation</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    var rs = (STATE.risks || []).slice();
+    var openR = rs.filter(function (r) { return r.status !== 'resolved'; });
+    var doneR = rs.filter(function (r) { return r.status === 'resolved'; });
+    var risks = openR.concat(doneR).map(riskCard).join('') ||
+      '<p class="empty big">No risks yet.<br><span>Raise one when something could derail the project ' +
+      '\u2014 the other person can resolve it later, and both are recorded.</span></p>';
+
+    var ds = (STATE.decisions || []).slice().sort(function (a, b) { return (a.w || 0) - (b.w || 0); });
+    var dec = ds.map(function (d) {
+      return '<button type="button" class="dc" data-dec="' + esc(d.id) + '">' +
+        '<span class="dc-id">' + esc(d.id) + '</span>' +
+        '<span class="dc-t">' + esc(d.title) + '</span>' +
+        '<span class="dc-w">W' + esc(String(d.w)) + '</span>' +
+        '<span class="st ' + esc(d.status) + '">' + esc(d.status) + '</span></button>';
+    }).join('') ||
+      '<p class="empty big">No decisions yet.<br><span>Record one when you settle something ' +
+      'the project depends on, so W15 can explain why.</span></p>';
+
+    return '<div class="card"><h3 class="has-add">Risk register' +
+        '<button class="btn sm hd-add" id="addRiskBtn">+ Add risk</button></h3>' +
+        '<div class="rk-list">' + risks + '</div></div>' +
       '<div class="grid g2" style="margin-top:16px;align-items:start">' +
-      '<div class="card"><h3>Decisions</h3><table class="plain"><tbody>' + dec + '</tbody></table></div>' +
+      '<div class="card"><h3 class="has-add">Decisions' +
+        '<button class="btn sm hd-add" id="addDecBtn">+ Add</button></h3>' +
+        '<div class="dc-list">' + dec + '</div></div>' +
       '<div class="card"><h3>Results</h3>' + runsTable() + '</div></div>';
+  }
+
+  /* ---- risk drawer: read it, resolve it, or reopen it ---- */
+  function openRisk(id) {
+    var r = null;
+    (STATE.risks || []).forEach(function (x) { if (x.id === id) r = x; });
+    if (!r) return;
+    var open = r.status !== 'resolved';
+    $('#drawer').innerHTML = '<div class="dw-back"></div><div class="dw">' +
+      '<div class="dw-hd"><div><div class="id">Risk ' + esc(r.id) + ' &middot; ' +
+        esc(sevWord(r.p, r.i)) + (r.by ? ' &middot; raised by ' + esc(person(r.by).short) : '') + '</div>' +
+      '<h4>' + esc(r.text) + '</h4></div><button class="x" id="dwClose">&times;</button></div>' +
+      (r.mit ? '<div class="dw-sec"><label>Planned mitigation</label><p class="gate">' + esc(r.mit) + '</p></div>' : '') +
+      '<div class="dw-sec"><label>Owner</label><div class="who-row">' + whoHTML(r.owner) + '</div></div>' +
+      (open
+        ? '<div class="dw-sec"><label>Resolve it</label>' +
+          '<p class="hint" style="margin:0 0 8px">Say how it was dealt with \u2014 that note is what the other person reads.</p>' +
+          '<div class="row-add"><input type="text" id="rkFix" maxlength="240" placeholder="How was it resolved?">' +
+          '<button class="btn sm" id="rkFixBtn">Resolve</button></div></div>'
+        : '<div class="dw-sec"><label>Resolved by ' + esc(person(r.fixBy).short) + '</label>' +
+          '<p class="gate">' + esc(r.fix || '(no note)') + '</p>' +
+          '<button class="btn ghost sm" id="rkOpenBtn" style="margin-top:10px">Reopen</button></div>') +
+      '</div>';
+    $('#drawer').classList.add('open');
+    $('#dwClose').onclick = closeDrawer;
+    $('#drawer').querySelector('.dw-back').onclick = closeDrawer;
+    if ($('#rkFixBtn')) $('#rkFixBtn').onclick = function () {
+      addEvent('riskfix', r.id, $('#rkFix').value.trim()); openRisk(r.id);
+    };
+    if ($('#rkFix')) $('#rkFix').onkeydown = function (e) { if (e.key === 'Enter') $('#rkFixBtn').click(); };
+    if ($('#rkOpenBtn')) $('#rkOpenBtn').onclick = function () { addEvent('riskopen', r.id, ''); openRisk(r.id); };
+  }
+
+  function openAddRisk() {
+    var ppl = (D.people || []).map(function (p) {
+      return '<option value="' + esc(p.code) + '"' + (p.code === ME ? ' selected' : '') + '>' + esc(p.name) + '</option>';
+    }).join('');
+    var lvl = function (id, label) {
+      return '<div><label>' + label + '</label><select id="' + id + '">' +
+        '<option value="1">1 \u2014 low</option><option value="2" selected>2 \u2014 medium</option>' +
+        '<option value="3">3 \u2014 high</option></select></div>';
+    };
+    $('#drawer').innerHTML = '<div class="dw-back"></div><div class="dw">' +
+      '<div class="dw-hd"><h4>Raise a risk</h4><button class="x" id="dwClose">&times;</button></div>' +
+      '<div class="dw-sec"><label>What could go wrong?</label>' +
+        '<input type="text" id="rkText" maxlength="200" placeholder="e.g. the new image batch arrives after W9"></div>' +
+      '<div class="dw-sec two">' + lvl('rkP', 'How likely?') + lvl('rkI', 'How bad?') + '</div>' +
+      '<div class="dw-sec"><label>Who watches it</label><select id="rkOwner">' + ppl + '</select></div>' +
+      '<div class="dw-sec"><label>Plan, if you have one <span class="opt">optional</span></label>' +
+        '<input type="text" id="rkMit" maxlength="240" placeholder="What would we do about it?"></div>' +
+      '<div class="dw-sec"><button class="btn" id="rkSave">Add risk</button></div></div>';
+    $('#drawer').classList.add('open');
+    $('#dwClose').onclick = closeDrawer;
+    $('#drawer').querySelector('.dw-back').onclick = closeDrawer;
+    $('#rkSave').onclick = function () {
+      var t = $('#rkText').value.trim(); if (!t) { $('#rkText').focus(); return; }
+      // ';' is the field separator inside VALUE, so it cannot survive in text.
+      var clean = function (v) { return v.replace(/;/g, ','); };
+      addEvent('risk', 'R' + newId().slice(0, 4).toUpperCase(),
+        [clean(t), $('#rkP').value, $('#rkI').value, $('#rkOwner').value, clean($('#rkMit').value.trim())].join(';'));
+      closeDrawer();
+    };
+    $('#rkText').focus();
+  }
+
+  /* ---- decision drawer ---- */
+  var DEC_ST = ['open', 'proposed', 'accepted', 'rejected'];
+  function openDecision(id) {
+    var d = null;
+    (STATE.decisions || []).forEach(function (x) { if (x.id === id) d = x; });
+    if (!d) return;
+    var btns = DEC_ST.map(function (k) {
+      return '<button class="sbtn dst' + (d.status === k ? ' on' : '') + '" data-st="' + k + '">' + k + '</button>';
+    }).join('');
+    $('#drawer').innerHTML = '<div class="dw-back"></div><div class="dw">' +
+      '<div class="dw-hd"><div><div class="id">Decision ' + esc(d.id) + ' &middot; W' + esc(String(d.w)) +
+        (d.by ? ' &middot; by ' + esc(person(d.by).short) : '') + '</div>' +
+      '<h4>' + esc(d.title) + '</h4></div><button class="x" id="dwClose">&times;</button></div>' +
+      '<div class="dw-sec"><label>Status</label><div class="sbtns">' + btns + '</div></div>' +
+      '<div class="dw-sec"><p class="hint" style="margin:0">The reasoning belongs in ' +
+        '<b>llm-wiki/DECISIONS.md</b>; this is the index.</p></div></div>';
+    $('#drawer').classList.add('open');
+    $('#dwClose').onclick = closeDrawer;
+    $('#drawer').querySelector('.dw-back').onclick = closeDrawer;
+    all('#drawer .dst').forEach(function (b) {
+      b.onclick = function () { addEvent('decst', d.id, b.getAttribute('data-st')); openDecision(d.id); };
+    });
+  }
+
+  function openAddDecision() {
+    $('#drawer').innerHTML = '<div class="dw-back"></div><div class="dw">' +
+      '<div class="dw-hd"><h4>Record a decision</h4><button class="x" id="dwClose">&times;</button></div>' +
+      '<div class="dw-sec"><label>What did you decide?</label>' +
+        '<input type="text" id="dcT" maxlength="160" placeholder="e.g. units are micrometres, not pixels"></div>' +
+      '<div class="dw-sec two"><div><label>Week</label>' +
+        '<input type="number" id="dcW" min="1" max="' + TOTAL + '" value="' + NOW + '"></div>' +
+        '<div><label>Status</label><select id="dcS">' +
+        DEC_ST.map(function (k) { return '<option value="' + k + '"' + (k === 'proposed' ? ' selected' : '') + '>' + k + '</option>'; }).join('') +
+        '</select></div></div>' +
+      '<div class="dw-sec"><button class="btn" id="dcSave">Add decision</button></div></div>';
+    $('#drawer').classList.add('open');
+    $('#dwClose').onclick = closeDrawer;
+    $('#drawer').querySelector('.dw-back').onclick = closeDrawer;
+    $('#dcSave').onclick = function () {
+      var t = $('#dcT').value.trim(); if (!t) { $('#dcT').focus(); return; }
+      addEvent('dec', 'D' + newId().slice(0, 4).toUpperCase(),
+        [t.replace(/;/g, ','), parseInt($('#dcW').value, 10) || NOW, $('#dcS').value].join(';'));
+      closeDrawer();
+    };
+    $('#dcT').focus();
   }
 
   /* ---------------- 6) INTERACTIONS ---------------- */
@@ -893,6 +1187,7 @@
       return '<li><span class="w">' + esc(person(n.by).short) + '</span><span>' + esc(n.text) + '</span></li>';
     }).join('') || '<li class="empty">No notes.</li>';
     var joined = t.owner === 'EK' || t.owner === ME;
+    var shared = t.owner === 'EK';
     var gate = null;
     (D.milestones || []).forEach(function (m) { if (m.id === t.ms) gate = m.gate; });
     $('#drawer').innerHTML =
@@ -914,8 +1209,13 @@
         '<div class="dw-sec"><label>Progress <b id="pctOut">' + pct + '%</b></label>' +
           '<input type="range" id="pctRange" min="0" max="100" step="5" value="' + pct + '"></div>' +
         '<div class="dw-sec"><label>Assigned to</label><div class="who-row">' + whoHTML(t.owner) +
-          (joined ? '<span class="hint">You are on this task</span>'
-                  : '<button class="btn sm" id="joinBtn">Add me</button>') + '</div></div>' +
+          // Three states, not two. Leaving is only offered on a SHARED task,
+          // because a sole owner stepping off would leave nobody on it - so
+          // that case says why instead of hiding a dead button.
+          (!joined  ? '<button class="btn sm" id="joinBtn">Add me</button>'
+           : shared ? '<button class="btn ghost sm" id="leaveBtn">Leave task</button>'
+                    : '<span class="hint">Only you are on this task</span>') +
+          '</div></div>' +
         '<div class="dw-sec"><label>Notes</label><ul class="log sm">' + notes + '</ul>' +
           '<div class="row-add"><input type="text" id="noteIn" maxlength="300" placeholder="Write a note..."><button class="btn sm" id="noteBtn">Add</button></div></div>' +
       '</div>';
@@ -929,6 +1229,7 @@
     rng.oninput = function () { $('#pctOut').textContent = rng.value + '%'; };
     rng.onchange = function () { addEvent('pct', t.id, rng.value); openTask(t.id); };
     if ($('#joinBtn')) $('#joinBtn').onclick = function () { addEvent('join', t.id, ''); openTask(t.id); };
+    if ($('#leaveBtn')) $('#leaveBtn').onclick = function () { addEvent('leave', t.id, ''); openTask(t.id); };
     $('#noteBtn').onclick = function () {
       var v = $('#noteIn').value.trim(); if (!v) return;
       addEvent('note', t.id, v); openTask(t.id);
@@ -1138,6 +1439,10 @@
       });
     });
     if ($('#addTaskBtn')) $('#addTaskBtn').onclick = function () { openAddTask('todo'); };
+    if ($('#addRiskBtn')) $('#addRiskBtn').onclick = openAddRisk;
+    if ($('#addDecBtn')) $('#addDecBtn').onclick = openAddDecision;
+    all('[data-risk]').forEach(function (b) { b.onclick = function () { openRisk(b.getAttribute('data-risk')); }; });
+    all('[data-dec]').forEach(function (b) { b.onclick = function () { openDecision(b.getAttribute('data-dec')); }; });
     all('.addcol').forEach(function (b) {
       b.onclick = function (e) { e.stopPropagation(); openAddTask(b.getAttribute('data-add')); };
     });
