@@ -424,7 +424,7 @@
   function ghPut(cfg, text, sha, n) {
     var u = 'https://api.github.com/repos/' + cfg.owner + '/' + cfg.repo + '/contents/' + cfg.path;
     return fetch(u, { method: 'PUT', headers: ghHeaders(),
-      body: JSON.stringify({ message: 'dashboard: ' + ME + ' ' + n + ' olay',
+      body: JSON.stringify({ message: 'dashboard: ' + ME + ', ' + n + (n === 1 ? ' event' : ' events'),
                              content: b64enc(text), sha: sha, branch: cfg.branch })
     }).then(function (r) { return { ok: r.ok, status: r.status }; });
   }
@@ -757,8 +757,8 @@
     }).join('');
     var key = '<div class="tl-key">' +
       '<span><i class="k sunum"></i>Presentation week</span>' +
-      '<span><i class="k vize"></i>Midterm — no work</span>' +
-      '<span><i class="k final"></i>Final</span></div>';
+      '<span><i class="k vize"></i>Midterm week</span>' +
+      '<span><i class="k final"></i>Final week</span></div>';
     return '<div class="scroll-x"><div class="mini-tl">' + head +
            '<div class="body">' + weekCols(false) + '<div class="rows">' + rows + '</div></div>' +
            '</div></div>' + key;
@@ -989,7 +989,7 @@
 
     var key = '<div class="tl-key">' +
       '<span><i class="k sunum"></i>Presentation week</span>' +
-      '<span><i class="k vize"></i>Midterm — no work planned</span>' +
+      '<span><i class="k vize"></i>Midterm week</span>' +
       '<span><i class="k final"></i>Final week</span>' +
       '<span><i class="k nowk"></i>This week (W' + NOW + ')</span></div>';
 
@@ -1009,7 +1009,7 @@
       var cards = items.map(function (t) {
         return '<div class="tcard own-' + esc(t.owner) + '" draggable="true" data-task="' + esc(t.id) + '" ' +
           'style="background:' + ownerSoftBg(t.owner) + ';border-color:' + (OWNER_COLOR[t.owner] || '#ddd') + '66">' +
-          '<div class="id">' + esc(t.id) + (t.ms ? ' &middot; ' + esc(t.ms) : '') + '</div>' +
+          '<div class="id">' + esc(t.id) + '</div>' +
           '<div class="t">' + esc(t.title) + '</div>' +
           '<div class="f">' + avatarHTML(t.owner, 'sm') +
             (t.w ? '<span>W' + t.w[0] + (t.w[1] !== t.w[0] ? '-' + t.w[1] : '') + '</span>' : '<span>no date</span>') +
@@ -1227,7 +1227,10 @@
 
     var tag = isNext ? '<span class="pz-tag">Up next</span>' : isPast ? '<span class="pz-tag past">Done</span>' : '';
     return '<article class="pz' + (isNext ? ' is-next' : '') + (isPast ? ' is-past' : '') + '">' +
-      '<header class="pz-hd"><span class="pz-w' + (s.w === NOW ? ' now' : '') + '">W' + s.w + '</span>' +
+      // The final week wears the Timeline's final colour instead of the dark
+      // presentation-week pill, so it reads as the one different week.
+      '<header class="pz-hd"><span class="pz-w' + (weekMeta(s.w).type === 'final' ? ' final' : '') +
+        (s.w === NOW ? ' now' : '') + '">W' + s.w + '</span>' +
         '<span class="pz-date">' + (date ? 'Thu ' + date.getDate() + ' ' + MON[date.getMonth()] +
           ' <i>\u00b7</i> ' + whenText(date) : '') + '</span>' + tag + '</header>' +
       '<h3 class="pz-topic">' + esc(s.topic || ('Week ' + s.w + ' presentation')) + '</h3>' +
@@ -1602,23 +1605,14 @@
     }).join('') || '<li class="empty">No notes.</li>';
     var joined = t.owner === 'EK' || t.owner === ME;
     var shared = t.owner === 'EK';
-    var gate = null;
-    (D.milestones || []).forEach(function (m) { if (m.id === t.ms) gate = m.gate; });
     $('#drawer').innerHTML =
       '<div class="dw-back"></div><div class="dw">' +
-        '<div class="dw-hd"><div><div class="id">' + esc(t.id) + (t.ms ? ' &middot; ' + esc(t.ms) : '') + '</div>' +
+        '<div class="dw-hd"><div><div class="id">' + esc(t.id) + '</div>' +
         '<h4>' + esc(t.title) + '</h4></div><button class="x" id="dwClose">&times;</button></div>' +
-        // The milestone this task feeds. milestones[].gate had exactly one
-        // reader (the Milestones card) and that card is gone, so the gate text
-        // moves here, where it is more useful anyway: you see what your task
-        // has to make true, on the task itself.
-        (gate ? '<div class="dw-sec"><label>Milestone ' + esc(t.ms) + '</label>' +
-                '<p class="gate">' + esc(gate) + '</p></div>' : '') +
-        // The planning note from data.js. Without this the field was write-only:
-        // every warning we put on a task (critical path, patch leakage, the
-        // WP5.2 dependency anomaly, the W14-15 integration timing) existed in
-        // the data and reached no human. A note no view renders is silence.
-        (t.note ? '<div class="dw-sec"><div class="dw-note">' + esc(t.note) + '</div></div>' : '') +
+        // Milestones (M1-M6) are no longer shown anywhere: the tags stay in
+        // data.js as planning notes only.
+        // The planning note (t.note in data.js) is no longer shown here either:
+        // it stays in data.js as a note for us, like the milestones.
         '<div class="dw-sec"><label>Status</label><div class="sbtns">' + statusBtns + '</div></div>' +
         '<div class="dw-sec"><label>Progress <b id="pctOut">' + pct + '%</b></label>' +
           '<input type="range" id="pctRange" min="0" max="100" step="5" value="' + pct + '"></div>' +
@@ -1709,7 +1703,7 @@
         '</div><p>' + esc(m.text) + '</p></li>';
     }).join('') || '<li class="empty">No new messages.</li>';
     box.innerHTML =
-      '<div class="mini-label">Notifications' +
+      '<div class="mini-label">Messages' +
         (mine.length ? ' <b class="badge">' + mine.length + '</b>' : '') + '</div>' +
       '<ul class="msgs">' + items + '</ul>' +
       '<div class="msg-new">' +
@@ -1798,7 +1792,7 @@
     if (typeof then !== 'function') then = null;
     $('#drawer').innerHTML = '<div class="dw-back"></div><div class="dw">' +
       '<div class="dw-hd"><h4>GitHub token</h4><button class="x" id="dwClose">&times;</button></div>' +
-      '<div class="dw-sec"><p class="hint">Token <b>only while this tab is open</b> bellekte tutulur. ' +
+      '<div class="dw-sec"><p class="hint">The token is kept in memory <b>only while this tab is open</b>. ' +
       'It is never stored, never committed, and is gone when you close the tab. That is a deliberate security choice.</p>' +
       '<p class="hint">GitHub &rarr; Settings &rarr; Developer settings &rarr; Fine-grained tokens. ' +
       'Only for <b>' + esc(cfg ? cfg.owner + '/' + cfg.repo : 'this repository') + '</b> with permission <b>Contents: Read and write</b>.</p>' +
@@ -1923,7 +1917,7 @@
   }
 
   function boot() {
-    $('#projName').textContent = (D.meta && D.meta.project) || 'Proje';
+    $('#projName').textContent = (D.meta && D.meta.project) || 'Project';
     $('#projSub').textContent = (D.meta && D.meta.course) || '';
     ME = lsGet('pc12.me', 'ML'); if (ME !== 'ML' && ME !== 'BM') ME = 'ML';
     loadOutbox();

@@ -104,11 +104,6 @@ a { color:inherit; }
                   padding:7px 11px; border-radius:var(--r-s); font-size:12.5px; font-weight:600; }
 .msg-new button:hover { background:var(--lime); }
 
-/* Planning note carried by a task in data.js (not a user-written note). Amber
-   rather than grey: these are warnings - critical path, data leakage, schedule
-   anomalies - and grey body text is exactly how the old invisible field read. */
-.dw-note { background:#fdf4e3; border-left:3px solid #e0b060; border-radius:8px;
-           padding:10px 12px; font-size:12.5px; line-height:1.55; color:var(--ink); }
 
 /* Data freshness. Normal is quiet; stale is amber, because the whole point is
    that a dashboard nobody updated should not look like one that is current. */
@@ -537,6 +532,9 @@ a { color:inherit; }
         background:#1f2724; color:#eef3e2; letter-spacing:.02em; }
 .pz-w.now { box-shadow:0 0 0 2px var(--teal); color:#a8e6c8; }
 .pz.is-past .pz-w { background:#e8e5dd; color:var(--ink-2); }
+/* W15 final: the Timeline's final-week teal, not the presentation pill. */
+.pz-w.final { background:var(--teal-soft); color:#22636f; }
+.pz-w.final.now { color:var(--teal); }
 .pz-date { font-size:12.5px; color:var(--ink-2); white-space:nowrap; }
 .pz-date i { font-style:normal; color:var(--ink-3); }
 .pz-tag { margin-left:auto; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
@@ -590,12 +588,12 @@ a { color:inherit; }
 table.plain { width:100%; border-collapse:collapse; font-size:14px; }
 table.plain th { text-align:left; font-size:12.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-3); padding:0 10px 8px 0; font-weight:600; }
 table.plain td { padding:9px 10px 9px 0; border-top:1px solid var(--line); vertical-align:top; }
-.sev { display:inline-block; border-radius:99px; padding:1px 9px; font-size:12px; font-weight:700; }
+.sev { display:inline-block; border-radius:99px; padding:1px 9px; font-size:12px; font-weight:700; text-transform:capitalize; }
 .sev.h { background:var(--red-soft);   color:#8f3838; }
 .sev.m { background:var(--amber-soft); color:#8a5620; }
 .sev.l { background:var(--green-soft); color:#2c6b48; }
 
-.st { display:inline-block; border-radius:99px; padding:1px 9px; font-size:12px; font-weight:700; }
+.st { display:inline-block; border-radius:99px; padding:1px 9px; font-size:12px; font-weight:700; text-transform:capitalize; }
 .st.accepted { background:var(--green-soft); color:#2c6b48; }
 .st.proposed { background:var(--teal-soft);  color:#22636f; }
 .st.open     { background:var(--amber-soft); color:#8a5620; }
