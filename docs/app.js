@@ -76,37 +76,33 @@
   }
   var NOW = computeWeek();
 
+  /* Colour system. Colour means exactly one thing each:
+       primary blue  = identity, selection, action, progress
+       semantic      = status only (the same five hues everywhere)
+       neutral grey  = everything structural
+     Status hues are the conventional ones (grey / blue / amber / green / red)
+     at matched, muted saturation, so none of them shouts over the others.
+     Must stay in step with the --st-* tokens in styles.css. */
   var STATUS = {
-    todo:    { label: 'Upcoming',    color: '#a9b2ad' },  // grey   - not begun
-    doing:   { label: 'In progress', color: '#e5b32b' },  // yellow - being worked
-    review:  { label: 'In review',   color: '#ee9445' },  // orange - waiting on us
-    done:    { label: 'Done',        color: '#3fae7c' },  // green  - finished
-    blocked: { label: 'Blocked',     color: '#e0706c' }   // red    - stuck
+    todo:    { label: 'Upcoming',    color: '#a3acbb' },  // neutral - not begun
+    doing:   { label: 'In progress', color: '#3d64d8' },  // primary - being worked
+    review:  { label: 'In review',   color: '#d08a12' },  // amber   - waiting on us
+    done:    { label: 'Done',        color: '#1f9467' },  // green   - finished
+    blocked: { label: 'Blocked',     color: '#cc4439' }   // red     - stuck
   };
   var STATUS_ORDER = ['todo', 'doing', 'review', 'done'];
-  // Kisi renkleri: Gozde yumusak mor, Berke yumusak mavi.
-  // EK (ortak gorev) tek bir renk degil, ikisinin gradyani -> ownerBg().
-  var OWNER_COLOR = { ML: '#b8a4e3', BM: '#7fc4dd', EK: '#b8a4e3' };
-  var OWNER_SOFT  = { ML: '#efe9fa', BM: '#e2f2f8', EK: '#e8eef7' };
-  function ownerBg(code) {
-    if (code === 'EK') return 'linear-gradient(120deg,' + OWNER_COLOR.ML + ',' + OWNER_COLOR.BM + ')';
-    return OWNER_COLOR[code] || '#ddd';
-  }
-  function ownerSoftBg(code) {
-    if (code === 'EK') return 'linear-gradient(120deg,' + OWNER_SOFT.ML + ' 0%,' + OWNER_SOFT.BM + ' 100%)';
-    return OWNER_SOFT[code] || 'var(--panel)';
-  }
-  // Fallback palette only. The real colour lives on the package itself in
-  // data.js, so adding or renumbering a work package cannot leave a stale
-  // entry behind in a second table over here.
-  var IP_COLOR = { IP0:'#cbd5e1', IP1:'#5eb8c9', IP2:'#7dd3a0', IP3:'#c7d96b',
-                   IP4:'#b8a4e3', IP5:'#f2b880', IP6:'#f0a6a6', IP7:'#d8d8d8' };
+  // People used to have their own hues (purple / blue) painted on cards and
+  // bars. The avatar already says who; a second per-person colour competed
+  // with status colour for the same "what does this colour mean" slot.
+  // One neutral ring now separates overlapping avatars, nothing more.
+  var OWNER_COLOR = { ML: '#d5dbe5', BM: '#d5dbe5', EK: '#d5dbe5' };
+  function ownerBg()     { return 'var(--pri-400)'; }
+  function ownerSoftBg() { return 'var(--panel)'; }
+  // Work packages are told apart by their labelled group, not by hue: seven
+  // package colours were the main reason the charts read as a paint box.
+  // data.js still carries ips[].color; it is deliberately ignored here.
   var ALIAS = (D.meta && D.meta.taskAliases) || {};
-  function ipColor(id) {
-    var l = D.ips || [];
-    for (var i = 0; i < l.length; i++) if (l[i].id === id && l[i].color) return l[i].color;
-    return IP_COLOR[id] || '#ddd';
-  }
+  function ipColor() { return '#3d64d8'; }
 
   function weekMeta(w) {
     var l = D.weeks || [];
@@ -143,7 +139,7 @@
              '<img src="' + esc(p.avatar) + '" alt="' + esc(p.name) +
              '" loading="lazy" onerror="this.remove()"></span>';
     }
-    return '<span class="' + cls + ' ph" style="' + ring2 + ';background:' + ring + '33" ' +
+    return '<span class="' + cls + ' ph" style="' + ring2 + '" ' +
            'title="' + esc(p.name) + '">' + esc(p.initials || code) + '</span>';
   }
   function whoHTML(code, size) {
@@ -685,7 +681,10 @@
     var out = '';
     for (var w = 1; w <= TOTAL; w++) {
       var t = weekMeta(w).type;
-      var cls = t !== 'work' ? ' class="' + t + '"' : '';
+      // "now" as well, so the overview marks the current week the same way
+      // the full Timeline does - the one primary chip on the chart.
+      var names = (t !== 'work' ? t : '') + (w === NOW ? ' now' : '');
+      var cls = names.trim() ? ' class="' + names.trim() + '"' : '';
       out += '<i' + cls + '>' + (withLabels ? '<b>W' + w + '</b>' : '') + '</i>';
     }
     return '<div class="cols" style="--n:' + TOTAL + '">' + out + '</div>';
@@ -786,7 +785,7 @@
       return '<div class="row"><button type="button" class="nm" data-pkg="' + esc(ip.id) +
         '" title="' + nmTitle + '">' + ipNameHTML(ip) + '</button>' +
         '<div class="track"><div class="seg" title="' + esc(ip.label) + ' W' + a + '-W' + b + ' · ' + pct + '%" ' +
-          'style="left:' + left.toFixed(2) + '%;width:' + width.toFixed(2) + '%;background:' + ipColor(ip.id) + '">' +
+          'style="left:' + left.toFixed(2) + '%;width:' + width.toFixed(2) + '%">' +
           '<i class="fill" style="width:' + pct + '%"></i>' +
           // Avatars sit AT the progress point, not centred: 0% -> start of the
           // bar, 100% -> its end. clamp() keeps them inside the rounded ends so
@@ -796,7 +795,8 @@
     var key = '<div class="tl-key">' +
       '<span><i class="k sunum"></i>Presentation week</span>' +
       '<span><i class="k vize"></i>Midterm week</span>' +
-      '<span><i class="k final"></i>Final week</span></div>';
+      '<span><i class="k final"></i>Final week</span>' +
+      '<span><i class="k nowk"></i>This week (W' + NOW + ')</span></div>';
     return '<div class="scroll-x"><div class="mini-tl">' + head +
            '<div class="body">' + weekCols(false) + '<div class="rows">' + rows + '</div></div>' +
            '</div></div>' + key;
@@ -807,10 +807,9 @@
       var items = STATE.tasks.filter(function (t) { return t.status === k; });
       var cards = items.slice(0, 3).map(function (t) {
         var pct = t.status === 'done' ? 100 : (t.pct || 0);
-        return '<div class="mc" data-task="' + esc(t.id) + '" style="background:' + ownerSoftBg(t.owner) +
-          ';border-color:' + (OWNER_COLOR[t.owner] || '#ddd') + '66"><div class="tt">' + tTitle(t) + '</div>' +
+        return '<div class="mc" data-task="' + esc(t.id) + '"><div class="tt">' + tTitle(t) + '</div>' +
           '<div class="bt">' + avatarHTML(t.owner, 'sm') +
-          '<div class="pb"><i style="width:' + pct + '%;background:' + ownerBg(t.owner) + '"></i></div>' +
+          '<div class="pb"><i style="width:' + pct + '%"></i></div>' +
           '<span class="pv">' + pct + '%</span></div></div>';
       }).join('') || '<div class="more">-</div>';
       var extra = items.length > 3
@@ -993,7 +992,7 @@
           var left = ((t.w[0] - 1) / TOTAL) * 100, width = ((t.w[1] - t.w[0] + 1) / TOTAL) * 100;
           var pct = t.status === 'done' ? 100 : (t.pct || 0);
           bar = '<button type="button" class="g-bar st-' + esc(t.status) + '" data-task="' + esc(t.id) + '" ' +
-            'style="left:' + left.toFixed(3) + '%;width:' + width.toFixed(3) + '%;background:' + ownerBg(t.owner) + '" ' +
+            'style="left:' + left.toFixed(3) + '%;width:' + width.toFixed(3) + '%" ' +
             'title="' + esc(tLabel(t) + ' · ' + tPlain(t) + ' — W' + t.w[0] +
               (t.w[1] !== t.w[0] ? '-W' + t.w[1] : '') + ' · ' + pct + '%') + '">' +
             // The progress fill was styled in the CSS but never rendered, so a
@@ -1051,7 +1050,7 @@
       var items = STATE.tasks.filter(function (t) { return t.status === c; });
       var cards = items.map(function (t) {
         return '<div class="tcard own-' + esc(t.owner) + '" draggable="true" data-task="' + esc(t.id) + '" ' +
-          'style="background:' + ownerSoftBg(t.owner) + ';border-color:' + (OWNER_COLOR[t.owner] || '#ddd') + '66">' +
+          '>' +
           '<div class="id">' + esc(tLabel(t)) + '</div>' +
           '<div class="t">' + tTitle(t) + '</div>' +
           '<div class="f">' + avatarHTML(t.owner, 'sm') +
@@ -1342,8 +1341,9 @@
      "who raised this, who closed it, and when" without anyone remembering. */
   // Colours come from the palette tokens in styles.css (--red / --amber /
   // --green / --teal), repeated here only because they are set inline as --c.
-  var SEV_COLOR = { high: '#ef8b8b', medium: '#f2b880', low: '#7dd3a0' };
-  var DEC_COLOR = { open: '#f2b880', proposed: '#5eb8c9', accepted: '#7dd3a0', rejected: '#ef8b8b' };
+  // Same semantic hues as STATUS: red = act now, amber = watch, green = fine.
+  var SEV_COLOR = { high: '#cc4439', medium: '#d08a12', low: '#1f9467' };
+  var DEC_COLOR = { open: '#a3acbb', proposed: '#3d64d8', accepted: '#1f9467', rejected: '#cc4439' };
   function riskScore(r) { return (r.p || 0) * (r.i || 0); }
   // Which slice of the register is listed. Memory only: it is a way of
   // looking, not a fact about the project, so it does not go in the log.
@@ -1623,7 +1623,7 @@
         '<h4>' + esc(ip.label) + '</h4></div><button class="x" id="dwClose">&times;</button></div>' +
         (ip.desc ? '<div class="dw-sec"><p class="pkg-desc">' + esc(ip.desc) + '</p></div>' : '') +
         '<div class="dw-sec"><label>Progress <b>' + pct + '%</b></label>' +
-          '<div class="pb lg"><i style="width:' + pct + '%;background:' + ipColor(ip.id) + '"></i></div>' +
+          '<div class="pb lg"><i style="width:' + pct + '%"></i></div>' +
           '<div class="pills">' + counts + '</div></div>' +
         '<div class="dw-sec"><label>Tasks (' + ts.length + ')</label>' +
           '<ul class="pkg-tasks">' + rows + '</ul></div>' +
