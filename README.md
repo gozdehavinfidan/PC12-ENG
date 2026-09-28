@@ -76,6 +76,7 @@ llm-wiki/      bilgi tabanı + plan + kararlar
 > Ham mikroskop verisi de aynı şekilde depoya girmez.
 
 ## 📅 Takvim
+| `18-PREVIOUS-FEATURES.md` | ✅ **Önceki GP2 proje (PC12 Cell Analyzer) UI envanteri (2026-09-26)** — atalay_sahan tez+pptx'ten çıkan app ekranları/görselleştirmeler; hangileri D16 IntelliCell UI'na alınacak (KEEP/IDEA/DROP + NTI param eşlemesi). |
 
 Sunum haftaları: **W2 · W4 · W6 · W9 · W11 · W13** (hepsinde sunuyoruz) ·
 **W8** vize · **W15** final.

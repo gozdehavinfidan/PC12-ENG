@@ -58,3 +58,17 @@ llm-wiki/02-BASE-PROJECT-TUSEB.md
 llm-wiki/LOG.md
 # Proje klavuzu - yayimlanmamis rapor icerigi ozetledigi icin yerele ozel (double-click ile acilir)
 KLAVUZ.html
+
+# IntelliCell app (D16) - derived from private microscopy data or rebuildable
+app/cache/
+datas/
+app/web/node_modules/
+app/dist/
+app/build/
+*.spec
+.playwright-mcp/
+
+# Local-only binaries - private microscopy images, deck and unpublished thesis (too large / not for the repo)
+PC12_resimler/
+*.pptx
+*.docx

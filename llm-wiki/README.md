@@ -75,6 +75,9 @@ must always be able to tell you *where a fact came from*.
 | `14-REFERENCES-VERIFIED.md` | ✅ Live-verified sources. **Cite from here.** |
 | `15-SMALL-DATA-STRATEGY.md` | ⭐ **n ≈ 70 governs everything** — read before 04/05/06/07. |
 | `16-ARCHITECTURE-RESEARCH.md` | ✅ **Professör-gözüyle mimari araştırması** (2026-09-22, 6 paralel literatür scout'u): doğrulanmış mimari / foundation-model / morpho / veri-verimliliği / XAI adayları + **nihai mimari önerisi** (`04`'ün v2'si). |
+| `17-UI-RESEARCH.md` | ✅ **UI & app araştırması (2026-09-26, 5 paralel scout)** — stack kararı (**D16**, D4'ü çözer), cesur UI konseptleri (watch-it-think / before-after / 3D Neuron Room), **hücre-similarity** tab'ı, HITL labeling kuyruğu, packaging. App yapmadan önce oku. |
+| `18-PREVIOUS-FEATURES.md` | ✅ **Önceki GP2 proje (PC12 Cell Analyzer) UI envanteri (2026-09-26)** — atalay_sahan tez+pptx'ten çıkan app ekranları/görselleştirmeler; hangileri D16 IntelliCell UI'na alınacak (KEEP/IDEA/DROP + NTI param eşlemesi). |
+| `19-MODEL-IMPROVEMENT-RESEARCH.html` | ✅ **Model araştırması tur 2 (2026-09-27, 9 yerel-LLM scout + 3 doğrulayıcı)** — TÜSEB Swin planının yerine: SSL-uyarlı öğretmen → damıtılmış CNN öğrenci, topoloji-loss A/B, etiket verimliliği, NTI istatistiği (EBM/GAM + konformal), XAI yığını, kitap rafı, offline RAG açıklayıcı (korpus + lisans). 131 kaynak, filtrelenebilir katalog; ham veri `_research/R7–R13, G1–G2.json`. Tarayıcıda aç. |
 | `../KLAVUZ.html` | **Proje klavuzu** — yeni gelen bir EEE öğrencisi için her şeyi (konsept + rapor + pipeline + tasarım noktaları) adım adım anlatan tek dosya. **⚠ Depoda YOK** (rapor içeriği özetlediği için `.gitignore`'da); yerelde çift-tıkla. |
 | `LOG.md` | Historical log + pointer — the live log is in `docs/data.js`. |
 | `DECISIONS.md` | Decision log (ADR-style). |
