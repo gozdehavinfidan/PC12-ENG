@@ -77,17 +77,25 @@
   var NOW = computeWeek();
 
   /* Colour system. Colour means exactly one thing each:
-       primary blue  = identity, selection, action, progress
+       primary green = identity, selection, action, progress
        semantic      = status only (the same five hues everywhere)
        neutral grey  = everything structural
-     Status hues are the conventional ones (grey / blue / amber / green / red)
+     Status hues are the conventional ones (grey / primary green / amber / teal / red)
      at matched, muted saturation, so none of them shouts over the others.
-     Must stay in step with the --st-* tokens in styles.css. */
+     Must stay in step with the --st-* tokens in styles.css.
+     PRI is read from --pri-500 rather than written here, so styles.css
+     stays the one place the primary is defined; SVG strokes and the
+     hex-alpha tints cannot take var(), so they need the resolved hex. */
+  var PRI = (function () {
+    var v = '';
+    try { v = getComputedStyle(document.documentElement).getPropertyValue('--pri-500').trim(); } catch (e) {}
+    return /^#[0-9a-f]{6}$/i.test(v) ? v : '#1a7f53';
+  })();
   var STATUS = {
     todo:    { label: 'Upcoming',    color: '#a3acbb' },  // neutral - not begun
-    doing:   { label: 'In progress', color: '#3d64d8' },  // primary - being worked
+    doing:   { label: 'In progress', color: PRI },  // primary - being worked
     review:  { label: 'In review',   color: '#d08a12' },  // amber   - waiting on us
-    done:    { label: 'Done',        color: '#1f9467' },  // green   - finished
+    done:    { label: 'Done',        color: '#14899a' },  // teal    - finished
     blocked: { label: 'Blocked',     color: '#cc4439' }   // red     - stuck
   };
   var STATUS_ORDER = ['todo', 'doing', 'review', 'done'];
@@ -102,7 +110,7 @@
   // package colours were the main reason the charts read as a paint box.
   // data.js still carries ips[].color; it is deliberately ignored here.
   var ALIAS = (D.meta && D.meta.taskAliases) || {};
-  function ipColor() { return '#3d64d8'; }
+  function ipColor() { return PRI; }
 
   function weekMeta(w) {
     var l = D.weeks || [];
@@ -1342,8 +1350,8 @@
   // Colours come from the palette tokens in styles.css (--red / --amber /
   // --green / --teal), repeated here only because they are set inline as --c.
   // Same semantic hues as STATUS: red = act now, amber = watch, green = fine.
-  var SEV_COLOR = { high: '#cc4439', medium: '#d08a12', low: '#1f9467' };
-  var DEC_COLOR = { open: '#a3acbb', proposed: '#3d64d8', accepted: '#1f9467', rejected: '#cc4439' };
+  var SEV_COLOR = { high: '#cc4439', medium: '#d08a12', low: '#14899a' };
+  var DEC_COLOR = { open: '#a3acbb', proposed: PRI, accepted: '#14899a', rejected: '#cc4439' };
   function riskScore(r) { return (r.p || 0) * (r.i || 0); }
   // Which slice of the register is listed. Memory only: it is a way of
   // looking, not a fact about the project, so it does not go in the log.
