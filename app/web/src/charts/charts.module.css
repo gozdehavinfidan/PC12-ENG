@@ -1,0 +1,98 @@
+.wrap {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.grid {
+  stroke: var(--line-1);
+  stroke-width: 1;
+}
+.axis {
+  stroke: var(--line-3);
+  stroke-width: 1;
+}
+.cross {
+  stroke: var(--text-3);
+  stroke-dasharray: 3 3;
+}
+.tick {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  fill: var(--text-3);
+}
+.readout {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-2);
+  background: var(--readout-bg);
+  box-shadow: 0 0 0 1px var(--line-2);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.readout b {
+  color: var(--text-1);
+  font-weight: 500;
+}
+.legend {
+  display: flex;
+  gap: 12px;
+  font-size: var(--fs-11);
+  color: var(--text-2);
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.legend i {
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.contrib {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.contribRow {
+  display: flex;
+  align-items: center;
+}
+.contribLabel {
+  width: 120px;
+  font-size: var(--fs-12);
+  color: var(--text-2);
+}
+.contribVal {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  fill: var(--text-1);
+}
+.contribAxis {
+  display: flex;
+  justify-content: space-between;
+  padding-left: 120px;
+  font-size: 12px;
+  color: var(--text-4);
+}
+
+.gauge {
+  overflow: visible;
+}
+.gaugeLive {
+  stroke-width: 1.5;
+  stroke-dasharray: 4 6;
+  animation: gspin 1.2s linear infinite;
+}
+@keyframes gspin {
+  to {
+    stroke-dashoffset: -20;
+  }
+}

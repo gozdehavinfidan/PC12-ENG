@@ -180,5 +180,5 @@ parameter** (`02` §NTI):
 - **D6** neurite-angle definition (orientation 0–180°) vs rotation augmentation — **T1.4**
 - **D9** small-data strategy (pretrained + patch + 5-fold + foundation models) — accepted
 - **D1** primary model — by 5-fold CV mean±std at the W9 gate (`05-MODELS`)
-- **D4** app framework (Qt vs web-shell) — **T5.1** · **D5** units (µm vs px) — **T1.1**
+- **D4** app framework — **resolved by D16 (2026-09-26, proposed)**: React/Vite + FastAPI + ONNX(CPU) + pywebview — see `17-UI-RESEARCH.md` · **D5** units (µm vs px) — **T1.1**
 - **D2** neurite geometry = skeleton+graph vs Canny+Hough — **T3.1** · **D3** instance-separation depth — **T3.1**

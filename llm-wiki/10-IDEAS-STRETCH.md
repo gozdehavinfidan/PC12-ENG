@@ -61,7 +61,24 @@ has a **verified** source in `14-REFERENCES-VERIFIED.md`.
 | C5 | **Angle as circular data** (Rayleigh test for directional alignment) | Med | Low | Low | Statistically proper way to claim "NGF makes neurites align". |
 | C6 | **NeuroQuantify head-to-head** benchmark | High | Med | Med | Direct prior-art comparison = strong paper section. |
 | C7 | **Auto-report with figures** (bar/histogram/Sholl + narrative) | Med | Med | Low | The app writes a mini-paper. Great demo. |
-| C8 | **Web version** of the app (shareable link) | Low | Med | Low | Convenience; not core. |
+| C8 | **Web version** of the app (shareable link) — **güncellendi (D16)**: app *kendisi* artık local-website (React+FastAPI+pywebview, `17`); "shareable" hali = aynı UI'ın `python -m http.server`'da açılması. | Low | Med | Low | Konfor; core değil. |
+
+## UI & App (2026-09-26 araştırması — `17-UI-RESEARCH.md`)
+
+5 paralel scout (stack / UI-pattern / hücre-similarity / HITL / packaging)
+sonucu. Mimari karar **D16** (proposed — onay bekliyor). Promote edilecekler:
+
+| # | Fikir | I | E | R | Not |
+|---|-------|---|---|---|-----|
+| U1 | **"Watch it think"** — tiled inference canlı akar, belirsizlik kırpırdar, NTI sayar (17 §2) | Very High | Med (2–3 hf) | Low | İmza demo anı; XAI işini sahneye koyar. Öncü: Cellpose HF Space, CVAT auto-annotation. |
+| U2 | **Before/After Toxicity** — senkron dual-viewer + kaydırılabilir ayırıcı + kohort filmstrip (17 §2) | High | Low (1–2 hf) | Low | En ucuz wow; temporal view'un evi. Öncü: QuPath multi-view. |
+| U3 | **3D "Neuron Room"** — Three.js nörit grafı, dal başına morfometri, 2D/3D toggle (17 §2) | High | Med (2–4 hf) | Med | En "pahalı yazılım" hissi; Imaris'in web karşılığı. PC12 2D → eğik-slide (2.5D) sunumu. |
+| U4 | **Hücre-similarity tab'ı** — UMAP atlas + k-NN inspector + koşul-mesafe (yalnız betimleyici) + outlier/QC bayrağı (17 §3) | High | Low-Med (2–3 hf) | Low | Hocanın önerisi; kanonik HCS pratiği (Zinsstag 2017, cytominer). **Öğrenmiş embedding YOK** (DeepProfiler ağırlıkları 5-kanal Cell Painting'e kilitli; n düşük). Batch-2 + O1 gelirse `16` §5-4 GNN ile birleşir. |
+| U5 | **Labeling iş istasyonu** — review kuyruğu (belirsizlik sıralı, VessQC deseni), `prediction`/`annotation` ayrımı, `_seg.npy` akışı (17 §4) | High | Med (3–4 hf) | Low | W9–W11 batch-2 etiketlemesini fiilen azaltır; `16` §5-11 active-labeling loop'unun arayüzü; W4 IAA ölçümü (WP1.3) aynı ekran. AL sıralaması: belirsizlik + Betti uyuşmazlığı → representativeness (nnActive kanıtı). |
+| U6 | **Cohort atlası** — tüm hücreler feature uzayında (deck.gl), tıkla→görsel, lasso ile alt-popülasyon (17 §2 runner-up) | Med | Med (2–3 hf) | Low | Zaman kalırsa; U4 ile aynı veri, farklı görsel. |
+
+Sıralama: U2 → U1 → U3 (layout'u sabitle, imza an, kapanış vuruşu); U4 + U5
+veriyle birlikte ilerler (batch-2). Toplam ≈6–9 hf UI @ 10–15 hf/hafta.
 
 ## The "inspiration" shortlist — 2026-09-22 araştırmasıyla yenilendi
 

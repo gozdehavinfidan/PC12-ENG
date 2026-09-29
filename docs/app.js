@@ -76,37 +76,41 @@
   }
   var NOW = computeWeek();
 
+  /* Colour system. Colour means exactly one thing each:
+       primary green = identity, selection, action, progress
+       semantic      = status only (the same five hues everywhere)
+       neutral grey  = everything structural
+     Status hues are the conventional ones (grey / primary green / amber / teal / red)
+     at matched, muted saturation, so none of them shouts over the others.
+     Must stay in step with the --st-* tokens in styles.css.
+     PRI is read from --pri-500 rather than written here, so styles.css
+     stays the one place the primary is defined; SVG strokes and the
+     hex-alpha tints cannot take var(), so they need the resolved hex. */
+  var PRI = (function () {
+    var v = '';
+    try { v = getComputedStyle(document.documentElement).getPropertyValue('--pri-500').trim(); } catch (e) {}
+    return /^#[0-9a-f]{6}$/i.test(v) ? v : '#1a7f53';
+  })();
   var STATUS = {
-    todo:    { label: 'Upcoming',    color: '#a9b2ad' },  // grey   - not begun
-    doing:   { label: 'In progress', color: '#e5b32b' },  // yellow - being worked
-    review:  { label: 'In review',   color: '#ee9445' },  // orange - waiting on us
-    done:    { label: 'Done',        color: '#3fae7c' },  // green  - finished
-    blocked: { label: 'Blocked',     color: '#e0706c' }   // red    - stuck
+    todo:    { label: 'Upcoming',    color: '#a3acbb' },  // neutral - not begun
+    doing:   { label: 'In progress', color: PRI },  // primary - being worked
+    review:  { label: 'In review',   color: '#d08a12' },  // amber   - waiting on us
+    done:    { label: 'Done',        color: '#14899a' },  // teal    - finished
+    blocked: { label: 'Blocked',     color: '#cc4439' }   // red     - stuck
   };
   var STATUS_ORDER = ['todo', 'doing', 'review', 'done'];
-  // Kisi renkleri: Gozde yumusak mor, Berke yumusak mavi.
-  // EK (ortak gorev) tek bir renk degil, ikisinin gradyani -> ownerBg().
-  var OWNER_COLOR = { ML: '#b8a4e3', BM: '#7fc4dd', EK: '#b8a4e3' };
-  var OWNER_SOFT  = { ML: '#efe9fa', BM: '#e2f2f8', EK: '#e8eef7' };
-  function ownerBg(code) {
-    if (code === 'EK') return 'linear-gradient(120deg,' + OWNER_COLOR.ML + ',' + OWNER_COLOR.BM + ')';
-    return OWNER_COLOR[code] || '#ddd';
-  }
-  function ownerSoftBg(code) {
-    if (code === 'EK') return 'linear-gradient(120deg,' + OWNER_SOFT.ML + ' 0%,' + OWNER_SOFT.BM + ' 100%)';
-    return OWNER_SOFT[code] || 'var(--panel)';
-  }
-  // Fallback palette only. The real colour lives on the package itself in
-  // data.js, so adding or renumbering a work package cannot leave a stale
-  // entry behind in a second table over here.
-  var IP_COLOR = { IP0:'#cbd5e1', IP1:'#5eb8c9', IP2:'#7dd3a0', IP3:'#c7d96b',
-                   IP4:'#b8a4e3', IP5:'#f2b880', IP6:'#f0a6a6', IP7:'#d8d8d8' };
+  // People used to have their own hues (purple / blue) painted on cards and
+  // bars. The avatar already says who; a second per-person colour competed
+  // with status colour for the same "what does this colour mean" slot.
+  // One neutral ring now separates overlapping avatars, nothing more.
+  var OWNER_COLOR = { ML: '#d5dbe5', BM: '#d5dbe5', EK: '#d5dbe5' };
+  function ownerBg()     { return 'var(--pri-400)'; }
+  function ownerSoftBg() { return 'var(--panel)'; }
+  // Work packages are told apart by their labelled group, not by hue: seven
+  // package colours were the main reason the charts read as a paint box.
+  // data.js still carries ips[].color; it is deliberately ignored here.
   var ALIAS = (D.meta && D.meta.taskAliases) || {};
-  function ipColor(id) {
-    var l = D.ips || [];
-    for (var i = 0; i < l.length; i++) if (l[i].id === id && l[i].color) return l[i].color;
-    return IP_COLOR[id] || '#ddd';
-  }
+  function ipColor() { return PRI; }
 
   function weekMeta(w) {
     var l = D.weeks || [];
@@ -143,7 +147,7 @@
              '<img src="' + esc(p.avatar) + '" alt="' + esc(p.name) +
              '" loading="lazy" onerror="this.remove()"></span>';
     }
-    return '<span class="' + cls + ' ph" style="' + ring2 + ';background:' + ring + '33" ' +
+    return '<span class="' + cls + ' ph" style="' + ring2 + '" ' +
            'title="' + esc(p.name) + '">' + esc(p.initials || code) + '</span>';
   }
   function whoHTML(code, size) {
@@ -165,6 +169,28 @@
     if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(a);
     else for (var i = 0; i < 4; i++) a[i] = Math.floor(Math.random() * 256);
     return Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+  }
+
+  // What a task is CALLED on screen. The "[+]" prefix in data.js marks a row we
+  // added on top of the Gantt chart; it stays in the data (it is how the WBS
+  // is audited) but renders as a tag, not as literal brackets in the title.
+  var ADDED_RE = /^\[\+\]\s*/;
+  function tLabel(t) { return t.label || t.id; }
+  function tPlain(t) { return String(t.title || '').replace(ADDED_RE, ''); }
+  function tTitle(t) {
+    var s = String(t.title || '');
+    return ADDED_RE.test(s)
+      ? '<span class="tag-add" title="Added on top of the original chart">Added</span>' + esc(tPlain(t))
+      : esc(s);
+  }
+
+  // A package label is "WP3 — Segmentation model development". The code and
+  // the name are split into two spans so every name starts on the same left
+  // edge after a fixed-width code column, however long the name wraps.
+  function ipNameHTML(ip) {
+    var m = /^(WP\d+)\s*[—–-]\s*(.+)$/.exec(String(ip.label || ''));
+    return m ? '<span class="wp">' + esc(m[1]) + '</span><span class="nm-t">' + esc(m[2]) + '</span>'
+             : esc(ip.label);
   }
 
   var badLines = 0, dupLines = 0, orphanLines = 0;
@@ -351,6 +377,22 @@
     // order survives. Collecting the ids first makes the result independent of
     // it: an out-of-order 'read' still hides its message instead of vanishing.
     st.msgs = st.msgs.filter(function (m) { return !readIds[m.id]; });
+    // Display labels. A task added from the UI keeps its random key (Y1A2B) -
+    // every later status/pct event in the log points at that key, so it can
+    // never change - but showing it put "YF3A8" next to "WP0.5" on screen.
+    // The label continues its package's numbering instead, in creation order
+    // (log order), so it is stable across reloads. Seeded tasks show their id.
+    var maxSeq = {};
+    st.tasks.forEach(function (t) {
+      var m = /^WP(\d+)\.(\d+)$/.exec(t.id);
+      if (m) maxSeq[m[1]] = Math.max(maxSeq[m[1]] || 0, +m[2]);
+    });
+    st.tasks.forEach(function (t) {
+      if (!t.added) { t.label = t.id; return; }
+      var n = String(t.ip || 'IP0').replace(/^IP/, '');
+      maxSeq[n] = (maxSeq[n] || 0) + 1;
+      t.label = 'WP' + n + '.' + maxSeq[n];
+    });
     return st;
   }
 
@@ -647,7 +689,10 @@
     var out = '';
     for (var w = 1; w <= TOTAL; w++) {
       var t = weekMeta(w).type;
-      var cls = t !== 'work' ? ' class="' + t + '"' : '';
+      // "now" as well, so the overview marks the current week the same way
+      // the full Timeline does - the one primary chip on the chart.
+      var names = (t !== 'work' ? t : '') + (w === NOW ? ' now' : '');
+      var cls = names.trim() ? ' class="' + names.trim() + '"' : '';
       out += '<i' + cls + '>' + (withLabels ? '<b>W' + w + '</b>' : '') + '</i>';
     }
     return '<div class="cols" style="--n:' + TOTAL + '">' + out + '</div>';
@@ -746,9 +791,9 @@
       // The row label is where a reader already hovers to see the full name.
       var nmTitle = esc(ip.label) + (ip.desc ? ' — ' + esc(ip.desc) : '');
       return '<div class="row"><button type="button" class="nm" data-pkg="' + esc(ip.id) +
-        '" title="' + nmTitle + '">' + esc(ip.label) + '</button>' +
+        '" title="' + nmTitle + '">' + ipNameHTML(ip) + '</button>' +
         '<div class="track"><div class="seg" title="' + esc(ip.label) + ' W' + a + '-W' + b + ' · ' + pct + '%" ' +
-          'style="left:' + left.toFixed(2) + '%;width:' + width.toFixed(2) + '%;background:' + ipColor(ip.id) + '">' +
+          'style="left:' + left.toFixed(2) + '%;width:' + width.toFixed(2) + '%">' +
           '<i class="fill" style="width:' + pct + '%"></i>' +
           // Avatars sit AT the progress point, not centred: 0% -> start of the
           // bar, 100% -> its end. clamp() keeps them inside the rounded ends so
@@ -758,7 +803,8 @@
     var key = '<div class="tl-key">' +
       '<span><i class="k sunum"></i>Presentation week</span>' +
       '<span><i class="k vize"></i>Midterm week</span>' +
-      '<span><i class="k final"></i>Final week</span></div>';
+      '<span><i class="k final"></i>Final week</span>' +
+      '<span><i class="k nowk"></i>This week (W' + NOW + ')</span></div>';
     return '<div class="scroll-x"><div class="mini-tl">' + head +
            '<div class="body">' + weekCols(false) + '<div class="rows">' + rows + '</div></div>' +
            '</div></div>' + key;
@@ -769,10 +815,9 @@
       var items = STATE.tasks.filter(function (t) { return t.status === k; });
       var cards = items.slice(0, 3).map(function (t) {
         var pct = t.status === 'done' ? 100 : (t.pct || 0);
-        return '<div class="mc" data-task="' + esc(t.id) + '" style="background:' + ownerSoftBg(t.owner) +
-          ';border-color:' + (OWNER_COLOR[t.owner] || '#ddd') + '66"><div class="tt">' + esc(t.title) + '</div>' +
+        return '<div class="mc" data-task="' + esc(t.id) + '"><div class="tt">' + tTitle(t) + '</div>' +
           '<div class="bt">' + avatarHTML(t.owner, 'sm') +
-          '<div class="pb"><i style="width:' + pct + '%;background:' + ownerBg(t.owner) + '"></i></div>' +
+          '<div class="pb"><i style="width:' + pct + '%"></i></div>' +
           '<span class="pv">' + pct + '%</span></div></div>';
       }).join('') || '<div class="more">-</div>';
       var extra = items.length > 3
@@ -810,7 +855,7 @@
   // if the id no longer resolves we show the bare id rather than inventing one.
   function taskLabel(id) {
     var t = taskById(ALIAS[id] || id);
-    return t ? t.title : id;
+    return t ? tPlain(t) : id;
   }
   function clip(str, n) {
     var t = String(str);
@@ -946,7 +991,7 @@
       // you had scrolled right and were reading bars against the week bands.
       var block = '<div class="g-row g-group">' +
         '<div class="g-side"><button type="button" class="ip-btn" data-pkg="' + esc(ip.id) + '">' +
-          esc(ip.label) + '</button></div>' +
+          ipNameHTML(ip) + '</button></div>' +
         '<div class="g-track"></div></div>';
 
       list.forEach(function (t) {
@@ -955,8 +1000,8 @@
           var left = ((t.w[0] - 1) / TOTAL) * 100, width = ((t.w[1] - t.w[0] + 1) / TOTAL) * 100;
           var pct = t.status === 'done' ? 100 : (t.pct || 0);
           bar = '<button type="button" class="g-bar st-' + esc(t.status) + '" data-task="' + esc(t.id) + '" ' +
-            'style="left:' + left.toFixed(3) + '%;width:' + width.toFixed(3) + '%;background:' + ownerBg(t.owner) + '" ' +
-            'title="' + esc(t.id + ' · ' + t.title + ' — W' + t.w[0] +
+            'style="left:' + left.toFixed(3) + '%;width:' + width.toFixed(3) + '%" ' +
+            'title="' + esc(tLabel(t) + ' · ' + tPlain(t) + ' — W' + t.w[0] +
               (t.w[1] !== t.w[0] ? '-W' + t.w[1] : '') + ' · ' + pct + '%') + '">' +
             // The progress fill was styled in the CSS but never rendered, so a
             // task at 70% looked identical to one at 0%.
@@ -969,13 +1014,18 @@
             avatarMarker(pct, ipi, '.gantt2', 'g-av' + (pct >= 55 ? ' flip' : ''),
                          t.owner === 'EK' ? 21 : 15) +
               avatarHTML(t.owner, 'sm') +
-              '<span class="g-pc">' + pct + '%</span></span></button>';
+              // A done task shows a check, not "100%": on a one-week bar with a
+              // two-avatar marker there is no room on either side for four
+              // characters, and the filled, faded bar already says "complete".
+              '<span class="g-pc">' + (t.status === 'done'
+                ? '<svg class="g-ok" viewBox="0 0 12 12" aria-label="Done"><path d="M2.2 6.4 4.9 9 9.8 3.4"/></svg>'
+                : pct + '%') + '</span></span></button>';
         } else {
           bar = '<span class="g-none">no dates yet</span>';
         }
         block += '<div class="g-row">' +
           '<div class="g-side"><button type="button" class="g-name" data-task="' + esc(t.id) + '">' +
-            '<span class="g-id">' + esc(t.id) + '</span>' + esc(t.title) + '</button></div>' +
+            '<span class="g-id">' + esc(tLabel(t)) + '</span><span class="g-tt">' + tTitle(t) + '</span>' + '</button></div>' +
           '<div class="g-track">' + bar + '</div></div>';
       });
 
@@ -1008,9 +1058,9 @@
       var items = STATE.tasks.filter(function (t) { return t.status === c; });
       var cards = items.map(function (t) {
         return '<div class="tcard own-' + esc(t.owner) + '" draggable="true" data-task="' + esc(t.id) + '" ' +
-          'style="background:' + ownerSoftBg(t.owner) + ';border-color:' + (OWNER_COLOR[t.owner] || '#ddd') + '66">' +
-          '<div class="id">' + esc(t.id) + '</div>' +
-          '<div class="t">' + esc(t.title) + '</div>' +
+          '>' +
+          '<div class="id">' + esc(tLabel(t)) + '</div>' +
+          '<div class="t">' + tTitle(t) + '</div>' +
           '<div class="f">' + avatarHTML(t.owner, 'sm') +
             (t.w ? '<span>W' + t.w[0] + (t.w[1] !== t.w[0] ? '-' + t.w[1] : '') + '</span>' : '<span>no date</span>') +
             '<span>' + (t.status === 'done' ? 100 : (t.pct || 0)) + '%</span>' +
@@ -1018,7 +1068,7 @@
           // The planning note (t.note) is not repeated on the card: it made the
           // cards long and uneven. It is shown in the task drawer on click.
           '</div>';
-      }).join('') || '<div class="empty">-</div>';
+      }).join('') || '<div class="col-empty">Nothing here</div>';
       return '<div class="col" data-col="' + c + '" style="--c:' + STATUS[c].color + '">' +
         '<h4>' + STATUS[c].label +
         '<span>' + items.length + '<button class="addcol" data-add="' + c + '" title="Add a task to this column">+</button></span>' +
@@ -1299,8 +1349,9 @@
      "who raised this, who closed it, and when" without anyone remembering. */
   // Colours come from the palette tokens in styles.css (--red / --amber /
   // --green / --teal), repeated here only because they are set inline as --c.
-  var SEV_COLOR = { high: '#ef8b8b', medium: '#f2b880', low: '#7dd3a0' };
-  var DEC_COLOR = { open: '#f2b880', proposed: '#5eb8c9', accepted: '#7dd3a0', rejected: '#ef8b8b' };
+  // Same semantic hues as STATUS: red = act now, amber = watch, green = fine.
+  var SEV_COLOR = { high: '#cc4439', medium: '#d08a12', low: '#14899a' };
+  var DEC_COLOR = { open: '#a3acbb', proposed: PRI, accepted: '#14899a', rejected: '#cc4439' };
   function riskScore(r) { return (r.p || 0) * (r.i || 0); }
   // Which slice of the register is listed. Memory only: it is a way of
   // looking, not a fact about the project, so it does not go in the log.
@@ -1566,8 +1617,8 @@
     var rows = ts.map(function (t) {
       var tp = t.status === 'done' ? 100 : (t.pct || 0);
       return '<li><button type="button" class="pkg-task" data-task="' + esc(t.id) + '">' +
-        '<span class="tid">' + esc(t.id) + '</span>' +
-        '<span class="ttl">' + esc(t.title) + '</span>' +
+        '<span class="tid">' + esc(tLabel(t)) + '</span>' +
+        '<span class="ttl">' + tTitle(t) + '</span>' +
         '<span class="tw">' + (t.w ? 'W' + t.w[0] + (t.w[1] !== t.w[0] ? '-' + t.w[1] : '') : '\u2013') + '</span>' +
         whoHTML(t.owner) +
         '<span class="tpc" style="--c:' + STATUS[t.status].color + '">' + tp + '%</span>' +
@@ -1580,7 +1631,7 @@
         '<h4>' + esc(ip.label) + '</h4></div><button class="x" id="dwClose">&times;</button></div>' +
         (ip.desc ? '<div class="dw-sec"><p class="pkg-desc">' + esc(ip.desc) + '</p></div>' : '') +
         '<div class="dw-sec"><label>Progress <b>' + pct + '%</b></label>' +
-          '<div class="pb lg"><i style="width:' + pct + '%;background:' + ipColor(ip.id) + '"></i></div>' +
+          '<div class="pb lg"><i style="width:' + pct + '%"></i></div>' +
           '<div class="pills">' + counts + '</div></div>' +
         '<div class="dw-sec"><label>Tasks (' + ts.length + ')</label>' +
           '<ul class="pkg-tasks">' + rows + '</ul></div>' +
@@ -1607,8 +1658,8 @@
     var shared = t.owner === 'EK';
     $('#drawer').innerHTML =
       '<div class="dw-back"></div><div class="dw">' +
-        '<div class="dw-hd"><div><div class="id">' + esc(t.id) + '</div>' +
-        '<h4>' + esc(t.title) + '</h4></div><button class="x" id="dwClose">&times;</button></div>' +
+        '<div class="dw-hd"><div><div class="id">' + esc(tLabel(t)) + '</div>' +
+        '<h4>' + tTitle(t) + '</h4></div><button class="x" id="dwClose">&times;</button></div>' +
         // Milestones (M1-M6) are no longer shown anywhere: the tags stay in
         // data.js as planning notes only.
         // The planning note (t.note in data.js) is no longer shown here either:

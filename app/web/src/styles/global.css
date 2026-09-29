@@ -1,0 +1,142 @@
+@import "./tokens.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--text-1);
+  font-family: var(--font-ui);
+  font-size: var(--fs-13);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01", "cv11";
+  overflow: hidden;
+  user-select: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+/* every numeric readout: monospace + tabular figures (CLAUDE.md s5.7) */
+.num,
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.muted {
+  color: var(--text-3);
+}
+
+.eyebrow {
+  font-size: var(--fs-11);
+  font-weight: 560;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+/* thin scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-active) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--bg-active);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* theme switch: a short cross-fade of colours only (class set for ~400 ms) */
+.theme-anim,
+.theme-anim *,
+.theme-anim *::before,
+.theme-anim *::after {
+  transition:
+    background-color 0.35s var(--ease),
+    color 0.35s var(--ease),
+    border-color 0.35s var(--ease),
+    box-shadow 0.35s var(--ease),
+    fill 0.35s var(--ease),
+    stroke 0.35s var(--ease) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* layer-stack sheet labels (rendered by drei <Html> inside the 3D scene) */
+.stack-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 9px 4px 7px;
+  border-radius: 7px;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 540;
+  color: var(--text-1);
+  white-space: nowrap;
+  background: var(--glass-strong);
+  box-shadow: inset 0 0 0 1px var(--line-2), 0 4px 14px -6px var(--shadow-soft);
+  transition: box-shadow 160ms var(--ease), transform 160ms var(--ease);
+  opacity: 0;
+}
+.stack-label[data-hover='true'] {
+  box-shadow: inset 0 0 0 1px var(--c), 0 0 18px -4px var(--c);
+  transform: translateX(4px);
+}
+.stack-label-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+  background: var(--c);
+}
+.stack-label-index {
+  color: var(--text-3);
+  font-size: 12px;
+}

@@ -1,0 +1,173 @@
+/* IntelliCell design tokens — Dracula-family dark theme (CLAUDE.md s6).
+   Surfaces are deeper than stock Dracula so the micrograph stays the brightest
+   thing on screen; saturated Dracula hues are reserved for layers and state. */
+:root {
+  color-scheme: dark;
+
+  /* surfaces (canvas darkest -> raised) */
+  --bg-canvas: #0b0c11;
+  --bg-app: #101118;
+  --bg-panel: #14151c;
+  --bg-raised: #1b1c25;
+  --bg-hover: #23242f;
+  --bg-active: #2c2e3b;
+  --bg-current: #282a36;          /* Dracula current-line */
+  --glass: rgba(20, 21, 28, 0.72);
+  --glass-strong: rgba(16, 17, 24, 0.9);
+
+  /* lines */
+  --line-1: rgba(255, 255, 255, 0.06);
+  --line-2: rgba(255, 255, 255, 0.1);
+  --line-3: rgba(255, 255, 255, 0.16);
+
+  /* text (Dracula foreground + comment) */
+  --text-1: #f1f1ec;
+  --text-2: #b4b6c8;
+  --text-3: #7c80a0;
+  --text-4: #555872;
+
+  /* accent + layer semantics */
+  --accent: #bd93f9;
+  --accent-strong: #a27bf0;
+  --accent-soft: rgba(189, 147, 249, 0.14);
+  --accent-line: rgba(189, 147, 249, 0.42);
+  --soma: #ffb86c;
+  --neurite: #8be9fd;
+  --uncert: #6d8bff;
+  --junction: #ff79c6;
+  --endpoint: #50fa7b;
+  --outlier: #ff5555;
+  --prediction: #f1fa8c;
+  --annotation: #50fa7b;
+
+  /* status (never reused as series colors; always paired with icon + label) */
+  --ok: #3ecf6e;
+  --warn: #f5b93a;
+  --serious: #ec835a;
+  --bad: #ff5c6c;
+
+  /* chart categorical — validated (validate_palette.js, dark, surface #14151c) */
+  --c1: #2b8fe0;
+  --c2: #d9772a;
+  --c3: #2fa67f;
+  --c4: #b88916;
+  --c5: #d6528f;
+  --c6: #8f7ef0;
+  --div-neg: #2b8fe0;      /* diverging: protective (-) */
+  --div-pos: #d6528f;      /* diverging: toxicity (+) */
+  --div-mid: #3a3c4b;
+
+  /* type */
+  --font-ui: "Geist Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", "Cascadia Mono", Consolas, monospace;
+  --fs-10: 12px;
+  --fs-11: 13px;
+  --fs-12: 14px;
+  --fs-13: 14px;
+  --fs-14: 15px;
+  --fs-16: 17px;
+  --fs-20: 22px;
+  --fs-28: 30px;
+  --fs-48: 48px;
+
+  /* geometry */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --rail-w: 60px;
+  --topbar-h: 50px;
+  --inspector-w: 320px;
+  --filmstrip-h: 84px;
+
+  /* motion */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --t-fast: 120ms;
+  --t-med: 200ms;
+  --t-slow: 320ms;
+
+  --shadow-pop: 0 18px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px var(--line-2);
+  --shadow-glow: 0 0 0 1px var(--accent-line), 0 0 24px -4px rgba(189, 147, 249, 0.35);
+  --shadow-soft: rgba(0, 0, 0, 0.7);
+
+  /* surfaces that sit on top of UI chrome */
+  --tooltip-bg: #05060a;
+  --tooltip-fg: #f1f1ec;
+  --readout-bg: rgba(5, 6, 10, 0.88);
+  --scrim: rgba(4, 5, 8, 0.55);
+  --dot-grid: rgba(255, 255, 255, 0.05);
+  --viewer-bg: #0b0c11;
+  --viewer-glow: rgba(189, 147, 249, 0.035);
+  /* text drawn ON the micrograph (always dark imagery) keeps light ink */
+  --on-image: #f1f1ec;
+  --on-chip: #0e0f15;
+  --on-image-2: rgba(241, 241, 236, 0.72);
+}
+
+/* ------------------------------------------------------------------ light
+   Same roles, re-stepped for a white surface. The chart categorical slots
+   (--c1..--c6) are unchanged: validate_palette.js passes them in light mode too
+   (surface #ffffff: band, chroma, CVD >= 10.5, normal-vision >= 16.7, contrast).
+   The micrograph viewport stays a neutral mid-light grey so the dark
+   fluorescence field still reads as the brightest-contrast object. */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg-canvas: #e7e9ef;
+  --bg-app: #f3f4f8;
+  --bg-panel: #ffffff;
+  --bg-raised: #f6f7fa;
+  --bg-hover: #eceef4;
+  --bg-active: #e1e4ec;
+  --bg-current: #e9eaf2;
+  --glass: rgba(255, 255, 255, 0.8);
+  --glass-strong: rgba(255, 255, 255, 0.95);
+
+  --line-1: rgba(22, 24, 40, 0.07);
+  --line-2: rgba(22, 24, 40, 0.12);
+  --line-3: rgba(22, 24, 40, 0.2);
+
+  --text-1: #15171f;
+  --text-2: #434859;
+  --text-3: #686d82;
+  --text-4: #9a9eb1;
+
+  --accent: #7446dd;
+  --accent-strong: #6435cf;
+  --accent-soft: rgba(116, 70, 221, 0.1);
+  --accent-line: rgba(116, 70, 221, 0.4);
+
+  --ok: #16884a;
+  --warn: #a36700;
+  --serious: #c0502a;
+  --bad: #d12f45;
+
+  --div-mid: #c7cad6;
+
+  /* layer semantics used as UI marks (chips, sparklines, legends) on white:
+     darker steps of the same hues. The WebGL layers over the micrograph keep
+     the saturated Dracula colours from state/layers.ts. */
+  --soma: #c46d12;
+  --neurite: #0b86a8;
+  --uncert: #3a5ae0;
+  --junction: #c2338a;
+  --endpoint: #16884a;
+  --outlier: #d12f45;
+  --prediction: #8a7c00;
+  --annotation: #16884a;
+  --on-chip: #ffffff;
+
+  --shadow-pop: 0 18px 50px -14px rgba(30, 34, 60, 0.28), 0 0 0 1px var(--line-2);
+  --shadow-glow: 0 0 0 1px var(--accent-line), 0 0 24px -6px rgba(116, 70, 221, 0.3);
+  --shadow-soft: rgba(30, 34, 60, 0.18);
+
+  --tooltip-bg: #15171f;
+  --tooltip-fg: #f3f4f8;
+  --readout-bg: rgba(255, 255, 255, 0.96);
+  --scrim: rgba(28, 30, 45, 0.28);
+  --dot-grid: rgba(22, 24, 40, 0.09);
+  --viewer-bg: #e7e9ef;
+  --viewer-glow: rgba(116, 70, 221, 0.05);
+}

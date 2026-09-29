@@ -16,6 +16,65 @@ Format:
 
 
 
+### D17 — UI tasarım sistemi + tek three.js görüntü motoru (2D ↔ 3D katman yığını)  [W3] [proposed]
+- Context: D16 stack'i kurdu (React+Vite+FastAPI+pywebview); CLAUDE.md §3–§7 UI kapsamını
+  (U1–U5 + 18 §D KEEP'leri) ve §4 concurrency şartını koydu. Görüntüleyicinin nasıl
+  çizileceği ve görsel dilin ne olacağı açıktı. Kullanıcı: "katman katman görünüm", 3D,
+  animasyonlu, profesyonel, İngilizce arayüz.
+- Options: (a) OpenSeadragon/2D canvas + ayrı three.js sahnesi (U3 için)
+  (b) **tek three.js sahnesi: her katman shader'lı bir düzlem; 2D = üstten dik kamera,
+  "Layer stack" = düzlemler z'de ayrılır, kamera eğilir** (c) deck.gl.
+- Decision: **(b)**. Aynı kamera iki modu sürekli bir hareketle birleştirir (imza animasyon);
+  window/level, colormap, opacity, unsharp, belirsizlik kırpırtısı, karo "reveal" GPU'da
+  (slider = 1 uniform). Karo akışı tam boy maske dokusuna `copyTextureToTexture` ile
+  yazılır (§4.4). Tam-boy doku yüklemeleri kare başına 1 ile sınırlandı (long-task yok).
+  Senkron multi-view = iki viewer tek viewport store'u (zustand vanilla, React dışı).
+  Görsel dil: Dracula-ailesi koyu yüzeyler, katman renkleri §6, grafik paleti
+  `validate_palette.js` ile doğrulandı (6 slot, CVD ΔE ≥ 10). Mock backend gerçek
+  sözleşmeyi konuşur: klasik CV (sato + skeleton) → `mock: true`, `mock-classical-v1`.
+- Tradeoffs / confidence: **Yüksek** (ölçüldü: prod build, 2048² canlı analiz + filmstrip
+  kaydırma + pan/zoom sırasında 889 kare p99 16.9 ms, 0 long task; 1920×1080'de max kare
+  17.2 ms). (a) OSD 3D ve katman shader'ı vermez, iki motor = senkron pan/zoom çift kod.
+  (c) deck.gl mikroskop katmanlarına fazla. Açık: µm/px ölçeği CZI metadata'dan `[VERIFY]`
+  (D5 açık); 3D = yoğunluktan 2.5D rölyef, Z-stack değil (UI'da etiketli).
+
+### D16 — App mimarisi: React + FastAPI + ONNX(CPU) + pywebview; in-browser inference ve PySide6 reddedildi  [W3] [proposed]
+- Context: D4 (app framework) hâlâ açıktı (Qt vs web-shell, T5.1'de kararla).
+  `17-UI-RESEARCH.md` (2026-09-26, 5 paralel birincil-kaynak scout'u) döndü:
+  stack, UI patternleri, hücre-similarity, HITL/labeling, packaging.
+- Options:
+  (a) PySide6/Qt native (tek dil, alan standardı ilastik/napari)
+  (b) **React/Vite + FastAPI + ONNX (CPU) + pywebview kabuk** (local-website, localhost HTTP)
+  (c) Tauri v2 + Python sidecar (aynı UI, Rust toolchain)
+  (d) in-browser inference (ONNX Runtime Web / WebGPU)
+- Decision: **(b)** — D4'ü supersede eder. Gerekçe: (1) alan standardı
+  "Python pipeline + kabuk" (ilastik/QuPath/napari), inference'ın Python'da
+  kalması sahne kanıtıyla en güvenli yol; (2) dev hızı — UI hot-reload'lı,
+  pipeline'a dikiş = localhost HTTP; (3) demo görünümü canvas/WebGL ile
+  en yüksek, maliyet kabuk ≈100 satır; (4) offline = yapısal (her şey
+  localhost). (a) aynı görsel etki için 3–6 hafta fazla UI işi + en ağır
+  paketleme (Qt: PyInstaller "partial" desteği, onedir ≈150–250 MB
+  `[INFERRED]`). (c) = aynı UI'ı ileride istenirse NSIS installer için
+  upgrade yolu; bu yarıda Rust öğrenilmez. (d) reddedildi: ikinci inference
+  runtime'ı doğrulamak + bilinmeyen lab PC'de WebGPU sürücü riski +
+  ORT Web'in kendi dokümanı küçük/quantized model öneriyor (SAM örneğinde
+  encoder ~45 sn WASM).
+- GPU kararı: **dağıtılacak artifact = CPU build** (`onnxruntime` 14.3 MB).
+  CUDA EP + PyInstaller kırık-by-default (#8015/#11826/#7346); GPU,
+  `ONNX_CUDA=1` ile ayrı opsiyonel build (DLL'ler kutuda + `preload_dlls()`)
+  — ilastik'in 500 MB CPU / 2.4 GB GPU exe'i bu desenin alan standardı.
+- Consequences: WP6.1 → "web shell (React) + FastAPI + pywebview"; WP6.3 →
+  "ONNX CPU packaging + `.exe`". `17` §2'deki üç cesur konsept
+  (watch-it-think, before/after, 3D Neuron Room) + §3 similarity tab'ı +
+  §4 labeling kuyruğu `10-IDEAS-STRETCH`'e girdi (promote: onay sonrası).
+  W13 SUNUM etkilenmez: entegrasyon yine W14–15.
+- Tradeoffs / confidence: **Yüksek** (her iddia 17'de kaynağıyla;
+  paketleme tuzakları dokümante edilmiş issue'larla). Kalan risk: demo
+  makinesinin CPU hızı (W13'te gerçek görsel üzerinde ölçülür, fallback =
+  daha az yama / ön-hesaplanmış cache).
+- Status note: **proposed** — kullanıcı onayıyla accepted.
+
+---
 ### D14 — Konsept kanonu = TÜSEB 2026 NTI başvurusu; mimari bizim  [2026-09-22] [accepted]
 - Context: kullanıcı `TUSEB/bolumler/`'i ekledi (2026 TÜSEB başvurusu —
   Prof. Dr. Mustafa Şen, 24 ay, 3.000.000 TL, 5 İP, **NTI** kavramı) ve
@@ -83,7 +142,7 @@ Format:
 - Tradeoffs/confidence: Med-High. Honest flagging is better than a silently
   wrong count. Watershed can over-split → gated by a sanity check.
 
-### D4 — App framework  [W10] [open]
+### D4 — App framework  [W10] [open]  **superseded by D16 (2026-09-26) — state of record: `17-UI-RESEARCH.md`**
 - Context: offline desktop app (NeuroMind-style) that ships an ONNX model.
 - Options: (a) **PySide6/Qt** (native desktop)  (b) web-in-shell
   (Electron/Tauri / pywebview).
