@@ -1,0 +1,723 @@
+<meta charset="utf-8">
+<title>IntelliCell Model Rehberi</title>
+<meta name="description" content="Yeni başlayanlar için: PC12 nörit analizinde modeli nasıl iyileştireceğimizi adım adım, terimleri açıklayarak anlatan Türkçe rehber.">
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#1c1d26; --surface:#252733; --raised:#2d3040; --line:#3d4056; --line-soft:#31344a;
+  --fg:#f4f4ee; --fg-2:#cdd0e3; --muted:#9a9eba;
+  --accent:#bd93f9; --accent-ink:#1c1d26; --accent-soft:rgba(189,147,249,.13);
+  --soma:#ffb86c; --soma-soft:rgba(255,184,108,.14);
+  --neurite:#8be9fd; --neurite-soft:rgba(139,233,253,.13);
+  --unc:#7b93ff;
+  --ok:#50fa7b; --ok-soft:rgba(80,250,123,.11);
+  --warn:#f1fa8c; --warn-soft:rgba(241,250,140,.10);
+  --bad:#ff6e6e; --bad-soft:rgba(255,110,110,.11);
+  --mono: ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, Menlo, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    color-scheme: light;
+    --bg:#f7f6f2; --surface:#ffffff; --raised:#efeee8; --line:#dcdad0; --line-soft:#e9e7df;
+    --fg:#1e1f28; --fg-2:#3c3e4d; --muted:#676a7c;
+    --accent:#6a3fd0; --accent-ink:#ffffff; --accent-soft:rgba(106,63,208,.08);
+    --soma:#a65600; --soma-soft:rgba(166,86,0,.09);
+    --neurite:#07768b; --neurite-soft:rgba(7,118,139,.08);
+    --unc:#3a5bd9;
+    --ok:#1d7f3f; --ok-soft:rgba(29,127,63,.09);
+    --warn:#7d6000; --warn-soft:rgba(160,120,0,.10);
+    --bad:#b3261e; --bad-soft:rgba(179,38,30,.08);
+  }
+}
+:root[data-theme="light"]{
+  color-scheme: light;
+  --bg:#f7f6f2; --surface:#ffffff; --raised:#efeee8; --line:#dcdad0; --line-soft:#e9e7df;
+  --fg:#1e1f28; --fg-2:#3c3e4d; --muted:#676a7c;
+  --accent:#6a3fd0; --accent-ink:#ffffff; --accent-soft:rgba(106,63,208,.08);
+  --soma:#a65600; --soma-soft:rgba(166,86,0,.09);
+  --neurite:#07768b; --neurite-soft:rgba(7,118,139,.08);
+  --unc:#3a5bd9;
+  --ok:#1d7f3f; --ok-soft:rgba(29,127,63,.09);
+  --warn:#7d6000; --warn-soft:rgba(160,120,0,.10);
+  --bad:#b3261e; --bad-soft:rgba(179,38,30,.08);
+}
+:root[data-theme="dark"]{color-scheme:dark}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.7 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-underline-offset:2px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.wrap{max-width:1160px;margin:0 auto;padding-inline:20px;padding-block:32px 72px;display:grid;grid-template-columns:220px minmax(0,1fr);gap:48px}
+@media (max-width:920px){.wrap{grid-template-columns:minmax(0,1fr);padding-inline:16px;gap:0}.toc{display:none}}
+.toc{position:sticky;top:calc(env(safe-area-inset-top,0px) + 20px);align-self:start;font-size:13.5px;max-height:calc(100vh - 40px);overflow:auto}
+.toc b{display:block;font:600 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.toc a{display:block;color:var(--fg-2);text-decoration:none;padding:4px 0 4px 12px;border-left:1px solid var(--line);line-height:1.4}
+.toc a:hover{color:var(--fg);border-left-color:var(--accent)}
+.toc a.sub{padding-left:24px;font-size:12.5px;color:var(--muted)}
+main{min-width:0}
+.eyebrow{font:600 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--serif);font-weight:600;font-size:clamp(30px,4.6vw,46px);line-height:1.1;letter-spacing:-.01em;margin:14px 0 16px;text-wrap:balance}
+h2{font-family:var(--serif);font-weight:600;font-size:clamp(24px,3vw,30px);line-height:1.2;margin:0 0 10px;text-wrap:balance}
+h3{font-size:19px;line-height:1.3;margin:30px 0 8px}
+h4{font-size:15px;margin:0 0 4px}
+p,li{max-width:70ch}
+p{margin:0 0 14px}
+.lede{font-size:18px;color:var(--fg-2);max-width:66ch}
+section{padding-top:56px}
+section>.num{font:600 12px/1 var(--mono);color:var(--accent);letter-spacing:.06em;display:block;margin-bottom:10px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.soma{color:var(--soma);font-weight:600}
+.neu{color:var(--neurite);font-weight:600}
+hr{border:0;border-top:1px solid var(--line);margin:28px 0}
+
+.meta-row{display:flex;flex-wrap:wrap;gap:8px 22px;margin-top:18px;font-size:14px;color:var(--muted)}
+.meta-row b{color:var(--fg);font-weight:600}
+
+.howto{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin-top:24px}
+.howto ul{margin:6px 0 0;padding-left:20px}
+.howto li{margin:4px 0}
+
+/* term box: a plain-language definition */
+.term{border:1px solid var(--line);background:var(--raised);border-radius:10px;padding:12px 16px;margin:16px 0;max-width:72ch}
+.term .tl{font:600 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:6px}
+.term p{margin:0;font-size:15px}
+.term p+p{margin-top:8px}
+
+/* analogy */
+.analogy{border-left:3px solid var(--soma);background:var(--soma-soft);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0;max-width:72ch;font-size:15.5px}
+.analogy b{color:var(--soma)}
+
+.warn{border-left:3px solid var(--warn);background:var(--warn-soft);padding:12px 16px;border-radius:0 10px 10px 0;margin:16px 0;max-width:72ch;font-size:15.5px}
+
+/* recommendation card */
+.rec{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin-top:22px}
+.rec-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin-bottom:12px}
+.rec-head .n{font:700 28px/1 var(--mono);color:var(--accent)}
+.rec-head h3{margin:0;font-size:20px;flex:1 1 300px}
+.badges{display:flex;flex-wrap:wrap;gap:6px}
+.b{font:600 11.5px/1 var(--mono);border:1px solid currentColor;border-radius:999px;padding:5px 9px;white-space:nowrap}
+.b-h{color:var(--ok);background:var(--ok-soft)}
+.b-m{color:var(--neurite);background:var(--neurite-soft)}
+.b-w{color:var(--muted)}
+.qa{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px 18px;margin-top:6px}
+.qa dt{font:600 12px/1.5 var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding-top:3px}
+.qa dd{margin:0;max-width:66ch}
+@media (max-width:640px){.qa{grid-template-columns:minmax(0,1fr);gap:2px}.qa dd{margin-bottom:10px}}
+
+.fig{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;margin:18px 0;overflow-x:auto}
+.fig svg{display:block;width:100%;height:auto}
+.fig figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;max-width:80ch}
+figure{margin:0}
+
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin:16px 0}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;vertical-align:top;padding:10px 13px;border-bottom:1px solid var(--line-soft)}
+th{font:600 11px/1.3 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--raised);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;font:600 11px/1 var(--mono);padding:4px 8px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.p-ok{color:var(--ok);background:var(--ok-soft)}
+.p-mid{color:var(--neurite);background:var(--neurite-soft)}
+.p-no{color:var(--bad);background:var(--bad-soft)}
+
+.steps{counter-reset:s;list-style:none;padding:0;margin:14px 0;display:grid;gap:10px}
+.steps li{counter-increment:s;position:relative;padding:12px 16px 12px 52px;background:var(--surface);border:1px solid var(--line);border-radius:10px;max-width:none}
+.steps li::before{content:counter(s);position:absolute;left:14px;top:12px;width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font:700 13px/26px var(--mono);text-align:center}
+
+.weeks{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:16px 0}
+.wk{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.wk .when{font:600 12px/1 var(--mono);color:var(--accent)}
+.wk h4{margin:8px 0 6px;font-size:16px}
+.wk ul{margin:0;padding-left:18px;font-size:14.5px;color:var(--fg-2)}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;margin-top:16px}
+.gloss div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:14.5px}
+.gloss b{display:block;margin-bottom:3px}
+.gloss .en{font:12px var(--mono);color:var(--muted)}
+
+.books{display:grid;gap:10px;margin:16px 0}
+.book{display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.book .o{font:700 18px/1 var(--mono);color:var(--accent);padding-top:3px}
+.book h4{font-size:15.5px}
+.book p{margin:4px 0 0;font-size:14.5px;color:var(--fg-2)}
+.book .acc{font:12px var(--mono);color:var(--muted)}
+
+footer{margin-top:64px;padding-top:18px;border-top:1px solid var(--line);font-size:13.5px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+
+<div class="wrap">
+<nav class="toc" aria-label="İçindekiler">
+  <b>İçindekiler</b>
+  <a href="#baslarken">Başlarken</a>
+  <a href="#problem">1 · Problemimiz ne?</a>
+  <a href="#temel">2 · Temel kavramlar</a>
+  <a href="#eski">3 · Eski plan neden yetmez?</a>
+  <a href="#oneriler">4 · Sekiz öneri</a>
+  <a class="sub" href="#o1">Öğretmen–öğrenci</a>
+  <a class="sub" href="#o2">Etiketsiz görseller</a>
+  <a class="sub" href="#o3">Floresandan etiket</a>
+  <a class="sub" href="#o4">Çizgiyle etiketleme</a>
+  <a class="sub" href="#o5">Geometri tahmini</a>
+  <a class="sub" href="#o6">Topoloji kaybı</a>
+  <a class="sub" href="#o7">NTI modeli</a>
+  <a class="sub" href="#o8">RAG açıklayıcı</a>
+  <a href="#xai">5 · Açıklanabilirlik (XAI)</a>
+  <a href="#kitaplar">6 · Ne okumalıyım?</a>
+  <a href="#rag">7 · RAG kaynakları ve lisans</a>
+  <a href="#plan">8 · Hafta hafta plan</a>
+  <a href="#sinirlar">9 · Dürüst sınırlar</a>
+  <a href="#sozluk">10 · Sözlük</a>
+</nav>
+
+<main>
+<header id="baslarken">
+  <div class="eyebrow">IntelliCell · yeni başlayanlar için rehber · 28 Eylül 2026</div>
+  <h1>Modeli nasıl daha iyi yaparız? Baştan sona, terim terim.</h1>
+  <p class="lede">Bu sayfa, literatür taramasının sonuçlarını bu alana yeni giren biri için anlatıyor. Hiçbir şeyi bildiğini varsaymıyoruz. Her terim ilk geçtiği yerde açıklanıyor. Her öneri için dört soruyu cevaplıyoruz: <b>Ne?</b> <b>Neden?</b> <b>Ne kazandırır?</b> <b>Riski ne?</b></p>
+  <div class="meta-row">
+    <span><b>Okuma süresi:</b> ~35 dakika</span>
+    <span><b>Dayandığı kaynak:</b> <span class="mono">131</span> kaynak, <span class="mono">130</span>'u linkten tek tek doğrulandı</span>
+    <span><b>Teknik rapor:</b> <span class="mono">19-MODEL-IMPROVEMENT-RESEARCH.html</span></span>
+  </div>
+  <div class="howto">
+    <h4>Bu sayfayı nasıl okumalısın?</h4>
+    <ul>
+      <li><b>Mor çerçeveli kutular</b> bir terimi sade dille açıklar. Terimi biliyorsan atlayabilirsin.</li>
+      <li><b>Turuncu çizgili kutular</b> bir benzetme yapar: soyut bir fikri gündelik bir şeye bağlar.</li>
+      <li><b>Sarı çizgili kutular</b> bir uyarıdır: dikkat edilmezse ters gidecek bir şeyi söyler.</li>
+      <li>En sonda bir <a href="#sozluk">sözlük</a> var. Bir terimi unutursan oraya bak.</li>
+    </ul>
+  </div>
+</header>
+
+<!-- ============ 1 ============ -->
+<section id="problem">
+  <span class="num">BÖLÜM 1</span>
+  <h2>Problemimiz ne?</h2>
+  <p>Laboratuvarda <b>PC12</b> adlı hücreler büyütülüyor. PC12, sıçan kökenli bir hücre hattı. NGF (sinir büyüme faktörü) verilince sinir hücresine benzer hâle gelir ve uzantılar çıkarır. Bu hücrelere zehirli maddeler (H₂O₂, doksorubisin) ve koruyucu bir madde (kurkumin) farklı dozlarda veriliyor, sonra mikroskopla fotoğrafları çekiliyor.</p>
+  <p>Her hücrenin iki parçası var:</p>
+  <ul>
+    <li><span class="soma">Soma</span>: hücrenin gövdesi, yuvarlak kısım.</li>
+    <li><span class="neu">Nörit</span>: gövdeden çıkan ince, dallanan uzantılar. Görüntüde sadece <b>2–3 piksel</b> kalınlığındalar.</li>
+  </ul>
+  <p>Zehir hücreye zarar verince nöritler kısalır, dalları azalır, gövde büzüşür. Bunu ölçerek zehrin ne kadar zararlı olduğunu sayıya dökmek istiyoruz. Bu sayının adı <b>NTI</b> (Nöral Toksisite İndeksi). NTI dört ölçümden hesaplanıyor:</p>
+  <ol>
+    <li>Nörit uzunluğu</li>
+    <li>Dallanma sayısı</li>
+    <li>Dallanma açılarının dağılımı</li>
+    <li>Soma şekli (alan, yuvarlaklık)</li>
+  </ol>
+
+  <figure class="fig">
+  <svg viewBox="0 0 900 190" role="img" aria-label="Görüntüden NTI skoruna giden dört adım">
+    <style>
+      .p1b{fill:var(--raised);stroke:var(--line);stroke-width:1.2}
+      .p1t{fill:var(--fg);font:600 14px var(--sans)}
+      .p1s{fill:var(--muted);font:12px var(--sans)}
+      .p1l{stroke:var(--muted);stroke-width:1.4;fill:none}
+      .p1so{fill:var(--soma)} .p1ne{stroke:var(--neurite);stroke-width:2.2;fill:none;stroke-linecap:round}
+      .p1a{fill:var(--muted)}
+    </style>
+    <rect x="10" y="30" width="190" height="130" rx="10" class="p1b"/>
+    <circle cx="80" cy="98" r="15" class="p1so"/>
+    <path d="M94 92 L130 70 L160 62 M130 70 L150 96 M68 110 L40 138 M82 84 L70 50" class="p1ne"/>
+    <text x="22" y="52" class="p1t">1 · Görüntü</text>
+    <text x="22" y="152" class="p1s">faz-kontrast mikroskop</text>
+    <rect x="240" y="30" width="190" height="130" rx="10" class="p1b"/>
+    <text x="252" y="52" class="p1t">2 · Segmentasyon</text>
+    <text x="252" y="78" class="p1s">her piksele etiket:</text>
+    <circle cx="262" cy="100" r="6" class="p1so"/><text x="274" y="104" class="p1s">soma mı?</text>
+    <rect x="256" y="118" width="12" height="4" rx="2" style="fill:var(--neurite)"/><text x="274" y="124" class="p1s">nörit mi?</text>
+    <text x="252" y="148" class="p1s">arka plan mı?</text>
+    <rect x="470" y="30" width="190" height="130" rx="10" class="p1b"/>
+    <text x="482" y="52" class="p1t">3 · Ölçüm</text>
+    <text x="482" y="78" class="p1s">uzunluk (µm)</text>
+    <text x="482" y="98" class="p1s">dal sayısı</text>
+    <text x="482" y="118" class="p1s">dal açıları</text>
+    <text x="482" y="138" class="p1s">soma alanı / şekli</text>
+    <rect x="700" y="30" width="190" height="130" rx="10" class="p1b"/>
+    <text x="712" y="52" class="p1t">4 · NTI skoru</text>
+    <text x="712" y="100" style="fill:var(--accent);font:700 34px var(--mono)">0.63</text>
+    <text x="712" y="138" class="p1s">+ hangi ölçüm etkiledi</text>
+    <path d="M200 95H234" class="p1l"/><path d="M234 95l-7-4v8z" class="p1a"/>
+    <path d="M430 95H464" class="p1l"/><path d="M464 95l-7-4v8z" class="p1a"/>
+    <path d="M660 95H694" class="p1l"/><path d="M694 95l-7-4v8z" class="p1a"/>
+  </svg>
+  <figcaption>Bütün iş dört adım. Yapay zekâ en çok 2. adımda, segmentasyonda çalışıyor. 3. adım o maskeden hesap yapar, 4. adım da istatistik. 2. adımdaki her hata 3. ve 4. adıma aynen taşınır.</figcaption>
+  </figure>
+
+  <div class="term"><span class="tl">Terim · Segmentasyon</span>
+    <p>Görüntüdeki her pikselin neye ait olduğuna karar vermek: "bu piksel soma, bu nörit, bu arka plan". Ortaya çıkan siyah-beyaz (ya da renkli) haritaya <b>maske</b> denir.</p>
+  </div>
+  <p>Zorluğun kaynağı şu: elimizde yalnızca <b>yaklaşık 70 etiketli görsel</b> var. "Etiketli", bir insanın oturup somayı ve nöritleri elle çizdiği anlamına geliyor. Bu çok az bir sayı. Yazının geri kalanı büyük ölçüde "bu kadar az veriyle nasıl iyi sonuç alırız?" sorusuna cevap arıyor.</p>
+</section>
+
+<!-- ============ 2 ============ -->
+<section id="temel">
+  <span class="num">BÖLÜM 2</span>
+  <h2>Önce birkaç temel kavram</h2>
+  <p>Önerileri anlamak için beş kavram yeterli. Hepsini bir kez burada açıklıyoruz.</p>
+
+  <h3>Model, eğitim, test</h3>
+  <div class="term"><span class="tl">Terim · Model ve eğitim</span>
+    <p><b>Model</b>, girdi olarak görüntüyü alıp çıktı olarak maskeyi veren bir matematik fonksiyonu. İçinde milyonlarca ayarlanabilir sayı (<b>parametre</b>, ağırlık) var. <b>Eğitim</b>, bu sayıları, modelin çıktısı insan çizimine olabildiğince benzeyecek şekilde adım adım ayarlamak demek.</p>
+    <p>Modelin gerçekten öğrenip öğrenmediğini anlamak için bazı görselleri eğitimden saklarız. Bunlara <b>test</b> (ya da doğrulama) verisi denir. Model hiç görmediği bu görsellerde iyiyse, öğrenmiş demektir.</p>
+  </div>
+
+  <h3>Ezberleme (overfitting)</h3>
+  <div class="analogy"><b>Benzetme:</b> Sınava 70 soruluk bir deneme kitabıyla hazırlanan öğrenciyi düşün. Soruları anlamadan cevaplarını ezberlerse, kitaptaki sorularda %100 alır ama sınavda yeni bir soru görünce çuvallar. Çok büyük ve esnek bir model, az veriyle eğitilince tam olarak bunu yapar.</div>
+  <p>Kural şu: <b>model ne kadar büyük ve esnekse, ezberlemesi o kadar kolay.</b> 70 görselle çalışırken en büyük düşmanımız ezberleme. Önerilerin çoğu bunu önlemenin bir yolu.</p>
+
+  <h3>5-fold çapraz doğrulama</h3>
+  <p>70 görselin hepsini eğitime verirsek test edecek bir şey kalmaz. 20'sini teste ayırırsak eğitim verisi daha da azalır. Çözüm şu: görselleri 5 gruba böl. Modeli 5 kez eğit, her seferinde bir grubu test için sakla. Sonuçta 5 sonucun <b>ortalamasını ± standart sapmasını</b> raporla. Böylece her görsel hem eğitimde hem testte kullanılmış olur ve sonucun şansa ne kadar bağlı olduğunu da görürüz.</p>
+  <div class="warn"><b>Dikkat:</b> Aynı kuyudan (well) çekilmiş iki fotoğraf birbirine çok benzer. Biri eğitimde, öbürü testte olursa model "hile yapmış" olur ve sonuç olduğundan iyi görünür. Buna <b>veri sızıntısı</b> denir. Bölmeyi görsel bazında, hatta kuyu bazında yapmak gerekir.</div>
+
+  <h3>Başarıyı nasıl ölçeriz: Dice ve IoU</h3>
+  <p>Modelin maskesi insanın maskesiyle ne kadar örtüşüyor? En yaygın iki ölçü:</p>
+  <ul>
+    <li><b>IoU</b> (Intersection over Union): iki maskenin kesişimi ÷ birleşimi. 1 tam örtüşme, 0 hiç örtüşmeme.</li>
+    <li><b>Dice</b>: 2 × kesişim ÷ (iki maskenin toplam alanı). IoU'ya benzer ama biraz daha cömert.</li>
+  </ul>
+  <p>TÜSEB başvurusundaki hedefler: soma IoU ≥ <span class="mono">0.85</span>, nörit Dice ≥ <span class="mono">0.80</span>, nörit uzunluk hatası ≤ <span class="mono">5 µm</span>. Bu hedefler korunuyor. <a href="#o6">Bölüm 4.6</a>'da Dice'ın neden tek başına yetmediğini de göreceğiz.</p>
+
+  <h3>Etiketli ve etiketsiz veri</h3>
+  <p>Mikroskop fotoğrafı çekmek ucuz, onları elle çizmek pahalı. Bu yüzden bir tarafta <b>70 etiketli</b> görsel, öbür tarafta çok daha fazla <b>etiketsiz</b> görsel (yalnız fotoğraf) var. Eski plan etiketsiz görselleri neredeyse hiç kullanmıyordu. Yeni planın ana fikri, <b>bu etiketsiz havuzu işe koşmak</b>.</p>
+</section>
+
+<!-- ============ 3 ============ -->
+<section id="eski">
+  <span class="num">BÖLÜM 3</span>
+  <h2>Eski plan (TÜSEB) ne diyordu, neden yetmez?</h2>
+  <p>TÜSEB başvurusundaki model planı kısaca şöyle:</p>
+  <ol>
+    <li>Önce U-Net ve DeepLabV3 adlı iki standart modeli eğit (karşılaştırma için).</li>
+    <li>Sonra <b>Swin-Transformer</b> adlı büyük bir modele geç. Bu model aynı anda soma, nörit ve iskelet çıkarsın.</li>
+    <li>Kayıp fonksiyonu olarak CE + Dice + clDice kullan.</li>
+    <li>NTI'yi önce doğrusal bir formülle, sonra küçük bir sinir ağıyla hesapla. Açıklama için SHAP kullan.</li>
+  </ol>
+  <div class="term"><span class="tl">Terim · Transformer ve CNN</span>
+    <p><b>CNN</b> (evrişimli sinir ağı): görüntüye küçük pencerelerden bakar. "Yan yana pikseller birbiriyle ilgilidir" varsayımı yapısında hazır gelir. U-Net bir CNN'dir.</p>
+    <p><b>Transformer</b>: görüntünün her parçasını diğer her parçayla karşılaştırır. Çok güçlüdür ama bu "yakındaki pikseller ilgilidir" bilgisi hazır gelmez, onu veriden öğrenmesi gerekir. Swin bir transformer türüdür.</p>
+  </div>
+  <p><b>Sorun neden?</b> Sebep–sonuç zinciri şöyle:</p>
+  <ol class="steps">
+    <li>Transformer, CNN'in hazır getirdiği temel görüntü bilgisini veriden öğrenmek zorunda.</li>
+    <li>Bunu öğrenmek çok veri ister (binlerce, on binlerce görsel).</li>
+    <li>Bizde 70 görsel var. Model genel kuralı öğrenemez, bu 70 görseli ezberler.</li>
+    <li>Sonuç: eğitimde harika, yeni görselde kötü. Üstelik büyük model laboratuvar bilgisayarındaki işlemcide (CPU) yavaş çalışır.</li>
+  </ol>
+  <p>Bunu destekleyen bir kanıt da var: 2024'te yayımlanan <b>"nnU-Net Revisited"</b> çalışması, yeni transformer modellerinin "daha iyiyiz" iddialarını eşit koşullarda tekrar test etti. Çoğu iddia tutmadı. İyi ayarlanmış CNN'ler (U-Net ailesi) çoğu zaman kazandı.</p>
+  <div class="analogy"><b>Özet:</b> Eski plan "daha büyük motor takarsak araba hızlanır" diyor. Bizim sorunumuz motor değil, yakıt. Yakıt burada etiketli veri. Yeni plan yakıtı artırmanın yollarını arıyor.</div>
+</section>
+
+<!-- ============ 4 ============ -->
+<section id="oneriler">
+  <span class="num">BÖLÜM 4</span>
+  <h2>Sekiz öneri, tek tek</h2>
+  <p>Öneriler, <b>harcanan bir haftalık emeğe karşılık beklenen doğruluk kazancına</b> göre sıralı. Her kartın üstünde üç etiket var:</p>
+  <ul>
+    <li><b>Etki:</b> kanıta göre ne kadar fark yaratması beklenir (yüksek / orta).</li>
+    <li><b>Süre:</b> iki kişilik ekip için yaklaşık hafta.</li>
+    <li><b>Adım:</b> <a href="#plan">Bölüm 8</a>'deki deney sırasında hangi adım olduğu.</li>
+  </ul>
+
+  <!-- 4.1 -->
+  <article class="rec" id="o1">
+    <div class="rec-head"><span class="n">1</span><h3>Swin yerine: öğretmen model + küçük öğrenci model</h3>
+      <div class="badges"><span class="b b-h">etki: yüksek</span><span class="b b-w">~3 hafta</span><span class="b b-w">adım A4</span></div></div>
+    <dl class="qa">
+      <dt>Ne?</dt><dd>İki model kullanıyoruz. <b>Büyük öğretmen</b> yalnız eğitim sırasında, güçlü GPU'da çalışır ve uygulamaya hiç girmez. <b>Küçük öğrenci</b>, öğretmenden öğrenir ve laboratuvar bilgisayarındaki uygulamada o çalışır.</dd>
+      <dt>Neden?</dt><dd>Öğretmeni etiket gerektirmeyen bir yöntemle, bizim etiketsiz PC12 görsellerimiz üzerinde eğitiriz. Böylece hücrenin, kenarın, ince çizginin neye benzediğini <i>bizim mikroskobumuzda</i> öğrenir ve bunun için tek bir elle çizilmiş maske gerekmez. Sonra bu bilgiyi küçük bir CNN'e aktarırız. Öğrenci hem öğretmenin bilgisini taşır hem de küçük olduğu için hızlıdır ve ezberlemeye yatkın değildir.</dd>
+      <dt>Kazanç</dt><dd>Aynı fikri kullanan <b>DINOCell</b> (2026), LIVECell hücre veri setinde SAM tabanlı en iyi modellerden <span class="mono">%10,4</span> daha iyi sonuç almış.</dd>
+      <dt>Risk</dt><dd>Öğretmen eğitimi GPU'da günler sürebilir. LIVECell'in görüntü türü bizimkinden farklı, kazanç bizde daha küçük çıkabilir. Bu yüzden deneyle ölçüyoruz.</dd>
+    </dl>
+    <div class="term"><span class="tl">Terimler</span>
+      <p><b>Kendi kendine öğrenme (self-supervised learning, SSL):</b> Model, etiket yerine görüntünün kendisinden bir bulmaca çözerek öğrenir. Örneğin görüntünün bir kısmı gizlenir, model gizli kısmı tahmin etmeye çalışır. Bu bulmacayı çözebilmek için hücrelerin yapısını anlaması gerekir. <b>DINOv2 / DINOv3</b>, Meta'nın bu yöntemle milyonlarca fotoğraf üzerinde eğittiği modellerdir. Biz onları kendi görsellerimizle eğitmeye devam ediyoruz.</p>
+      <p><b>Damıtma (distillation):</b> Küçük modele yalnız doğru cevabı değil, büyük modelin "ne kadar emin olduğunu" da öğretmek. Öğrenci, öğretmenin tereddütlerinden de ders alır.</p>
+      <p><b>nnU-Net ResEnc / MedNeXt:</b> Öğrenci için önerilen iki güncel, iyi test edilmiş CNN modeli. İkisi de ONNX'e sorunsuz dönüşür ve CPU'da hızlı çalışır.</p>
+    </div>
+    <figure class="fig">
+    <svg viewBox="0 0 860 200" role="img" aria-label="Öğretmen-öğrenci şeması">
+      <style>
+        .t1b{fill:var(--raised);stroke:var(--line);stroke-width:1.2}
+        .t1d{fill:none;stroke:var(--muted);stroke-width:1.2;stroke-dasharray:6 4}
+        .t1t{fill:var(--fg);font:600 14px var(--sans)}
+        .t1s{fill:var(--muted);font:12px var(--sans)}
+        .t1l{stroke:var(--muted);stroke-width:1.4;fill:none}
+        .t1a{fill:var(--muted)}
+        .t1m{fill:var(--muted);font:600 11px var(--mono);letter-spacing:.06em}
+      </style>
+      <rect x="6" y="6" width="560" height="188" rx="12" class="t1d"/>
+      <text x="20" y="28" class="t1m">EĞİTİM · GPU · UYGULAMAYA GİRMEZ</text>
+      <rect x="20" y="46" width="160" height="120" rx="10" class="t1b"/>
+      <text x="34" y="72" class="t1t">Etiketsiz görseller</text>
+      <text x="34" y="94" class="t1s">binlerce PC12 fotoğrafı</text>
+      <text x="34" y="112" class="t1s">+ 70 etiketli görsel</text>
+      <rect x="220" y="46" width="160" height="120" rx="10" class="t1b"/>
+      <text x="234" y="72" class="t1t">Öğretmen</text>
+      <text x="234" y="94" class="t1s">büyük DINOv2/v3 modeli</text>
+      <text x="234" y="112" class="t1s">kendi görsellerimizle</text>
+      <text x="234" y="130" class="t1s">eğitmeye devam</text>
+      <rect x="420" y="46" width="130" height="120" rx="10" class="t1b"/>
+      <text x="434" y="72" class="t1t">Damıtma</text>
+      <text x="434" y="94" class="t1s">öğretmenin cevapları</text>
+      <text x="434" y="112" class="t1s">ve tereddütleri</text>
+      <text x="434" y="130" class="t1s">öğrenciye aktarılır</text>
+      <rect x="610" y="46" width="240" height="120" rx="10" class="t1b" style="stroke:var(--accent)"/>
+      <text x="624" y="72" class="t1t">Öğrenci (uygulamada)</text>
+      <text x="624" y="94" class="t1s">küçük CNN · ONNX</text>
+      <text x="624" y="112" class="t1s">laboratuvar bilgisayarı, CPU</text>
+      <text x="624" y="130" class="t1s">hızlı, ezberlemeye dirençli</text>
+      <path d="M180 106H214" class="t1l"/><path d="M214 106l-7-4v8z" class="t1a"/>
+      <path d="M380 106H414" class="t1l"/><path d="M414 106l-7-4v8z" class="t1a"/>
+      <path d="M550 106H604" class="t1l"/><path d="M604 106l-7-4v8z" class="t1a"/>
+    </svg>
+    <figcaption>Kesik çizgili kutunun içindeki her şey yalnız eğitim sırasında, güçlü bilgisayarda olur. Kullanıcı yalnız sağdaki küçük öğrenciyi çalıştırır. Bu sayede proje kararı D16 (CPU'da ONNX) bozulmaz.</figcaption>
+    </figure>
+  </article>
+
+  <!-- 4.2 -->
+  <article class="rec" id="o2">
+    <div class="rec-head"><span class="n">2</span><h3>Etiketsiz görselleri eğitime sok (yarı denetimli öğrenme)</h3>
+      <div class="badges"><span class="b b-h">etki: yüksek</span><span class="b b-w">~2–3 hafta</span><span class="b b-w">adım A5</span></div></div>
+    <dl class="qa">
+      <dt>Ne?</dt><dd>Model etiketsiz görselleri de tahmin eder. Güvendiği tahminler geçici etiket (<b>sahte etiket</b>, pseudo-label) olarak eğitime geri beslenir. Ayrıca aynı görselin bozulmuş iki kopyasında (biri hafif, biri güçlü bozulmuş) aynı cevabı vermeye zorlanır.</dd>
+      <dt>Neden?</dt><dd>Eski planda sahte etiketler bir kez üretilip bırakılıyordu. Model yanlış bir sahte etiketi öğrenirse hatasını büyütür. Modern yöntemler (<b>CorrMatch</b>, <b>UniMatch V2</b>) hangi piksellere güvenileceğini daha akıllıca seçer ve bunu eğitim boyunca sürekli yeniler. Sonuç: her etiketsiz görselden daha fazla ve daha temiz bilgi.</dd>
+      <dt>Kazanç</dt><dd>CorrMatch, doğal fotoğraf veri setinde yalnız <span class="mono">92</span> etiketli görselle <span class="mono">%76</span> mIoU almış. Bu, bizim etiket sayımıza çok yakın. Retina damarı çalışması ESRVS, etiketlerin yalnız %1–10'uyla tam etiketli sonucun <span class="mono">%93,7</span>'sini yakalamış.</dd>
+      <dt>Risk</dt><dd>Bu yöntemler binlerce etiketsiz görselle test edildi. Bizim havuzumuz daha küçük olabilir. Kurulumu da biraz karmaşık.</dd>
+    </dl>
+    <div class="analogy"><b>Benzetme:</b> Öğretmen 70 soruyu çözerek anlatıyor, sonra öğrenciye 1000 çözümsüz soru veriyor. Öğrenci emin olduğu soruları kendi çözüyor, o çözümlerden de öğreniyor. Emin olmadıklarına dokunmuyor.</div>
+  </article>
+
+  <!-- 4.3 -->
+  <article class="rec" id="o3">
+    <div class="rec-head"><span class="n">3</span><h3>Zaten çektiğin floresan görüntüleri bedava etiket yap</h3>
+      <div class="badges"><span class="b b-m">etki: orta–yüksek</span><span class="b b-w">~2 hafta</span><span class="b b-w">adım A6</span></div></div>
+    <dl class="qa">
+      <dt>Ne?</dt><dd>Aynı hücrenin hem faz-kontrast hem floresan fotoğrafı varsa, modele "faz-kontrast görüntüden floresan görüntüyü tahmin et" görevi verilir. Buna <b>in-silico labeling</b> (ISL, bilgisayarda boyama) denir. Model bu görevi çözerken hücre yapısını öğrenir. Sonra asıl segmentasyon görevine bu bilgiyle başlar.</dd>
+      <dt>Neden?</dt><dd>Floresan boya, hücrenin nerede olduğunu zaten gösteriyor. Yani her floresan görüntü, elle çizilmeden gelmiş yoğun bir etiket gibi. Etiketli veri 70'ten, eşleştirilmiş görsel sayısına kadar çıkar.</dd>
+      <dt>Kazanç</dt><dd>2023 tarihli bir çalışma, bu ön eğitimin gereken el etiketi sayısını "çarpıcı biçimde" düşürdüğünü bildiriyor (makalede tek bir sayı yok).</dd>
+      <dt>Risk</dt><dd>2025 tarihli bir çalışma, model zaten çok büyükse bu yöntemin kazancının azaldığını gösterdi. Yöntem en çok küçük öğrencide işe yarar. Ayrıca aynı görüş alanının iki modalitede de çekilmiş olması gerekir. Eşleşmiş görsel azsa bu adımı atlarız.</dd>
+    </dl>
+    <div class="warn"><b>GAN kullanmıyoruz.</b> Görüntüden görüntü üretmenin popüler bir yolu GAN'dır, ama GAN'lar olmayan yapılar "uydurabilir". Proje kuralları da GAN'ı yasaklıyor (CLAUDE.md §7). Burada önerilen, düz bir regresyon modeli: her piksel için bir sayı tahmin eder, hayal kurmaz.</div>
+  </article>
+
+  <!-- 4.4 -->
+  <article class="rec" id="o4">
+    <div class="rec-head"><span class="n">4</span><h3>Nöritleri dış hatla değil, üstüne çizgi çekerek etiketle</h3>
+      <div class="badges"><span class="b b-h">etki: yüksek</span><span class="b b-w">~2 hafta</span><span class="b b-w">W4–6</span></div></div>
+    <dl class="qa">
+      <dt>Ne?</dt><dd>Etiketleyen kişi, nöritin iki kenarını tek tek çizmek yerine üstünden tek bir çizgi (<b>scribble</b>) geçer. Model bu seyrek çizgilerden tam maskeyi çıkarmayı öğrenir.</dd>
+      <dt>Neden?</dt><dd>Nörit 2–3 piksel kalınlığında. Onun iki kenarını ayrı ayrı çizmek neredeyse imkânsız ve çok yavaş. Oysa üstüne çekilen çizgi zaten nöritin kendisi. Aynı sürede 3–5 kat daha fazla görsel etiketlenir. <b>Bu veri miktarında, daha fazla etiketli görsel, her mimari değişikliğinden daha değerlidir.</b></dd>
+      <dt>Kazanç</dt><dd>Önerilen yöntem (sınıf-güdümlü scribble promotion, AAAI 2024), çizgi-etiketli yöntemler arasında ScribbleSup veri setinde en iyi sonucu vermiş.</dd>
+      <dt>Risk</dt><dd>Uygulamanın etiketleme ekranına (U5) bir çizgi aracı eklemek gerekir. Çizginin nöritin tamamını kapsaması ve somaya taşmaması kontrol edilmeli.</dd>
+    </dl>
+  </article>
+
+  <!-- 4.5 -->
+  <article class="rec" id="o5">
+    <div class="rec-head"><span class="n">5</span><h3>Yalnız maske değil, geometri de tahmin et</h3>
+      <div class="badges"><span class="b b-m">etki: orta–yüksek</span><span class="b b-w">~2 hafta</span><span class="b b-w">adım A1 + A3</span></div></div>
+    <dl class="qa">
+      <dt>Ne?</dt><dd>Modele üç ek çıktı (<b>kafa</b>) eklenir: (a) nöritin <b>merkez çizgisi</b> ve ona olan uzaklık haritası, (b) <b>kavşak ısı haritası</b>, yani dalların ayrıldığı noktalar, (c) soma için uzaklık haritası. Ayrıca girişe, ince boru benzeri yapıları öne çıkaran <b>Frangi filtresi</b> ikinci bir kanal olarak verilir.</dd>
+      <dt>Neden?</dt><dd>Eski planda dal sayısı ve açılar, maskeden sonradan çıkarılan iskeletten hesaplanıyordu. Bu kırılgan: maskede tek bir piksellik boşluk, iskeleti ikiye böler. O zaman dal sayısı da açı da bozulur. Kavşakları doğrudan tahmin edersek, tek pikselin grafı yeniden bağlaması engellenir. Frangi filtresi de zaten soluk olan ince nörit parçalarını belirginleştirir. Uzunluk hatasının asıl kaynağı bu soluk parçalar.</dd>
+      <dt>Kazanç</dt><dd>SDF-TopoNet (2025) beş boru-yapı veri setinde hem topolojide hem Dice'ta iyileşme bildirmiş. Frangi girdisi (ISBI 2024) kazancı özellikle küçük damarlarda göstermiş. NTI'nin dört parametresinden ikisi (dal sayısı, dal açısı) doğrudan kavşaklara bağlı.</dd>
+      <dt>Risk</dt><dd>Frangi filtresinin ölçek ayarı 2–3 piksellik nörite göre yapılmalı. Yanlış ölçek nöriti güçlendirmek yerine bastırır.</dd>
+    </dl>
+    <figure class="fig">
+    <svg viewBox="0 0 860 190" role="img" aria-label="Tek pikselin dal sayısını nasıl bozduğu">
+      <style>
+        .g5b{fill:var(--raised);stroke:var(--line);stroke-width:1.2}
+        .g5n{stroke:var(--neurite);stroke-width:5;fill:none;stroke-linecap:round}
+        .g5t{fill:var(--fg);font:600 13.5px var(--sans)}
+        .g5s{fill:var(--muted);font:12px var(--sans)}
+        .g5j{fill:var(--accent)}
+        .g5x{stroke:var(--bad);stroke-width:2.5}
+        .g5so{fill:var(--soma)}
+      </style>
+      <rect x="10" y="10" width="410" height="170" rx="10" class="g5b"/>
+      <text x="24" y="34" class="g5t">Sadece maske → sonradan iskelet</text>
+      <circle cx="70" cy="110" r="14" class="g5so"/>
+      <path d="M84 104 L170 80" class="g5n"/><path d="M182 77 L260 58 M210 70 L260 110" class="g5n"/>
+      <path d="M170 70 L182 88 M182 70 L170 88" class="g5x"/>
+      <text x="24" y="160" class="g5s">1 piksellik boşluk → iskelet kopar → "2 ayrı nörit",</text>
+      <text x="24" y="174" class="g5s">kavşak kaybolur, dal sayısı ve açı yanlış.</text>
+      <rect x="440" y="10" width="410" height="170" rx="10" class="g5b"/>
+      <text x="454" y="34" class="g5t">Kavşak + merkez çizgisi tahmini</text>
+      <circle cx="500" cy="110" r="14" class="g5so"/>
+      <path d="M514 104 L690 58 M640 70 L690 110" class="g5n"/>
+      <circle cx="640" cy="71" r="7" class="g5j"/>
+      <text x="606" y="52" class="g5s" style="fill:var(--accent)">kavşak</text>
+      <text x="454" y="160" class="g5s">model kavşağı ve sürekli merkez çizgisini ayrıca</text>
+      <text x="454" y="174" class="g5s">tahmin eder → graf doğru bağlanır.</text>
+    </svg>
+    <figcaption>Soldaki durumda Dice skoru hâlâ yüksek görünür, çünkü sadece bir piksel eksik. Ama biyolojik ölçüm tamamen değişir. Sağdaki yaklaşım bu hatayı yapısal olarak önler.</figcaption>
+    </figure>
+  </article>
+
+  <!-- 4.6 -->
+  <article class="rec" id="o6">
+    <div class="rec-head"><span class="n">6</span><h3>Topoloji kaybını seçmeden önce test et</h3>
+      <div class="badges"><span class="b b-m">etki: orta</span><span class="b b-w">~1–2 hafta</span><span class="b b-w">adım A2</span></div></div>
+    <div class="term"><span class="tl">Terim · Kayıp fonksiyonu (loss)</span>
+      <p>Eğitim sırasında modele "ne kadar yanlış yaptın" diyen sayı. Model bu sayıyı küçültmeye çalışır. Hangi hatayı cezalandırırsan, model o hatadan kaçınmayı öğrenir.</p>
+      <p><b>Topoloji</b> ise şeklin bağlantı yapısıdır: kaç parça var, parçalar birbirine bağlı mı, kaç dal var. Bir nöritin üç parçaya bölünmesi topolojik bir hatadır, piksel sayısı neredeyse aynı kalsa bile.</p>
+    </div>
+    <dl class="qa">
+      <dt>Ne?</dt><dd>Dice kaybına ek olarak, nöritin bağlantılı kalmasını ödüllendiren bir topoloji kaybı eklenir. Dört aday karşılaştırılır: <b>clDice</b> (eski plandaki), <b>Skeleton Recall</b>, <b>cbDice</b> ve <b>Topograph</b>.</dd>
+      <dt>Neden?</dt><dd>Dice bir <i>alan</i> ölçüsü. Üç parçaya bölünmüş bir nörit hâlâ yüksek Dice alabilir, ama o zaman nörit sayısı, uzunluk ve dallanma yanlış olur. NTI tam da bu değerleri kullanıyor. Topoloji kaybı bu kırılmayı cezalandırır.</dd>
+      <dt>Kazanç</dt><dd>Skeleton Recall, clDice'a benzer bağlantı kalitesini <span class="mono">%90</span>'dan az hesap maliyetiyle vermiş. Topograph, kalıcı homoloji yöntemlerinden 5 kata kadar hızlı ve matematiksel bir topoloji garantisi veriyor.</dd>
+      <dt>Risk</dt><dd><b>Önemli:</b> 2025 tarihli bir çalışma (Arora vd.), bu iskelet tabanlı kayıpların birçok veri setinde düz Dice+CE'yi <i>geçemediğini</i> gösterdi. Yani "ekleyelim, zararı olmaz" demek yanlış. Dört seçeneği aynı 5 bölmede dener, fark standart sapmadan büyükse kabul ederiz.</dd>
+    </dl>
+    <div class="analogy"><b>Neden önceden planlıyoruz?</b> Bir sürü deney yapıp en iyi görüneni seçersen, sırf şansla iyi çıkanı seçme riskin var. Neyi, hangi ölçüyle, hangi eşikle karşılaştıracağını <b>önceden yazmak</b> (buna ön-kayıt denir), sonuca güvenilmesini sağlar.</div>
+  </article>
+
+  <!-- 4.7 -->
+  <article class="rec" id="o7">
+    <div class="rec-head"><span class="n">7</span><h3>NTI'yi açıklanabilir ve garantili bir modelle hesapla</h3>
+      <div class="badges"><span class="b b-h">etki: yüksek (güvenilirlik)</span><span class="b b-w">~2–3 hafta</span><span class="b b-w">W10–12</span></div></div>
+    <p>Bu öneri segmentasyonla değil, dört ölçümden NTI skorunu hesaplayan son adımla ilgili. Dört alt parçası var.</p>
+    <h4>a) Plaka farklarını temizle</h4>
+    <p>Farklı günlerde, farklı plakalarda çekilen görüntüler, zehirden bağımsız olarak biraz farklı çıkar (ışık, hücre yoğunluğu). Bu farkı temizlemezsek, "plaka 2 daha karanlıktı" farkı "zehir etkisi" gibi görünür. Çözüm: her ölçümü, aynı plakadaki ilaçsız (kontrol) kuyulara göre normalize etmek. Bunun için hazır bir araç var: <b>pycytominer</b> (Nature Methods 2025).</p>
+    <h4>b) Tekrarları doğru say (karışık etkiler modeli)</h4>
+    <p>Her koşul üç biyolojik tekrarla yapılıyor. Bir kuyudaki 50 hücreyi 50 bağımsız ölçüm saymak, sonuca olduğundan fazla güvenmek demek. <b>Karışık etkiler modeli</b> (mixed-effects model), "bu hücreler aynı kuyudan, birbirine benzerler" bilgisini hesaba katar ve anlamlılığı şişirmez.</p>
+    <h4>c) Tek yönlü kısıtlı, şeffaf model</h4>
+    <p>Eski planda NTI'yi küçük bir sinir ağı hesaplıyordu. Sinir ağı az veride tuhaf eğriler öğrenebilir, örneğin "yüksek dozda hücreler iyileşiyor" gibi biyolojik olarak saçma bir şey. Önerilen: <b>EBM</b> (Explainable Boosting Machine) ya da <b>şekil kısıtlı GAM</b>. Bu modellerde "doz arttıkça zarar azalamaz" gibi bir kısıt (<b>monotonluk</b>) koyabiliriz.</p>
+    <figure class="fig">
+    <svg viewBox="0 0 860 220" role="img" aria-label="Kısıtsız ve monoton kısıtlı doz-yanıt eğrisi">
+      <style>
+        .m7b{fill:var(--raised);stroke:var(--line);stroke-width:1.2}
+        .m7ax{stroke:var(--muted);stroke-width:1.2}
+        .m7c{fill:none;stroke-width:3;stroke-linecap:round}
+        .m7t{fill:var(--fg);font:600 13.5px var(--sans)}
+        .m7s{fill:var(--muted);font:12px var(--sans)}
+        .m7d{fill:var(--fg)}
+      </style>
+      <rect x="10" y="10" width="410" height="200" rx="10" class="m7b"/>
+      <text x="24" y="34" class="m7t">Kısıtsız küçük sinir ağı</text>
+      <path d="M50 180H400M50 180V50" class="m7ax"/>
+      <text x="360" y="198" class="m7s">doz →</text><text x="56" y="60" class="m7s">zarar</text>
+      <path d="M60 170 C120 165 150 120 200 100 C240 85 260 140 300 130 C340 120 360 70 395 65" class="m7c" style="stroke:var(--bad)"/>
+      <g class="m7d"><circle cx="70" cy="168" r="3.5"/><circle cx="120" cy="160" r="3.5"/><circle cx="170" cy="118" r="3.5"/><circle cx="220" cy="98" r="3.5"/><circle cx="270" cy="112" r="3.5"/><circle cx="320" cy="96" r="3.5"/><circle cx="380" cy="70" r="3.5"/></g>
+      <text x="236" y="152" class="m7s" style="fill:var(--bad)">"yüksek dozda iyileşme"?</text>
+      <rect x="440" y="10" width="410" height="200" rx="10" class="m7b"/>
+      <text x="454" y="34" class="m7t">Monoton kısıtlı EBM / GAM</text>
+      <path d="M480 180H830M480 180V50" class="m7ax"/>
+      <text x="790" y="198" class="m7s">doz →</text><text x="486" y="60" class="m7s">zarar</text>
+      <path d="M490 170 C560 165 590 125 640 108 C690 96 720 94 760 84 C790 78 810 72 825 66" class="m7c" style="stroke:var(--ok)"/>
+      <g class="m7d"><circle cx="500" cy="168" r="3.5"/><circle cx="550" cy="160" r="3.5"/><circle cx="600" cy="118" r="3.5"/><circle cx="650" cy="98" r="3.5"/><circle cx="700" cy="112" r="3.5"/><circle cx="750" cy="96" r="3.5"/><circle cx="810" cy="70" r="3.5"/></g>
+      <text x="630" y="152" class="m7s" style="fill:var(--ok)">gürültüyü takip etmez</text>
+    </svg>
+    <figcaption>Noktalar aynı gürültülü ölçümler. Soldaki model her iniş-çıkışı takip ediyor ve biyolojik olarak saçma bir sonuç çıkarıyor. Sağdaki model "doz arttıkça zarar azalamaz" kuralına uyuyor. Dikkat: kurkumin koruyucu olduğu için kısıtın yönü bileşiğe göre ayrı seçilir. H₂O₂'nin düşük dozda hafif uyarıcı etkisi (hormesis) olabileceği de kontrol edilmeli.</figcaption>
+    </figure>
+    <p>Bu modellerin ikinci büyük avantajı açıklama. Toplamsal bir modelde NTI, dört ölçümün katkılarının basit toplamıdır. Her ölçümün katkısı (<b>Shapley değeri</b>) <b>kesin olarak</b> hesaplanır. Eski plandaki SHAP bunu yaklaşık hesaplıyordu, yani her çalıştırmada biraz farklı sonuç verebiliyordu.</p>
+    <h4>d) Hata payını garantiyle ver (konformal aralık)</h4>
+    <p>"NTI = 0.63" demek yetmez, "0.63 ± ne kadar?" sorusu hemen gelir. <b>Konformal tahmin</b> (conformal prediction), modelin eskiden yaptığı hatalara bakarak, örneğin "gerçek değer %90 olasılıkla bu aralıkta" diyen bir aralık üretir. Güzelliği şu: model yanlış olsa bile bu garanti matematiksel olarak geçerlidir. Tek şartı, kalibrasyon verisinin yeni veriye benzemesidir. Bu yüzden aralıkları her zaman noktası (0 / 6 / 24 sa) için ayrı hesaplarız.</p>
+    <p>Bunlara ek olarak, dozun etkisini tek bir "potens" sayısıyla özetleyen <b>benchmark konsantrasyonu</b> (BMC) önerilir. Bu, düzenleyici kurumların (EPA, OECD) kullandığı dile uyar. 2026'da 95 kimyasalla yapılan OECD uyumlu DNT çalışması, nörit uzantısı ölçümünün bu kurumlarca da anlamlı bir gösterge olduğunu doğruluyor.</p>
+  </article>
+
+  <!-- 4.8 -->
+  <article class="rec" id="o8">
+    <div class="rec-head"><span class="n">8</span><h3>Sonucu açıklayan, kaynak gösteren yerel bir yapay zekâ asistanı (RAG)</h3>
+      <div class="badges"><span class="b b-m">etki: kullanıcı güveni</span><span class="b b-w">~2–3 hafta</span><span class="b b-w">W13–15</span></div></div>
+    <div class="term"><span class="tl">Terim · RAG (Retrieval-Augmented Generation)</span>
+      <p>"Önce ara, sonra cevapla." Bir dil modeli (ChatGPT benzeri) soruya kendi hafızasından cevap verirse bazen uydurur. RAG'de ise önce güvenilir bir belge arşivinde soruyla ilgili parçalar bulunur. Model yalnız bu parçalara dayanarak cevap yazar ve hangi parçadan aldığını belirtir.</p>
+    </div>
+    <dl class="qa">
+      <dt>Ne?</dt><dd>Kullanıcı bir NTI sonucunda "neden?" butonuna basar. Uygulama, bilgisayarda yerel olarak çalışan bir dil modeliyle, bilimsel kaynaklara dayanan bir açıklama yazar. Örnek: "H₂O₂ oksidatif stres yaratır → mitokondri hasarı → nörit geri çekilmesi", ve bu zincirin hangi AOP-Wiki kaydından alındığını gösterir.</dd>
+      <dt>Neden?</dt><dd>Biyolog "bu skor neden bunu gösteriyor?" diye sorar. Çıplak bir sayı güven vermez, mekanizmaya bağlanmış bir açıklama verir. İnternetsiz çalışma şartı (CLAUDE.md §7) olduğu için model ve arşiv uygulamanın içinde gelmeli.</dd>
+      <dt>Bileşenler</dt><dd><b>Dil modeli:</b> Qwen3-8B. Açık lisanslı (Apache-2.0), dört bitlik sıkıştırılmış hâliyle ~5 GB, CPU'da llama.cpp ile çalışır. <b>Arama:</b> BGE-M3. Hem anlam benzerliğiyle hem anahtar kelimeyle arar; "TG 443", "PC12" gibi terimler için bu önemli. <b>Sıralama:</b> bir reranker, bulunan 50 parçadan en ilgili 8'ini seçer. <b>Arşiv:</b> sqlite-vec. Her şey tek bir dosyada durur.</dd>
+      <dt>Güvenlik</dt><dd>(1) Model her cümle için bir kaynak parçası göstermek zorunda. Kaynağı desteklemeyen cümle silinir. (2) <b>Sayılar asla dil modelinden gelmez.</b> NTI, doz ve aralık değerleri sonuç dosyasından doğrudan yazılır; model yalnız açıklar. Bir toksisite aracında uydurulmuş bir doz affedilemez.</dd>
+      <dt>Risk</dt><dd>8 milyar parametreli yerel model, büyük bulut modellerinden zayıf. Laboratuvar bilgisayarında en az 16 GB RAM gerekir. Kaynak lisanslarına dikkat edilmeli (<a href="#rag">Bölüm 7</a>).</dd>
+    </dl>
+    <figure class="fig">
+    <svg viewBox="0 0 860 170" role="img" aria-label="RAG akışı">
+      <style>
+        .r8b{fill:var(--raised);stroke:var(--line);stroke-width:1.2}
+        .r8t{fill:var(--fg);font:600 13.5px var(--sans)}
+        .r8s{fill:var(--muted);font:12px var(--sans)}
+        .r8l{stroke:var(--muted);stroke-width:1.4;fill:none}
+        .r8a{fill:var(--muted)}
+      </style>
+      <rect x="10" y="30" width="150" height="110" rx="10" class="r8b"/><text x="22" y="56" class="r8t">Soru</text><text x="22" y="78" class="r8s">"NTI neden</text><text x="22" y="96" class="r8s">yüksek?"</text><text x="22" y="118" class="r8s">+ sonuç JSON'u</text>
+      <rect x="185" y="30" width="150" height="110" rx="10" class="r8b"/><text x="197" y="56" class="r8t">Ara</text><text x="197" y="78" class="r8s">BGE-M3 ile</text><text x="197" y="96" class="r8s">arşivde en ilgili</text><text x="197" y="114" class="r8s">50 parça</text>
+      <rect x="360" y="30" width="150" height="110" rx="10" class="r8b"/><text x="372" y="56" class="r8t">Sırala</text><text x="372" y="78" class="r8s">reranker en</text><text x="372" y="96" class="r8s">iyi 8'i seçer</text>
+      <rect x="535" y="30" width="150" height="110" rx="10" class="r8b"/><text x="547" y="56" class="r8t">Yaz</text><text x="547" y="78" class="r8s">Qwen3-8B, yalnız</text><text x="547" y="96" class="r8s">bu 8 parçaya</text><text x="547" y="114" class="r8s">dayanarak</text>
+      <rect x="710" y="30" width="140" height="110" rx="10" class="r8b" style="stroke:var(--accent)"/><text x="722" y="56" class="r8t">Kontrol et</text><text x="722" y="78" class="r8s">kaynaksız cümle</text><text x="722" y="96" class="r8s">silinir</text>
+      <path d="M160 85H179" class="r8l"/><path d="M179 85l-7-4v8z" class="r8a"/>
+      <path d="M335 85H354" class="r8l"/><path d="M354 85l-7-4v8z" class="r8a"/>
+      <path d="M510 85H529" class="r8l"/><path d="M529 85l-7-4v8z" class="r8a"/>
+      <path d="M685 85H704" class="r8l"/><path d="M704 85l-7-4v8z" class="r8a"/>
+    </svg>
+    <figcaption>Cevap, uygulamanın mevcut iş sistemiyle aynı şekilde çalışan <span class="mono">/explain</span> adlı bir iş olarak üretilir. Kelimeler ekrana aktıkça yazılır, yani bekleme anı boş bir "yükleniyor" ekranı olmaz (CLAUDE.md §4.9).</figcaption>
+    </figure>
+  </article>
+</section>
+
+<!-- ============ 5 ============ -->
+<section id="xai">
+  <span class="num">BÖLÜM 5</span>
+  <h2>Açıklanabilir yapay zekâ (XAI)</h2>
+  <div class="term"><span class="tl">Terim · XAI</span>
+    <p>Explainable AI, yani açıklanabilir yapay zekâ: modelin <i>neden</i> o cevabı verdiğini insana gösteren yöntemler. Biyolog bir modele ancak kararının mantığını görebilirse güvenir. Biz de modelin nerede hata yaptığını ancak böyle görebiliriz.</p>
+  </div>
+  <p>Eski plan yalnız SHAP kullanıyordu ve bu, "NTI'yi hangi ölçüm etkiledi?" sorusunu cevaplıyordu. Oysa bir biyolog dört farklı soru sorar. Her biri için ayrı bir yöntem gerekir:</p>
+  <div class="tw"><table>
+    <thead><tr><th>Biyoloğun sorusu</th><th>Yöntem</th><th>Sade dille ne yapar?</th><th>İşe yaradığını nasıl biliriz?</th></tr></thead>
+    <tbody>
+      <tr><td>NTI'yi hangi ölçüm etkiledi?</td><td><b>Kesin Shapley</b> (EBM/GAM'dan)</td><td>NTI'yi dört ölçümün katkılarına böler: "nörit uzunluğu −0.21, soma −0.33…"</td><td>Toplamsal modelde hesap kesindir, tahmin değil.</td></tr>
+      <tr><td>Model bu maskeyi görüntünün neresine bakarak çizdi?</td><td><b>Integrated Gradients</b> + <b>Seg-XRes-CAM</b></td><td>Görüntü üzerine bir ısı haritası koyar: model şu piksellere bakmış.</td><td>Quantus araç setiyle test edilir; model rastgele hâle getirilince harita da değişmeli.</td></tr>
+      <tr><td>Bu sayıdan ne kadar eminiz?</td><td><b>5 tohumlu ensemble</b> + belirsizliğin yayılımı</td><td>Aynı modeli 5 kez farklı başlangıçla eğitir. Beşi anlaşmıyorsa ölçüm belirsizdir. Bu belirsizlik her µm'ye ± olarak yansır.</td><td>Aralıkların testte gerçekten söylenen oranda tuttuğu ölçülür.</td></tr>
+      <tr><td>Bu görüntüye hiç güvenebilir miyim?</td><td><b>Konformal risk kontrolü</b> + <b>PAnS</b> + QC filtresi</td><td>"Nöritlerin en fazla %α'sını kaçırıyoruz" garantisi verir. Tanımadığı nesneleri (toz, bulanıklık) işaretler.</td><td>Garanti matematiksel. İşaretlerin gerçek hatalarla örtüşmesi ayrıca ölçülür.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="term"><span class="tl">Terimler</span>
+    <p><b>Integrated Gradients (IG):</b> Siyah bir görüntüden gerçek görüntüye yavaşça geçerken modelin çıktısının her pikselle nasıl değiştiğini toplar. Hangi pikselin karara ne kadar katkı verdiğini söyler.</p>
+    <p><b>Ensemble:</b> Aynı modelin birkaç kopyasını eğitip sonuçlarını karşılaştırmak. Kopyalar farklı cevap veriyorsa, o bölgede model emin değil demektir.</p>
+    <p><b>PAnS (prototip tabanlı):</b> Model her sınıf (soma, nörit) için tipik bir örnek hafızada tutar. Bu örneklerin hiçbirine benzemeyen pikseller "tanımadığım bir şey" diye işaretlenir.</p>
+  </div>
+  <div class="warn"><b>Dürüst sınır:</b> Bir ısı haritası bir <i>ipucudur</i>, kanıt değildir. Modelin baktığı yer, doğru sebepten baktığı anlamına gelmez. Bu yüzden haritaları sayısal testlerle (Quantus, silme eğrisi) doğruluyoruz ve raporda "hipotez aracı" olarak sunuyoruz.</div>
+</section>
+
+<!-- ============ 6 ============ -->
+<section id="kitaplar">
+  <span class="num">BÖLÜM 6</span>
+  <h2>Ne okumalıyım? Başlangıç için okuma sırası</h2>
+  <p>Toplam 20 kitap, survey ve kurs bulundu. Hepsini okumana gerek yok. Yeni başlayan biri için önerilen sıra aşağıda. Önce ücretsiz olanlar.</p>
+  <div class="books">
+    <div class="book"><span class="o">1</span><div><h4><a href="https://christophm.github.io/interpretable-ml-book/" target="_blank" rel="noopener">Interpretable Machine Learning</a> — Christoph Molnar</h4><span class="acc">ücretsiz, çevrimiçi · CC BY-NC-SA 4.0</span><p>XAI'nin en bilinen giriş kitabı. İlk okuman gereken kaynak. Önce "Shapley values", "SHAP" ve "interpretable models" bölümlerini oku; NTI modeli tam olarak bunlar.</p></div></div>
+    <div class="book"><span class="o">2</span><div><h4><a href="https://ema.drwhy.ai/" target="_blank" rel="noopener">Explanatory Model Analysis</a> — Biecek &amp; Burzykowski</h4><span class="acc">ücretsiz, çevrimiçi (basılı hâli ücretli)</span><p>Molnar'ı tamamlar. Bir modeli nasıl inceleyeceğini, etkileşimleri (doz × zaman) nasıl göreceğini anlatır.</p></div></div>
+    <div class="book"><span class="o">3</span><div><h4><a href="https://arxiv.org/abs/2107.07511" target="_blank" rel="noopener">A Gentle Introduction to Conformal Prediction</a> — Angelopoulos &amp; Bates</h4><span class="acc">ücretsiz · arXiv + MIT lisanslı kod</span><p>Konformal aralıkların en anlaşılır anlatımı. Öneri 7d'yi uygulamak için gereken her şey burada, örnek kodlarla.</p></div></div>
+    <div class="book"><span class="o">4</span><div><h4><a href="https://arxiv.org/abs/2405.01636" target="_blank" rel="noopener">XAI in Image Segmentation in Medicine, Industry, and Beyond</a> (survey)</h4><span class="acc">ücretsiz · arXiv · 35 sayfa</span><p>Segmentasyon modellerini açıklama yöntemlerinin haritası. Bölüm 5'teki ısı haritası yöntemlerinin yerini gösterir.</p></div></div>
+    <div class="book"><span class="o">5</span><div><h4><a href="https://arxiv.org/abs/2107.03342" target="_blank" rel="noopener">A Survey of Uncertainty in Deep Neural Networks</a> — Gawlikowski vd.</h4><span class="acc">ücretsiz · arXiv</span><p>Belirsizlik ölçmenin (ensemble, MC-dropout…) derli toplu bir özeti.</p></div></div>
+    <div class="book"><span class="o">6</span><div><h4><a href="https://probml.github.io/pml-book/book1.html" target="_blank" rel="noopener">Probabilistic Machine Learning</a> — Kevin Murphy (2 cilt)</h4><span class="acc">ücretsiz PDF · CC BY-NC-ND</span><p>Temeller için başvuru kitabı. Baştan sona okunmaz; bir kavramı (Bayes, belirsizlik) derinleştirmek istediğinde açılır.</p></div></div>
+    <div class="book"><span class="o">7</span><div><h4><a href="https://doi.org/10.1007/978-3-031-04083-2" target="_blank" rel="noopener">xxAI — Beyond Explainable AI</a> (Springer LNAI 13200)</h4><span class="acc">açık erişim · CC BY</span><p>Hakemli bölümler: XAI yöntemleri ve açıklamaların nasıl değerlendirileceği. Tezde atıf için iyi.</p></div></div>
+    <div class="book"><span class="o">8</span><div><h4><a href="https://doi.org/10.1007/978-3-030-28954-6" target="_blank" rel="noopener">Explainable AI: Interpreting, Explaining and Visualizing Deep Learning</a> (LNCS 11700)</h4><span class="acc">ücretli · kütüphaneden</span><p>Alanın 2019 tarihli temel kitabı. Hakemler bu kaynağa atıf görmeyi bekler.</p></div></div>
+    <div class="book"><span class="o">9</span><div><h4><a href="https://leanpub.com/shap" target="_blank" rel="noopener">Interpreting Machine Learning Models With SHAP</a> — Molnar</h4><span class="acc">ücretli e-kitap · Leanpub</span><p>SHAP'ı derinlemesine anlatır. Sadece SHAP'la çok çalışacaksan gerekli.</p></div></div>
+  </div>
+  <p>Pratik için iki araç: <a href="https://captum.ai/" target="_blank" rel="noopener">Captum</a> (PyTorch için IG ve benzerleri, öğretici defterlerle) ve <a href="https://github.com/understandable-machine-intelligence-lab/Quantus" target="_blank" rel="noopener">Quantus</a> (açıklamaları sayısal test etmek için). Kalan kaynakların tam listesi teknik raporda.</p>
+</section>
+
+<!-- ============ 7 ============ -->
+<section id="rag">
+  <span class="num">BÖLÜM 7</span>
+  <h2>RAG için hangi kaynaklar var, hangisini kullanabiliriz?</h2>
+  <p>Asistanın bilgi arşivine hangi belgeleri koyabileceğimizi <b>lisans</b> belirler. Uygulamayı dağıtınca içindeki metni de dağıtmış oluruz. Bunun için metnin lisansının buna izin vermesi gerekir.</p>
+  <div class="term"><span class="tl">Terim · Creative Commons lisansları</span>
+    <p><b>CC BY:</b> kaynak gösterirsen her amaçla kullanabilir ve dağıtabilirsin. En rahatı. <b>CC BY-SA:</b> aynısı, ama değiştirirsen aynı lisansla paylaşmalısın. <b>NC</b> (non-commercial): ticari kullanım yasak. <b>ND</b> (no derivatives): değiştirmek, parçalamak yasak. RAG metni parçalara böldüğü için ND fiilen dağıtımı engeller. <b>Tüm hakları saklı:</b> okuyabilirsin ama dağıtamazsın.</p>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>Kaynak</th><th>Ne kadar büyük?</th><th>Lisans</th><th>Uygulamaya konabilir mi?</th></tr></thead>
+    <tbody>
+      <tr><td><b>AOP-Wiki</b> — hasar mekanizması yolları (Adverse Outcome Pathway)</td><td class="mono">598 AOP · 1.947 olay · 3.185 bağlantı</td><td>CC BY-SA</td><td><span class="pill p-ok">evet</span></td></tr>
+      <tr><td><b>OECD test kılavuzları</b> — TG 426 (gelişimsel nörotoksisite), TG 443, TG 424, GD 377 (DNT in vitro batarya)</td><td>birkaç kılavuz</td><td>Temmuz 2024 öncesi: kaynak göstererek serbest; sonrası CC BY 4.0</td><td><span class="pill p-ok">evet, atıfla</span></td></tr>
+      <tr><td><b>EFSA</b> nörotoksisite görüşleri</td><td>birkaç belge</td><td>CC BY 4.0</td><td><span class="pill p-ok">evet</span></td></tr>
+      <tr><td><b>OpenStax Biology 2e</b> — temel biyoloji tanımları</td><td>tek ders kitabı</td><td>CC BY 4.0</td><td><span class="pill p-ok">evet</span></td></tr>
+      <tr><td><b>Europe PMC / PMC açık erişim makaleleri</b></td><td class="mono">5,3 milyon CC-BY<br>1,0 milyon CC-BY-NC</td><td>makaleye göre değişir</td><td><span class="pill p-mid">yalnız CC-BY olanlar</span></td></tr>
+      <tr><td><b>PubChem / EPA CompTox</b> — bileşik bilgileri</td><td class="mono">CompTox: 1.376.722 kimyasal</td><td>ABD devleti, kamu malı (bazı kayıtlar hariç)</td><td><span class="pill p-mid">3 bileşiğimizin kartı</span></td></tr>
+      <tr><td><b>LibreTexts</b> nörobilim kitapları</td><td>binlerce sayfa</td><td>sayfaya göre, çoğu CC BY-NC-SA</td><td><span class="pill p-mid">sayfa sayfa kontrol</span></td></tr>
+      <tr><td><b>StatPearls</b> (NCBI Bookshelf)</td><td class="mono">117.142 kayıt</td><td>CC BY-NC-ND</td><td><span class="pill p-no">hayır, sadece atıf</span></td></tr>
+      <tr><td><b>Purves "Neuroscience"</b>, <b>"Basic Neurochemistry"</b> (NCBI Bookshelf)</td><td>tam ders kitapları</td><td>telifli, sadece okunabilir</td><td><span class="pill p-no">hayır, sadece atıf</span></td></tr>
+      <tr><td><b>Klasik nörotoksikoloji kitapları</b> (Casarett &amp; Doull, Tilson)</td><td>—</td><td>tüm hakları saklı</td><td><span class="pill p-no">hayır, sadece atıf</span></td></tr>
+    </tbody>
+  </table></div>
+  <p><b>Pratik öneri:</b> Arşivi AOP-Wiki, OECD kılavuzları ve PMC'den seçilmiş CC-BY nörotoksisite makaleleriyle başlat (PC12, SH-SY5Y, oksidatif stres araması). Telifli kitaplar için yalnızca "bu konu için şu kitabın şu bölümüne bak" gibi atıf ver. Böylece arşiv yasal kalır ama kullanıcı yine de doğru kaynağa yönlendirilir.</p>
+</section>
+
+<!-- ============ 8 ============ -->
+<section id="plan">
+  <span class="num">BÖLÜM 8</span>
+  <h2>Hafta hafta ne yapılacak?</h2>
+  <div class="term"><span class="tl">Terim · Ablasyon deneyi</span>
+    <p>Her seferinde <b>tek bir şeyi</b> değiştirip etkisini ölçmek. Aynı anda üç şeyi değiştirip sonuç iyileşirse, hangisinin işe yaradığını bilemezsin. Belki biri iyileştirdi, öbürü kötüleştirdi. Ablasyon bunu ayırır.</p>
+  </div>
+  <p>Deneyler sırayla yapılır. Her adım bir öncekinin kazananına tek bir değişiklik ekler. Değişiklik ancak hedeflediği ölçüyü iyileştirir ve diğerlerini bozmazsa kalır.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Adım</th><th>Ne değişiyor?</th><th>Neye bakıyoruz?</th><th>Ne zaman kalır?</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">A0</td><td>Başlangıç: nnU-Net ResEnc, Dice+CE. Karşılaştırma için Cellpose-SAM da eklenir.</td><td>soma IoU, nörit Dice</td><td>referans noktası</td></tr>
+      <tr><td class="mono">A1</td><td>+ Frangi giriş kanalı</td><td>nörit uzunluk hatası</td><td>hata düşer, Dice düşmez</td></tr>
+      <tr><td class="mono">A2</td><td>+ topoloji kaybı (4 aday yarışır)</td><td>kopukluk hatası, kavşak doğruluğu</td><td>fark, 5 bölmenin sapmasından büyükse</td></tr>
+      <tr><td class="mono">A3</td><td>+ merkez çizgisi ve kavşak kafaları</td><td>dal sayısı ve açı hatası</td><td>ikisi de düşer</td></tr>
+      <tr><td class="mono">A4</td><td>+ öğretmen → öğrenci damıtma</td><td>hepsi</td><td>A3'ten iyi, aynı model boyutunda</td></tr>
+      <tr><td class="mono">A5</td><td>+ etiketsiz görsellerle yarı denetimli eğitim</td><td>hepsi</td><td>A4'ten iyi</td></tr>
+      <tr><td class="mono">A6</td><td>+ floresandan ön eğitim (≥50 eşleşmiş görsel varsa)</td><td>nörit Dice</td><td>A5'ten iyi</td></tr>
+      <tr><td class="mono">A7</td><td>Modeli sıkıştırıp uygulamaya koymak (FP16/INT8, OpenVINO)</td><td>doğruluk kaybı</td><td>kayıp %95 güvenle 0.02'den küçükse</td></tr>
+    </tbody>
+  </table></div>
+  <div class="weeks">
+    <div class="wk"><span class="when">Hafta 4–6</span><h4>Kolay kazançlar</h4><ul><li>A0 ve A1</li><li>Etiketleme ekranına çizgi aracı</li><li>Öğretmen eğitimini gece GPU'da başlat</li></ul></div>
+    <div class="wk"><span class="when">Hafta 7–9</span><h4>Topoloji ve geometri</h4><ul><li>A2: dört kaybın yarışı</li><li>A3: kavşak kafaları</li><li>2. veri partisini akıllı sırayla etiketle (BADGE)</li></ul></div>
+    <div class="wk"><span class="when">Hafta 10–12</span><h4>Öğretmen → öğrenci</h4><ul><li>A4 ve A5</li><li>A6, yalnız eşleşmiş görsel varsa</li><li>NTI: EBM + karışık etkiler + konformal</li></ul></div>
+    <div class="wk"><span class="when">Hafta 13–15</span><h4>Uygulamaya koy, açıkla</h4><ul><li>A7 ve 5 tohumlu ensemble</li><li>RAG asistanının ilk sürümü</li><li>XAI testlerinin sayıları rapora</li></ul></div>
+  </div>
+  <h3>TÜSEB hedeflerine eklenecek ölçüler</h3>
+  <p>Eski hedefler korunuyor. Dice'ın yakalayamadığı hataları görmek için dört ölçü ekleniyor:</p>
+  <ul>
+    <li><b>Betti hatası:</b> tahmin edilen nörit parça sayısı ile gerçek sayı arasındaki fark (kopukluk ölçüsü).</li>
+    <li><b>Kavşak F1:</b> gerçek dallanma noktalarının kaçının 3 piksel içinde bulunduğu.</li>
+    <li><b>clDice (ölçü olarak):</b> iskeletlerin ne kadar örtüştüğü.</li>
+    <li><b>Aralık kapsaması:</b> "%90 aralık" dediğimiz aralıkların gerçekten %90 oranında tutup tutmadığı.</li>
+  </ul>
+</section>
+
+<!-- ============ 9 ============ -->
+<section id="sinirlar">
+  <span class="num">BÖLÜM 9</span>
+  <h2>Dürüst sınırlar: neyi bilmiyoruz?</h2>
+  <ul>
+    <li><b>Kazanç sayıları başka verilerden.</b> %10,4 (LIVECell), %93,7 (retina damarı) gibi sayılar bizim görüntülerimizden gelmiyor. Bizde daha küçük, hatta sıfır çıkabilir. Bu sayfa "önce bunları dene" diyor, "bunlar kesin işe yarar" demiyor. Son kararı kendi 5 bölmeli deneylerimiz verir.</li>
+    <li><b>Bazı makaleler çok yeni.</b> 2026 tarihli çalışmaların bir kısmının kodu henüz yayımlanmamış olabilir. O zaman fikir alınır, kod sıfırdan yazılır.</li>
+    <li><b>Kaynaklar nasıl doğrulandı?</b> Literatürü yerel bir dil modeli taradı. Bulduğu her kaynağın linki üç ayrı doğrulayıcı ajan tarafından tek tek açıldı. 131 kaynağın 130'u iddia edilen makaleye çıktı; uydurma kaynak bulunmadı. Biri gerçek ama açık erişimli değil, o yüzden yalnız atıf olarak geçiyor. Yine de bir kaynağı tezde kullanmadan önce kendin açıp okumalısın.</li>
+    <li><b>Hepsi öneri, karar değil.</b> Bir öneri benimsenirse <span class="mono">llm-wiki/DECISIONS.md</span>'ye bir karar kaydı (ADR) olarak yazılmalı.</li>
+  </ul>
+</section>
+
+<!-- ============ 10 ============ -->
+<section id="sozluk">
+  <span class="num">BÖLÜM 10</span>
+  <h2>Sözlük</h2>
+  <p>Metinde geçen terimler, alfabetik sırayla.</p>
+  <div class="gloss">
+    <div><b>Ablasyon</b><span class="en">ablation</span><br>Her seferinde tek bir bileşeni değiştirip etkisini ölçmek.</div>
+    <div><b>AOP</b><span class="en">adverse outcome pathway</span><br>Bir kimyasalın ilk moleküler etkisinden organizma düzeyindeki zarara giden, adım adım neden-sonuç zinciri.</div>
+    <div><b>Belirsizlik</b><span class="en">uncertainty</span><br>Modelin cevabından ne kadar emin olmadığının ölçüsü.</div>
+    <div><b>Betti sayısı</b><span class="en">Betti number</span><br>Bir şekildeki parça sayısı (Betti-0) ve delik sayısı (Betti-1). Kopukluğu ölçmek için kullanılır.</div>
+    <div><b>CNN</b><span class="en">convolutional neural network</span><br>Görüntüye küçük pencerelerden bakan sinir ağı. Az veride güçlü, CPU'da hızlı.</div>
+    <div><b>Çapraz doğrulama</b><span class="en">k-fold cross-validation</span><br>Veriyi k gruba bölüp her grubu sırayla test için ayırmak.</div>
+    <div><b>Damıtma</b><span class="en">knowledge distillation</span><br>Büyük modelin bilgisini küçük bir modele aktarmak.</div>
+    <div><b>Dice / IoU</b><span class="en">overlap metrics</span><br>İki maskenin ne kadar örtüştüğünü ölçen, 0 ile 1 arası sayılar.</div>
+    <div><b>EBM</b><span class="en">explainable boosting machine</span><br>Her değişkenin etkisini ayrı bir eğri olarak öğrenen, iç yapısı görülebilen model.</div>
+    <div><b>Ensemble</b><span class="en">ensemble</span><br>Aynı modelin birkaç kopyasını eğitip sonuçlarını birleştirmek.</div>
+    <div><b>Etiket / maske</b><span class="en">label / mask</span><br>İnsanın çizdiği doğru cevap: her pikselin sınıfı.</div>
+    <div><b>Ezberleme</b><span class="en">overfitting</span><br>Modelin eğitim verisini ezberleyip yeni veride başarısız olması.</div>
+    <div><b>Faz-kontrast</b><span class="en">phase contrast</span><br>Boyasız hücreleri görünür kılan mikroskopi yöntemi. Hücre kenarlarında parlak "halo" yapar.</div>
+    <div><b>Frangi filtresi</b><span class="en">vesselness filter</span><br>Görüntüdeki ince, boru benzeri yapıları öne çıkaran klasik bir filtre.</div>
+    <div><b>GAM</b><span class="en">generalized additive model</span><br>Çıktıyı, her değişkenin ayrı bir eğrisinin toplamı olarak hesaplayan model.</div>
+    <div><b>Kavşak</b><span class="en">junction / branch point</span><br>Bir nöritin iki dala ayrıldığı nokta.</div>
+    <div><b>Kayıp fonksiyonu</b><span class="en">loss function</span><br>Modelin ne kadar yanlış yaptığını ölçen ve eğitimde küçültülen sayı.</div>
+    <div><b>Konformal tahmin</b><span class="en">conformal prediction</span><br>Geçmiş hatalara bakarak, istenen olasılıkla gerçek değeri içeren aralık üreten yöntem.</div>
+    <div><b>Monotonluk</b><span class="en">monotonicity</span><br>Bir değişken arttıkça çıktının hep aynı yönde değişmesi (hiç ters dönmemesi).</div>
+    <div><b>NTI</b><span class="en">neural toxicity index</span><br>Dört morfolojik ölçümü birleştiren sürekli toksisite skoru.</div>
+    <div><b>ONNX</b><span class="en">open neural network exchange</span><br>Eğitilmiş modeli Python'dan bağımsız, her yerde çalışacak bir dosyaya çeviren format.</div>
+    <div><b>RAG</b><span class="en">retrieval-augmented generation</span><br>Dil modelinin önce belge arayıp sonra yalnız bulduklarına dayanarak cevap yazması.</div>
+    <div><b>Sahte etiket</b><span class="en">pseudo-label</span><br>Modelin etiketsiz bir görsel için ürettiği ve eğitimde geçici etiket olarak kullanılan tahmin.</div>
+    <div><b>Segmentasyon</b><span class="en">segmentation</span><br>Görüntüdeki her pikselin hangi nesneye ait olduğuna karar vermek.</div>
+    <div><b>Shapley değeri</b><span class="en">Shapley value</span><br>Bir sonucu, ona katkı veren değişkenler arasında adil biçimde paylaştıran hesap.</div>
+    <div><b>SSL</b><span class="en">self-supervised learning</span><br>Etiket olmadan, görüntünün kendisinden bulmaca çözerek öğrenme.</div>
+    <div><b>Topoloji</b><span class="en">topology</span><br>Bir şeklin bağlantı yapısı: kaç parça, kaç dal, kopuk mu.</div>
+    <div><b>Transformer</b><span class="en">transformer</span><br>Her parçayı diğer her parçayla karşılaştıran güçlü ama veriye aç model ailesi.</div>
+    <div><b>Veri sızıntısı</b><span class="en">data leakage</span><br>Test verisine benzeyen bilginin eğitime karışması ve sonucun olduğundan iyi görünmesi.</div>
+    <div><b>XAI</b><span class="en">explainable AI</span><br>Modelin kararının nedenini insana gösteren yöntemler.</div>
+    <div><b>Yarı denetimli öğrenme</b><span class="en">semi-supervised learning</span><br>Az sayıda etiketli ve çok sayıda etiketsiz veriyi birlikte kullanarak eğitmek.</div>
+  </div>
+
+  <footer>
+    IntelliCell · İzmir Kâtip Çelebi Üniversitesi · 28 Eylül 2026. Bu rehber, <span class="mono">19-MODEL-IMPROVEMENT-RESEARCH.html</span> teknik raporunun sade anlatımıdır. Tüm kaynakların listesi, kanıtları ve linkleri o raporun "Full catalogue" bölümünde. Ham veriler: <span class="mono">llm-wiki/_research/</span>.
+  </footer>
+</section>
+</main>
+</div>
