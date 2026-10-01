@@ -77,3 +77,4 @@
 2026-09-24T01:00:37Z|BM|deck|W2|presentations/W2.html;AI-Based_Automated_Morphological_Analysis_PC12.html|53b857a0
 2026-09-24T06:33:16Z|ML|status|YF3A8|review|3d4ee74f
 2026-09-26T16:30:00Z|ML|note|T5.1|18-PREVIOUS-FEATURES yazildi (onceki GP2 PC12 Cell Analyzer tez+pptx envanteri, UI KEEP/IDEA/DROP) + CLAUDE.md (UI haftasinda Claudeya verilecek tek kaynak dosya: stack/kapsam/siralama + concurrency sarti: islemeler arka planda paralel, SSE streaming, preload, cache, kullanici hic donus beklemez) + 17 §2b guncellendi|4c8e2f91
+2026-10-01T12:33:09Z|BM|status|YF3A8|done|700586d4
