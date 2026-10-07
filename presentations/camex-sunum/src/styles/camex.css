@@ -469,15 +469,18 @@ dialog.popup[open] { animation: popIn .25s ease-out; }
 .th-click:focus, .clickable:focus { outline: none; }
 
 /* CAMEX slide: four panel orbs in the 420px column — smaller circles, tighter gap */
-.panel-orbs--4 { gap: 22px; padding-left: 8px; }
-.panel-orbs--4 .panel-orb-num { left: 60px; width: 32px; height: 32px; font-size: 16px; }
+.panel-orb-sub {
+  display: block; margin-top: 6px;
+  font-size: 21px; font-weight: 600; color: var(--muted); letter-spacing: 0;
+}
+
+/* CAMEX slide: 4 orbs, larger type (titles, descriptions, step numbers) */
+.panel-grid:has(.panel-orbs--4) { grid-template-columns: minmax(0,1fr) 470px; }
+.panel-orbs--4 { gap: 20px; padding-left: 8px; }
+.panel-orbs--4 .panel-orb-num { left: 58px; width: 46px; height: 46px; font-size: 24px; font-weight: 800; }
 .panel-orbs--4 .panel-orb-circle { width: 120px; height: 120px; border-radius: 60px; }
 .panel-orbs--4 .panel-orb-circle::before { border-radius: 60px; }
 .panel-orbs--4 .panel-orb-circle::after { width: 96px; height: 96px; }
-.panel-orbs--4 .panel-orb.is-current .panel-orb-circle { width: 400px; }
+.panel-orbs--4 .panel-orb.is-current .panel-orb-circle { width: 460px; }
 .panel-orbs--4 .panel-orb-icon { flex: 0 0 120px; height: 120px; }
-.panel-orbs--4 .panel-orb-title { padding-right: 22px; }
-.panel-orb-sub {
-  display: block; margin-top: 4px;
-  font-size: 16px; font-weight: 600; color: var(--muted); letter-spacing: 0;
-}
+.panel-orbs--4 .panel-orb-title { font-size: 30px; padding-right: 22px; }

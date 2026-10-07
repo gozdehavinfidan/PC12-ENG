@@ -1,6 +1,6 @@
 /**
  * CAMEX slide — 3D MacBook with full ksenia-k opening animation, showing the
- * four CAMEX screens (Analyze → Compare → Review → Similarity).
+ * four CAMEX screens (Analyze → Compare → Review → Explain, planned).
  * Adapted from the 2242 template (src/slides/12-doctor-panel/main.js).
  *
  * Source: https://codepen.io/ksenia-k/pen/gOEgyaj
@@ -26,7 +26,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // Dört ekran görüntüsü KENDİLİĞİNDEN dönmez: hangi görüntünün ekranda olduğu
 // generic step controller'ın (index.html) adım durumudur ve yalnızca
 // sunucunun İleri/Geri komutuyla değişir (window.deckApplyDoctorPanelStep).
-// Sıra, sağdaki panel-orb kartlarıyla birebirdir: Analyze → Compare → Review → Similarity.
+// Sıra, sağdaki panel-orb kartlarıyla birebirdir: Analyze → Compare → Review → Explain (planlanan).
 // Eksik bir görüntü (henüz eklenmemiş ekran) çökme yapmaz: ekran düz koyu kalır.
 // Each image is "cover-fit" into the 16:10 screen aspect (centered +
 // cropped to fill) — taller-than-16:10 images are cropped top/bottom,
@@ -35,6 +35,7 @@ const SCREEN_IMAGE_URLS = [
   'assets/figures/ui_analyze.png',
   'assets/figures/ui_compare.png',
   'assets/figures/ui_review.png',
+  'assets/figures/ui_explain_planned.png',
 ];
 const LAPTOP_GLB_URL    = 'assets/models/mac-noUv.glb';  // vendored locally (was ksenia-k.com) → works offline
 const SCREEN_SIZE       = [29.4, 20];
@@ -236,7 +237,7 @@ const SCREEN_CANVAS_H   = 1200;
 
   // Ekran + orb durumunun TEK sahibi generic step controller'dır (index.html).
   // step 0 → Analyze bekleme ekranı (orb vurgusu yok); step 1..4 → sırasıyla
-  // Analyze / Compare / Review / Similarity ekranı + eşleşen orb. Olay YAYMAZ (deck-localstep'i
+  // Analyze / Compare / Review / Explain ekranı + eşleşen orb. Olay YAYMAZ (deck-localstep'i
   // controller'ın setStep'i yayar); panelchange yalnızca orb vurgusu içindir.
   window.deckApplyDoctorPanelStep = (step) => {
     step = parseInt(step, 10) || 0;

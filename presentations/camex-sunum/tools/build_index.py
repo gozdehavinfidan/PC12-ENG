@@ -137,7 +137,7 @@ html = f"""<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="src/styles/styles.css?v=1">
-<link rel="stylesheet" href="src/styles/camex.css?v=36">
+<link rel="stylesheet" href="src/styles/camex.css?v=38">
 <script src="src/engine/deck-stage.js?v=1"></script>
 {early}
 <script src="src/slides/popup.js?v=1"></script>
@@ -163,7 +163,7 @@ html = f"""<!doctype html>
 <script src="src/slides/conv-anim.js?v=5"></script>
 <script src="src/slides/effects.js?v=1"></script>
 <script src="src/slides/prep-hist.js?v=8"></script>
-<script type="module" src="src/slides/laptop.js?v=1"></script>
+<script type="module" src="src/slides/laptop.js?v=2"></script>
 </body>
 </html>
 """
