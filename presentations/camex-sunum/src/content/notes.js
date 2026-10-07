@@ -116,12 +116,11 @@ En iyi sonucu ise UNet++ ile SegFormer'ı birlikte kullanarak aldık; en üsttek
     n: 12,
     title: "CAMEX",
     approxSeconds: 35,
-    stepMax: 4,
+    stepMax: 3,
     script: `Bu analizi kullanıcıya CAMEX masaüstü uygulamasıyla sunuyoruz; uygulama tamamen çevrim dışı çalışıyor.
 → Analyze ekranı: görüntünün üzerinde segmentasyon maskeleri, numaralanmış hücreler ve hücre başına ölçümlerle NTI skoru görünüyor.
 → Compare ekranı: iki görüntü eşzamanlı kaydırılan görünümlerde yan yana duruyor ve her hücre için fark gösteriliyor.
-→ Review ekranı: segmentasyon çıktıları belirsizliğe göre sıralanıyor; en emin olunmayan hücreler önce gözden geçiriliyor.
-→ Similarity ekranı: hücreler ölçülen özelliklerine göre bir haritada konumlanıyor; benzer hücreler yan yana düşüyor. Segmentasyon şu an hâlâ klasik hatla yapılıyor; eğittiğimiz ağları bir sonraki adımda aynı arayüzün arkasına ekleyeceğiz.`,
+→ Review ekranı: segmentasyon çıktıları belirsizliğe göre sıralanıyor; en emin olunmayan hücreler önce gözden geçiriliyor. Segmentasyon şu an hâlâ klasik hatla yapılıyor; eğittiğimiz ağları bir sonraki adımda aynı arayüzün arkasına ekleyeceğiz.`,
   },
   {
     n: 13,

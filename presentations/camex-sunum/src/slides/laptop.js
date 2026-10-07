@@ -35,7 +35,6 @@ const SCREEN_IMAGE_URLS = [
   'assets/figures/ui_analyze.png',
   'assets/figures/ui_compare.png',
   'assets/figures/ui_review.png',
-  'assets/figures/ui_similarity.png',
 ];
 const LAPTOP_GLB_URL    = 'assets/models/mac-noUv.glb';  // vendored locally (was ksenia-k.com) → works offline
 const SCREEN_SIZE       = [29.4, 20];
