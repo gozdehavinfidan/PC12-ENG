@@ -9,7 +9,8 @@ import { create } from 'zustand'
 export type ThemeMode = 'dark' | 'light' | 'system'
 export type Theme = 'dark' | 'light'
 
-const KEY = 'intellicell.theme'
+const KEY = 'camex.theme'
+const OLD_KEY = 'intellicell.theme'
 
 function systemTheme(): Theme {
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
@@ -17,7 +18,7 @@ function systemTheme(): Theme {
 
 function readMode(): ThemeMode {
   try {
-    const v = localStorage.getItem(KEY)
+    const v = localStorage.getItem(KEY) ?? localStorage.getItem(OLD_KEY)
     if (v === 'dark' || v === 'light' || v === 'system') return v
   } catch {
     /* storage blocked: fall back to the default */

@@ -15,6 +15,7 @@ export function ExportDialog() {
   const id = screen === 'compare' ? compare.b : selected
   const name = useApp((st) => (id ? st.images[id]?.name : ''))
   const hasResult = useApp((st) => (id ? !!st.results[id] : false))
+  const um = useApp((st) => (id ? st.umPerPx(id) : null))
   const [copied, setCopied] = useState(false)
   const close = () => useApp.setState({ exportOpen: false })
 
@@ -91,7 +92,11 @@ export function ExportDialog() {
                   <Item icon={<ImageIcon size={19} />} title="Current view (PNG)" desc="exactly what the viewer shows, with the active layers" onClick={snapshot} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
                     <span className="muted" style={{ fontSize: 13 }}>
-                      Every export carries <span className="mono">mock=1</span> until a trained model replaces the placeholder pipeline.
+                      {um ? (
+                        <>Lengths in pixels in the files; this image is calibrated at <span className="mono">{um.toFixed(4)}</span> µm/px.</>
+                      ) : (
+                        <>Uncalibrated image: all lengths and areas are exported in pixels.</>
+                      )}
                     </span>
                     <Button size="sm" onClick={copySummary}>
                       {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Copied' : 'Copy report'}

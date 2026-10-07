@@ -108,7 +108,7 @@ export async function runAll() {
   await run('compare-drawer', () => document.querySelector('[class*=drawerHead]')?.click())
   await run('compare-swipe', () => app.getState().setCompare({ mode: 'swipe' }), 2000)
   app.getState().setCompare({ mode: 'split' })
-  await run('neuron', () => app.getState().setScreen('neuron'), 4500)
+  await run('preprocess', () => app.getState().setScreen('preprocess'), 3000)
   await run('similarity', () => app.getState().setScreen('similarity'), 4000)
   await run('review', () => app.getState().setScreen('review'), 4000)
   await run('batch', () => app.getState().setScreen('batch'), 2500)

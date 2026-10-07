@@ -81,13 +81,12 @@ export interface NTI {
     angle_dispersion_deg: number
     mean_circularity: number
   }
-  mock: boolean
 }
 
 export interface Result {
   image_id: string
   model_version: string
-  mock: boolean
+  preproc?: { preset: string; hash: string; params: Record<string, unknown> }
   width: number
   height: number
   um_per_px: number | null
@@ -118,10 +117,16 @@ export interface ImageMeta {
   name: string
   width?: number
   height?: number
-  um_per_px?: number | null
+  um_per_px: number | null // null = uncalibrated
   acquired?: string | null
   batch?: string
-  variant?: boolean
+  variant?: string | null
+  group?: string | null // A/B/C session group
+  modality?: 'fluorescence' | 'phase-contrast' | string | null
+  modality_label?: string | null
+  qc_flag?: string | null
+  training_hint?: string | null
+  exposure_ms?: number | null
   condition?: string
   has_result?: boolean
   nti?: number
@@ -182,14 +187,15 @@ export type GlobalEvent =
   | { type: 'image'; image: ImageMeta }
   | { type: 'image_error'; image_id: string; message: string }
   | { type: 'model'; state: 'warming' | 'ready'; warm_ms: number | null }
+  | { type: 'preproc'; preset: string; version: string; stale: number }
 
 export interface Health {
   status: string
-  mock: boolean
   model: {
     state: 'warming' | 'ready'
     version: string
     provider: string
+    preset: string
     runtime: string
     warm_ms: number | null
     workers: { interactive: number; background: number }
@@ -212,7 +218,6 @@ export interface RoiMetrics {
   neurite_length_px: number
   junctions: number
   angles_deg: number[]
-  mock: boolean
 }
 
 export interface SimCell {
@@ -222,6 +227,8 @@ export interface SimCell {
   centroid: [number, number]
   batch: string
   condition: string
+  group?: string | null
+  modality?: string | null
   outlier: boolean
   area_px: number
   circularity: number
@@ -243,16 +250,17 @@ export interface SimGroup {
   per_feature: Record<string, number>
 }
 
+export type SimGroupKey = 'condition' | 'group' | 'modality' | 'batch'
+
 export interface Similarity {
   cells: SimCell[]
   features: string[]
   method: string
   explained_variance?: number[]
-  group_key?: 'condition' | 'batch'
+  group_key?: SimGroupKey
   groups: SimGroup[]
   batches?: string[]
   conditions?: string[]
-  mock: boolean
 }
 
 export interface ReviewItem {

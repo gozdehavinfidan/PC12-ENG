@@ -8,6 +8,7 @@ import type {
   ReviewItem,
   RoiMetrics,
   Similarity,
+  SimGroupKey,
 } from './types'
 
 // Same origin in production (FastAPI serves the static build); Vite proxies
@@ -59,7 +60,8 @@ export const api = {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ image_id, polygon }),
     }).then(json<RoiMetrics>),
-  similarity: () => fetch(`${BASE}/api/similarity`).then(json<Similarity>),
+  similarity: (group?: SimGroupKey) =>
+    fetch(`${BASE}/api/similarity${group ? `?group=${group}` : ''}`).then(json<Similarity>),
   reviewQueue: () => fetch(`${BASE}/api/review/queue`).then(json<ReviewItem[]>),
   label: (id: string) =>
     fetch(`${BASE}/api/label/${id}`).then(

@@ -48,15 +48,18 @@ export function Segmented<T extends string>({
   options,
   onChange,
   size,
+  full,
 }: {
   value: T
   options: { value: T; label: ReactNode; tip?: string }[]
   onChange: (v: T) => void
   size?: 'sm'
+  /** stretch to the container width, items share it equally */
+  full?: boolean
 }) {
   const id = useId()
   return (
-    <div className={s.seg} role="radiogroup" style={size === 'sm' ? { transform: 'scale(0.96)' } : undefined}>
+    <div className={cx(s.seg, full && s.segFull)} role="radiogroup" style={size === 'sm' ? { transform: 'scale(0.96)' } : undefined}>
       {options.map((o) => (
         <button
           key={o.value}

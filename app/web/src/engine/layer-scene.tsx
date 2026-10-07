@@ -266,7 +266,7 @@ export function LayerScene({
   // ---------------- per-frame: clock, fades, textures, stack depths
   const meshes = useRef<Partial<Record<LayerId, THREE.Mesh>>>({})
   const sheets = useRef<Partial<Record<LayerId, THREE.Mesh>>>({})
-  const visibleIds = MESH_LAYERS.filter((id) => (forceLayers ? forceLayers.includes(id) && (id === 'raw' || effectiveVisible(layers, null, id)) : effectiveVisible(layers, solo, id))).sort(
+  const visibleIds = MESH_LAYERS.filter((id) => (forceLayers ? forceLayers.includes(id) && (id === 'raw' || id === 'uncertainty' || effectiveVisible(layers, null, id)) : effectiveVisible(layers, solo, id))).sort(
     (a, b) => layers.findIndex((l) => l.id === a) - layers.findIndex((l) => l.id === b),
   )
   const gap = Math.max(W, H) * 0.075 * stackDepth

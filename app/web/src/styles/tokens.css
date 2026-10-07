@@ -1,4 +1,4 @@
-/* IntelliCell design tokens — Dracula-family dark theme (CLAUDE.md s6).
+/* CAMEX design tokens — Dracula-family dark theme (CLAUDE.md s6).
    Surfaces are deeper than stock Dracula so the micrograph stays the brightest
    thing on screen; saturated Dracula hues are reserved for layers and state. */
 :root {
@@ -76,8 +76,8 @@
   --r-md: 8px;
   --r-lg: 12px;
   --r-xl: 16px;
-  --rail-w: 60px;
-  --topbar-h: 50px;
+  --rail-w: 100px;
+  --topbar-h: 64px;
   --inspector-w: 320px;
   --filmstrip-h: 84px;
 

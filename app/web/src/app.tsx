@@ -12,7 +12,7 @@ import { fit, flyTo, viewports } from './state/viewport'
 
 // heavier screens load on first visit (three.js scene, atlas) — keeps first paint fast
 const Compare = lazy(() => import('./screens/compare').then((m) => ({ default: m.Compare })))
-const Neuron3D = lazy(() => import('./screens/neuron3d').then((m) => ({ default: m.Neuron3D })))
+const Preprocess = lazy(() => import('./screens/preprocess').then((m) => ({ default: m.Preprocess })))
 const Similarity = lazy(() => import('./screens/similarity').then((m) => ({ default: m.Similarity })))
 const Review = lazy(() => import('./screens/review').then((m) => ({ default: m.Review })))
 const Batch = lazy(() => import('./screens/batch').then((m) => ({ default: m.Batch })))
@@ -20,13 +20,16 @@ const Settings = lazy(() => import('./screens/settings').then((m) => ({ default:
 
 const SCREENS: Record<Screen, React.ComponentType> = {
   analyze: Analyze,
+  preprocess: Preprocess,
   compare: Compare,
-  neuron: Neuron3D,
   similarity: Similarity,
   review: Review,
   batch: Batch,
   settings: Settings,
 }
+
+// Alt+1..N for the rail screens, Alt+(N+1) for settings
+const SWITCH_KEYS = new RegExp(`^[1-${NAV.length + 1}]$`)
 
 function useShortcuts() {
   useEffect(() => {
@@ -44,7 +47,7 @@ function useShortcuts() {
         if (k === 'Escape') useApp.setState({ paletteOpen: false, helpOpen: false, exportOpen: false })
         return
       }
-      if (e.altKey && /^[1-7]$/.test(k)) {
+      if (e.altKey && SWITCH_KEYS.test(k)) {
         e.preventDefault()
         const order: Screen[] = [...NAV.map((n) => n.id), 'settings']
         app.setScreen(order[Number(k) - 1])
@@ -62,8 +65,8 @@ function useShortcuts() {
         return
       }
       if (app.screen === 'review') return // the workstation owns its own keys
-      const store = app.screen === 'compare' ? viewports.compare : viewports.main
-      const inViewer = ['analyze', 'compare'].includes(app.screen)
+      const store = app.screen === 'compare' ? viewports.compare : app.screen === 'preprocess' ? viewports.preprocess : viewports.main
+      const inViewer = ['analyze', 'preprocess', 'compare'].includes(app.screen)
       if (/^[1-9]$/.test(k) && inViewer) {
         const l = useLayers.getState().layers[Number(k) - 1]
         if (l) useLayers.getState().toggle(l.id)
@@ -130,7 +133,7 @@ function useShortcuts() {
           break
         case 'ArrowRight':
         case 'ArrowLeft': {
-          if (app.screen !== 'analyze' && app.screen !== 'neuron') break
+          if (app.screen !== 'analyze' && app.screen !== 'preprocess') break
           const ids = app.order
           const i = app.selected ? ids.indexOf(app.selected) : -1
           const next = ids[(i + (k === 'ArrowRight' ? 1 : -1) + ids.length) % ids.length]
@@ -161,7 +164,7 @@ export default function App() {
   useShortcuts()
   useEffect(() => startBackendSync(), [])
   const Screen = SCREENS[screen]
-  const showFilm = film && ['analyze', 'compare', 'neuron'].includes(screen)
+  const showFilm = film && ['analyze', 'preprocess', 'compare'].includes(screen)
   return (
     <MotionConfig reducedMotion="user">
       <AppFrame>

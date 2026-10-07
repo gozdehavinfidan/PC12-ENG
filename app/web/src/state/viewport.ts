@@ -27,6 +27,7 @@ export function createViewport(): ViewportStore {
 
 export const viewports = {
   main: createViewport(),
+  preprocess: createViewport(),
   compare: createViewport(),
   review: createViewport(),
 }

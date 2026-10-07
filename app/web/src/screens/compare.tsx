@@ -1,9 +1,9 @@
-import { ArrowLeftRight, ChevronDown, ChevronUp, Clock3, GripVertical } from 'lucide-react'
+import { ChevronDown, ChevronUp, GripVertical } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useMemo, useRef, useState } from 'react'
 import type { Result } from '../api/types'
 import { Cdf, Histogram, ntiColor, Polar } from '../charts/charts'
-import { Badge, Button, Segmented, Slider } from '../components/ui'
+import { Segmented } from '../components/ui'
 import { Viewer } from '../engine/viewer'
 import { areaUnit, areaVal, lenUnit, lenVal, signed } from '../lib/format'
 import { useApp } from '../state/app'
@@ -42,7 +42,7 @@ function DropSlot({ onDrop, children }: { onDrop: (id: string) => void; children
     <div
       className={s.slot}
       onDragOver={(e) => {
-        if (e.dataTransfer.types.includes('text/intellicell-image')) {
+        if (e.dataTransfer.types.includes('text/camex-image')) {
           e.preventDefault()
           setOver(true)
         }
@@ -50,7 +50,7 @@ function DropSlot({ onDrop, children }: { onDrop: (id: string) => void; children
       onDragLeave={() => setOver(false)}
       onDrop={(e) => {
         setOver(false)
-        const id = e.dataTransfer.getData('text/intellicell-image')
+        const id = e.dataTransfer.getData('text/camex-image')
         if (id) onDrop(id)
       }}
     >
@@ -73,7 +73,6 @@ export function Compare() {
   const rb = useApp((st) => (b ? st.results[b] : undefined))
   // collapsed by default: the images keep >= 70% of the screen (CLAUDE.md s5.1)
   const [drawer, setDrawer] = useState(false)
-  const [blend, setBlend] = useState(0.5)
   const views = useRef<HTMLDivElement>(null)
   const refNti = meanNti(ra)
 
@@ -112,24 +111,12 @@ export function Compare() {
           options={[
             { value: 'split', label: 'Side by side', tip: 'Two synced views' },
             { value: 'swipe', label: 'Swipe', tip: 'One view, draggable divider' },
-            { value: 'blend', label: 'Blend', tip: 'Cross-fade A → B' },
           ]}
         />
-        <Button size="sm" variant="ghost" onClick={() => setCompare({ a: b, b: a })} tip="Swap A and B">
-          <ArrowLeftRight size={15} /> Swap
-        </Button>
-        {mode === 'blend' && (
-          <div style={{ width: 220 }}>
-            <Slider label="A ← → B" value={blend} min={0} max={1} onChange={setBlend} format={(v) => `${Math.round(v * 100)}% B`} />
-          </div>
-        )}
         <div style={{ flex: 1 }} />
         <span className="muted" style={{ fontSize: 13 }}>
           Cell badges on B = cell NTI − mean cell NTI of A
         </span>
-        <Badge tip="Temporal view activates when time-series data arrives (TÜSEB temporal module)">
-          <Clock3 size={13} /> timepoints — awaiting data
-        </Badge>
       </div>
 
       <div className={s.compareViews} ref={views}>
@@ -151,17 +138,15 @@ export function Compare() {
             </div>
             <div
               className={s.swipeLayer}
-              style={mode === 'swipe' ? { clipPath: `inset(0 0 0 ${split * 100}%)` } : { opacity: blend, pointerEvents: blend > 0.5 ? 'auto' : 'none' }}
+              style={{ clipPath: `inset(0 0 0 ${split * 100}%)` }}
             >
               <Viewer key={`b-${b}`} imageId={b} store={viewports.compare} allowStack={false} labelMode="delta" deltaRef={refNti} />
             </div>
-            {mode === 'swipe' && (
-              <div className={s.divider} style={{ left: `${split * 100}%` }} onPointerDown={dragSplit}>
-                <div className={s.dividerKnob}>
-                  <GripVertical size={18} />
-                </div>
+            <div className={s.divider} style={{ left: `${split * 100}%` }} onPointerDown={dragSplit}>
+              <div className={s.dividerKnob}>
+                <GripVertical size={18} />
               </div>
-            )}
+            </div>
             <div style={{ position: 'absolute', top: 12, left: 60, zIndex: 7 }}>
               <SlotHead slot="A" id={a} />
             </div>

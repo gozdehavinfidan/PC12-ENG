@@ -1,4 +1,5 @@
-"""IntelliCell FastAPI server (localhost only).
+"""CAMEX FastAPI server (localhost only).
+CAMEX = Cellular Analysis of Morphology with XAI for PC12.
 
 Contract (CLAUDE.md s4): heavy work is a job -> POST returns 202 {job_id} and
 progress streams over SSE. Handlers only read cached files or hand work to
@@ -19,6 +20,10 @@ jobs.py / asyncio.to_thread, so the event loop always stays responsive.
   GET    /api/similarity               per-cell feature atlas (PCA), k-NN, group distances
   GET    /api/review/queue             images by uncertainty + review status
   POST   /api/label/{id}               annotation (versioned _seg files)
+  GET    /api/preproc                  active preprocessing config + schema + presets
+  PUT    /api/preproc                  {preset, params} -> becomes the pipeline config
+  POST   /api/preproc/presets          {name, params}   DELETE /api/preproc/presets/{name}
+  POST   /api/preproc/preview          {image_id, params, roi?, mode} -> 202 {job_id}; SSE "preview"
 """
 from __future__ import annotations
 
@@ -42,24 +47,44 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pipeline  # noqa: E402
+import preproc  # noqa: E402
 import registry  # noqa: E402
 from jobs import JobManager  # noqa: E402
 
 STATIC = registry.APP_DIR / "static"
-jobs = JobManager(tile_delay=float(os.environ.get("INTELLICELL_TILE_DELAY", "0.04")))
+jobs = JobManager(tile_delay=float(os.environ.get("CAMEX_TILE_DELAY") or os.environ.get("INTELLICELL_TILE_DELAY", "0.04")))
 SRC: dict[str, Path] = {}
+ACTIVE: dict = {"preset": "default", "params": preproc.defaults()}   # loaded in lifespan
+
+
+def _version() -> str:
+    return pipeline.model_version(ACTIVE["params"])
+
+
+def _ctx(image_id: str) -> dict:
+    """What the pipeline needs to know about an image beyond its pixels."""
+    m = registry.meta(image_id) or {}
+    ctx = {"modality": m.get("modality"), "preset": ACTIVE["preset"]}
+    if "um_per_px" in m:
+        ctx["um_per_px"] = m["um_per_px"]
+    return ctx
+
+
+def _submit(image_id: str, priority: str):
+    return jobs.submit(image_id, str(SRC[image_id]), str(registry.folder(image_id)), priority=priority,
+                       cfg=ACTIVE["params"], ctx=_ctx(image_id))
 
 
 # ---------------------------------------------------------------- bootstrap
 def _bootstrap_scan() -> None:
-    """Thread: directory scan, synthetic-cohort generation and cache freshness
-    checks touch the disk and must not freeze the event loop."""
+    """Thread: directory scan and cache freshness checks touch the disk and
+    must not freeze the event loop."""
     src = registry.sources()
     plan = []
     for image_id, path in src.items():
         if registry.meta(image_id) is None:
             plan.append((image_id, "prepare"))
-        elif not registry.is_fresh(image_id, path, pipeline.MODEL_VERSION):
+        elif not registry.is_fresh(image_id, path, _version()):
             plan.append((image_id, "infer"))
     jobs.loop.call_soon_threadsafe(_bootstrap_apply, src, plan)
 
@@ -78,12 +103,12 @@ def _prepared(image_id: str, fut) -> None:
         jobs._broadcast({"type": "image_error", "image_id": image_id, "message": str(fut.exception())})
         return
     jobs._broadcast({"type": "image", "image": registry.meta(image_id)})
-    if not registry.is_fresh(image_id, SRC[image_id], pipeline.MODEL_VERSION):
+    if not registry.is_fresh(image_id, SRC[image_id], _version()):
         _queue_background(image_id)
 
 
 def _queue_background(image_id: str) -> None:
-    jobs.submit(image_id, str(SRC[image_id]), str(registry.folder(image_id)), priority="background")
+    _submit(image_id, "background")
 
 
 def _finished(job) -> None:
@@ -94,8 +119,10 @@ def _finished(job) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    registry.purge_legacy()
     registry.IMAGES.mkdir(parents=True, exist_ok=True)
     registry.UPLOADS.mkdir(parents=True, exist_ok=True)
+    ACTIVE.update(preproc.load_active())
     jobs.on_finish = _finished
     jobs.start(asyncio.get_running_loop())
     threading.Thread(target=_bootstrap_scan, daemon=True, name="bootstrap").start()
@@ -104,7 +131,7 @@ async def lifespan(app: FastAPI):
 
 
 # Swagger/ReDoc load from a CDN -> disabled: the app must work fully offline.
-app = FastAPI(title="IntelliCell", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title="CAMEX", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
 
 def _need(image_id: str) -> Path:
@@ -124,10 +151,11 @@ def _result(image_id: str) -> dict:
 # ------------------------------------------------------------------- health
 @app.get("/api/health")
 def health():
-    active = [j.summary() for j in jobs.jobs.values() if j.state in ("queued", "running")]
-    return {"status": "ok", "mock": True,
-            "model": {"state": "ready" if jobs.ready else "warming", "version": pipeline.MODEL_VERSION,
-                      "provider": "classical CV (mock)", "runtime": "CPU", "warm_ms": jobs.warm_ms,
+    active = [j.summary() for j in jobs.jobs.values() if j.state in ("queued", "running") and j.kind == "infer"]
+    return {"status": "ok",
+            "model": {"state": "ready" if jobs.ready else "warming", "version": _version(),
+                      "provider": "classical pipeline", "preset": ACTIVE["preset"],
+                      "runtime": "CPU", "warm_ms": jobs.warm_ms,
                       "workers": {"interactive": jobs.n_workers[0], "background": jobs.n_workers[1]}},
             "data_dir": str(registry.DATA_DIR), "images": len(SRC), "active_jobs": active}
 
@@ -232,13 +260,13 @@ async def infer(request: Request):
     image_id = body.get("image_id")
     if image_id not in SRC:
         raise HTTPException(404, f"unknown image {image_id}")
-    job = jobs.submit(image_id, str(SRC[image_id]), str(registry.folder(image_id)), priority="interactive")
+    job = _submit(image_id, "interactive")
     return {"job_id": job.id, "image_id": image_id}
 
 
 @app.get("/api/jobs")
 def job_list():
-    return [j.summary() for j in sorted(jobs.jobs.values(), key=lambda j: -j.created)[:200]]
+    return [j.summary() for j in sorted(jobs.jobs.values(), key=lambda j: -j.created)[:200] if j.kind == "infer"]
 
 
 @app.get("/api/jobs/{job_id}")
@@ -349,7 +377,6 @@ def _roi_metrics(image_id: str, poly: list) -> dict:
         "neurite_length_px": round(sum(b["length_px"] for b in brs), 1),
         "junctions": len(juncs),
         "angles_deg": [a for j in juncs for a in j["angles_deg"]],
-        "mock": True,
     }
 
 
@@ -372,30 +399,32 @@ def export(image_id: str, kind: str):
         buf = io.StringIO()
         wr = csv.writer(buf)
         wr.writerow(["cell_id", "x", "y", "area_px", "area_um2", "circularity", "eccentricity", "category",
-                     "neurite_length_px", "branches", "confidence", "cell_nti", "outlier", "mock"])
+                     "neurite_length_px", "branches", "confidence", "cell_nti", "outlier", "preproc_hash"])
         for c in r["cells"]:
             wr.writerow([c["id"], c["centroid"][0], c["centroid"][1], c["area_px"],
                          round(c["area_px"] * um * um, 2) if um else "", c["circularity"], c["eccentricity"],
                          c["category"], c["neurite_length_px"], c["branches"], c["confidence"], c["nti"],
-                         int(c["outlier"]), 1])
+                         int(c["outlier"]), (r.get("preproc") or {}).get("hash", "")])
         return Response(buf.getvalue(), media_type="text/csv",
                         headers={"Content-Disposition": f'attachment; filename="{image_id}_cells.csv"'})
     if kind == "neurites.csv":
         buf = io.StringIO()
         wr = csv.writer(buf)
         wr.writerow(["branch_id", "cell_id", "length_px", "length_um", "tortuosity", "orientation_deg",
-                     "junctions", "endpoints", "mock"])
+                     "junctions", "endpoints", "preproc_hash"])
         for b in r["neurites"]:
             wr.writerow([b["id"], b.get("cell_id") or "", b["length_px"],
                          round(b["length_px"] * um, 2) if um else "", b["tortuosity"],
-                         b["orientation_deg"], b["junctions"], b["endpoints"], 1])
+                         b["orientation_deg"], b["junctions"], b["endpoints"], (r.get("preproc") or {}).get("hash", "")])
         return Response(buf.getvalue(), media_type="text/csv",
                         headers={"Content-Disposition": f'attachment; filename="{image_id}_neurites.csv"'})
     if kind == "report.txt":
         s = r["summary"]
-        lines = [f"IntelliCell report - {image_id}", f"model_version: {r['model_version']}  (MOCK DATA - classical CV placeholder)",
-                 f"image: {r['width']}x{r['height']} px, scale: {um:.3f} um/px [VERIFY]" if um else "scale: unknown (px units)", "",
-                 f"NTI score: {r['nti']['score']:.3f}  (mock formula, not the TUSEB NTI)" if r['nti']['score'] is not None else "NTI score: n/a (no somata detected)"]
+        pp = r.get("preproc") or {}
+        lines = [f"CAMEX report - {image_id}", "Cellular Analysis of Morphology with XAI for PC12", "",
+                 f"pipeline: {r['model_version']}  (classical segmentation, preset '{pp.get('preset', 'default')}')",
+                 f"image: {r['width']}x{r['height']} px, scale: {um:.4f} um/px" if um else f"image: {r['width']}x{r['height']} px, scale: uncalibrated (px units)", "",
+                 f"NTI score: {r['nti']['score']:.3f}  (uncalibrated formula: weights not yet fitted to the TUSEB reference)" if r['nti']['score'] is not None else "NTI score: n/a (no somata detected)"]
         lines += [f"  contribution {k:<15} {v:+.3f}" for k, v in r["nti"]["contrib"].items()]
         lines += ["", f"cells: {s['cell_count']}   junctions: {s['junction_count']}   endpoints: {s['endpoint_count']}"]
         for key, label in (("neurite_length_px", "neurite length (px)"), ("branches_per_cell", "branches / cell"),
@@ -405,6 +434,9 @@ def export(image_id: str, kind: str):
             lines.append(f"{label:<24} mean {v['mean']:.2f}  median {v['median']:.2f}  std {v['std']:.2f}  CV {v['cv']:.2f}  n {v['n']}")
         lines += ["", "QC:"] + [f"  {k}: {v}" for k, v in r["qc"].items() if k != "warnings"]
         lines += [f"  WARNING {w['code']}: {w['text']}" for w in r["qc"]["warnings"]] or ["  no warnings"]
+        if pp.get("params"):
+            lines += ["", "Preprocessing parameters:"]
+            lines += [f"  {sec}.{k} = {v}" for sec, kv in pp["params"].items() for k, v in kv.items()]
         return PlainTextResponse("\n".join(lines) + "\n",
                                  headers={"Content-Disposition": f'attachment; filename="{image_id}_report.txt"'})
     raise HTTPException(404)
@@ -415,11 +447,14 @@ FEATURES = ["area_px", "circularity", "eccentricity", "neurite_length_px", "bran
 _sim_cache: dict = {}
 
 
-def _similarity() -> dict:
+GROUP_KEYS = ("condition", "group", "modality", "batch")
+
+
+def _similarity(group: str | None = None) -> dict:
     stamp = tuple(sorted((i, (registry.folder(i) / "result.json").stat().st_mtime)
                          for i in SRC if (registry.folder(i) / "result.json").exists()))
     cond = registry.conditions()
-    key = (stamp, json.dumps(cond, sort_keys=True))
+    key = (stamp, json.dumps(cond, sort_keys=True), group)
     if _sim_cache.get("key") == key:
         return _sim_cache["value"]
     rows, X = [], []
@@ -430,10 +465,11 @@ def _similarity() -> dict:
             rows.append({"image_id": image_id, "cell_id": c["id"], "bbox": c["bbox"],
                          "centroid": c["centroid"], "batch": m.get("batch", "unknown"),
                          "condition": m.get("condition", "unassigned"), "outlier": c["outlier"],
+                         "group": m.get("group") or "unknown", "modality": m.get("modality") or "unknown",
                          **{f: c.get(f, 0) for f in FEATURES}})
             X.append([float(c.get(f, 0) or 0) for f in FEATURES])
     if len(X) < 3:
-        return {"cells": [], "features": FEATURES, "groups": [], "method": "pca", "mock": True}
+        return {"cells": [], "features": FEATURES, "groups": [], "method": "pca", "group_key": group or "condition"}
     X = np.asarray(X)
     X[:, 0] = np.log1p(X[:, 0])
     X[:, 3] = np.log1p(X[:, 3])
@@ -462,7 +498,7 @@ def _similarity() -> dict:
     robust_r = np.sqrt((Z ** 2).mean(axis=1))
     # group distances: by condition when >= 2 real conditions exist, else by batch
     conds = sorted({r["condition"] for r in rows if r["condition"] != "unassigned"})
-    group_key = "condition" if len(conds) >= 2 else "batch"
+    group_key = group if group in GROUP_KEYS else ("condition" if len(conds) >= 2 else "batch")
     labels = np.array([r[group_key] for r in rows])
     names = [g for g in sorted(set(labels)) if (labels == g).sum() >= 3]
     groups = []
@@ -483,14 +519,14 @@ def _similarity() -> dict:
     value = {"cells": rows, "features": FEATURES, "method": "pca",
              "explained_variance": [round(float(v), 3) for v in var[:2]], "group_key": group_key,
              "groups": groups, "batches": sorted({r["batch"] for r in rows}),
-             "conditions": sorted({r["condition"] for r in rows}), "mock": True}
+             "conditions": sorted({r["condition"] for r in rows})}
     _sim_cache.update(key=key, value=value)
     return value
 
 
 @app.get("/api/similarity")
-async def similarity():
-    return await asyncio.to_thread(_similarity)
+async def similarity(group: str | None = None):
+    return await asyncio.to_thread(_similarity, group)
 
 
 # ------------------------------------------------------------------- review
@@ -548,7 +584,98 @@ async def label_post(image_id: str, status: str = Form(...), issues: str = Form(
     return rec
 
 
+# ------------------------------------------------------------ preprocessing
+def _stale_ids() -> list[str]:
+    v = _version()
+    out = []
+    for image_id in SRC:
+        m = registry.meta(image_id)
+        if m and m.get("has_result") and m.get("model_version") != v:
+            out.append(image_id)
+    return out
+
+
+@app.get("/api/preproc")
+def preproc_get():
+    return {"preset": ACTIVE["preset"], "params": ACTIVE["params"], "hash": preproc.cfg_hash(ACTIVE["params"]),
+            "version": _version(), "schema": preproc.SCHEMA, "defaults": preproc.defaults(),
+            "presets": preproc.list_presets(), "stale": len(_stale_ids())}
+
+
+@app.put("/api/preproc")
+async def preproc_put(request: Request):
+    """The posted config becomes the pipeline config for every later analysis.
+    Existing results are kept but reported stale (their model_version differs)."""
+    body = await request.json()
+    rec = await asyncio.to_thread(preproc.save_active, str(body.get("preset") or "custom")[:40], body.get("params") or {})
+    ACTIVE.update(rec)
+    # jobs that have not started yet would run with the old settings: resubmit
+    # them (submit() supersedes the queued job of the same image)
+    for j in list(jobs.jobs.values()):
+        if j.kind == "infer" and j.state == "queued" and j.image_id in SRC:
+            _submit(j.image_id, j.priority)
+    stale = await asyncio.to_thread(_stale_ids)
+    jobs._broadcast({"type": "preproc", "preset": ACTIVE["preset"], "version": _version(), "stale": len(stale)})
+    return {**rec, "hash": preproc.cfg_hash(rec["params"]), "version": _version(), "stale": len(stale)}
+
+
+@app.post("/api/preproc/presets")
+async def preset_save(request: Request):
+    body = await request.json()
+    try:
+        return await asyncio.to_thread(preproc.save_preset, str(body.get("name") or ""), body.get("params") or {})
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.delete("/api/preproc/presets/{name}")
+def preset_delete(name: str):
+    return {"deleted": preproc.delete_preset(name)}
+
+
+@app.post("/api/preproc/preview", status_code=202)
+async def preproc_preview(request: Request):
+    body = await request.json()
+    image_id = body.get("image_id")
+    if image_id not in SRC:
+        raise HTTPException(404, f"unknown image {image_id}")
+    mode = body.get("mode") if body.get("mode") in ("preview", "try_all") else "preview"
+    d = await _ensure_prepared(image_id)
+    ctx = _ctx(image_id)
+    job = jobs.submit_preview(image_id, str(d / "raw.png"), preproc.normalize(body.get("params")),
+                              body.get("roi"), mode, ctx)
+    return {"job_id": job.id, "image_id": image_id}
+
+
+@app.post("/api/reanalyse", status_code=202)
+async def reanalyse(request: Request):
+    """Queue background re-analysis. scope: stale (results from an older config),
+    pending (never analysed) or all."""
+    body = await request.json()
+    scope = body.get("scope", "stale")
+    if scope == "stale":
+        ids = await asyncio.to_thread(_stale_ids)
+    else:
+        def pick():
+            return [i for i in SRC if scope == "all" or not (registry.meta(i) or {}).get("has_result")]
+        ids = await asyncio.to_thread(pick)
+    for image_id in ids:
+        _queue_background(image_id)
+    return {"queued": len(ids)}
+
+
 # ------------------------------------------------------------------- static
+@app.middleware("http")
+async def _no_stale_shell(request: Request, call_next):
+    """index.html must always be revalidated, otherwise a rebuilt UI keeps
+    loading the previous bundle; hashed /assets/* files stay cacheable."""
+    resp = await call_next(request)
+    p = request.url.path
+    if not p.startswith("/api/") and not p.startswith("/assets/"):
+        resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
 if STATIC.exists():
     app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")
 
@@ -561,4 +688,4 @@ def serve(port: int = 8765) -> None:
 
 if __name__ == "__main__":
     mp.freeze_support()
-    serve(int(os.environ.get("INTELLICELL_PORT", "8765")))
+    serve(int(os.environ.get("CAMEX_PORT") or os.environ.get("INTELLICELL_PORT", "8765")))

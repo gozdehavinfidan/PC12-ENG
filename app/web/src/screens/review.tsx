@@ -154,6 +154,42 @@ class Annotation {
     return out
   }
 
+  /**
+   * Merge object B into object A. The annotation is a class map (no instance
+   * ids), so "object" = connected component: B takes A's class and the two are
+   * joined by a one-pixel bridge between their closest pixels, which makes them
+   * one connected object. Returns false when the two clicks hit the same object.
+   */
+  merge(a: number[], b: number[]) {
+    if (a.length === 0 || b.length === 0 || a.includes(b[0])) return false
+    const cls = this.map[a[0]]
+    const cap = 1500
+    const sa = a.length > cap ? a.filter((_, i) => i % Math.ceil(a.length / cap) === 0) : a
+    const sb = b.length > cap ? b.filter((_, i) => i % Math.ceil(b.length / cap) === 0) : b
+    let best = Infinity
+    let pa = sa[0]
+    let pb = sb[0]
+    for (const i of sa) {
+      const xi = i % this.w
+      const yi = (i - xi) / this.w
+      for (const j of sb) {
+        const xj = j % this.w
+        const d = (xi - xj) ** 2 + (yi - (j - xj) / this.w) ** 2
+        if (d < best) {
+          best = d
+          pa = i
+          pb = j
+        }
+      }
+    }
+    for (const i of b) this.map[i] = cls
+    const ax = pa % this.w
+    const bx = pb % this.w
+    this.line(ax, (pa - ax) / this.w, bx, (pb - bx) / this.w, 1, cls)
+    this.paintRect(0, 0, this.w, this.h)
+    return true
+  }
+
   async toPNG() {
     const oc = new OffscreenCanvas(this.w, this.h)
     const g = oc.getContext('2d')!
@@ -280,17 +316,26 @@ export function Review() {
         return true
       }
       if (t === 'merge') {
+        const toast = useApp.getState().toast
         if (!mergeFirst.current) {
           if (ann.component(img.x, img.y).length) mergeFirst.current = img
+          else toast({ tone: 'info', title: 'Click an object to start the merge' })
           force((k) => k + 1)
         } else {
-          const a = mergeFirst.current
+          const first = ann.component(mergeFirst.current.x, mergeFirst.current.y)
+          const second = ann.component(img.x, img.y)
+          if (!second.length) {
+            toast({ tone: 'info', title: 'Click the second object', body: 'The click landed on background.' })
+            return true
+          }
           ann.snapshot()
-          const v = ann.map[Math.floor(a.y) * ann.w + Math.floor(a.x)] || cls
-          ann.line(a.x, a.y, img.x, img.y, Math.max(2, size * 0.6), v)
+          if (ann.merge(first, second)) bump()
+          else {
+            ann.undo.pop()
+            toast({ tone: 'info', title: 'Pick a different object', body: 'Both clicks are on the same object.' })
+          }
           mergeFirst.current = null
           force((k) => k + 1)
-          bump()
         }
         return true
       }
@@ -567,7 +612,7 @@ export function Review() {
               <Switch on={showAnn} onChange={setShowAnn} label="Annotation" />
             </div>
             <span className="muted" style={{ fontSize: 13, lineHeight: 1.5 }}>
-              Blue flicker = model uncertainty. Start where it is densest.
+              Blue = segmentation uncertainty (pixels near the threshold). Start where it is densest.
             </span>
           </div>
         </Section>

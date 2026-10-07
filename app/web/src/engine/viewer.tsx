@@ -270,7 +270,8 @@ export function Viewer({
     flyTo(store, img.x, img.y, Math.min(MAX_ZOOM, v.zoom * 2.2), 380)
   }
 
-  const uncVisible = effectiveVisible(layers, solo, 'uncertainty') && (!forceLayers || forceLayers.includes('uncertainty'))
+  // Review forces the uncertainty layer on (it is that screen's subject)
+  const uncVisible = forceLayers ? forceLayers.includes('uncertainty') : effectiveVisible(layers, solo, 'uncertainty')
   const streaming = !!live && (live.state === 'queued' || live.state === 'running')
   const frameloop = (uncVisible && flickerPref) || streaming || animating || stack ? 'always' : 'demand'
   const onAssets = useCallback((a: ImageAssets) => {
@@ -604,13 +605,13 @@ function ScaleBar({ imageId, store }: { imageId: string; store: ViewportStore })
       const unitsPerPx = (um ?? 1) / v.zoom
       const n = niceScale(unitsPerPx, 100)
       if (line.current) line.current.style.width = `${n.px}px`
-      if (text.current) text.current.textContent = `${n.value >= 1 ? n.value.toFixed(0) : n.value} ${um ? 'µm' : 'px'}`
+      if (text.current) text.current.textContent = `${n.value >= 1 ? n.value.toFixed(0) : n.value} ${um ? 'µm' : 'px · uncalibrated'}`
     }
     place()
     return store.subscribe(place)
   }, [store, um])
   return (
-    <div className={`${s.scalebar} ${s.glass}`} title={um ? `Calibration ${um.toFixed(4)} µm/px from CZI metadata [VERIFY — D5 open]` : 'No calibration: pixel units'}>
+    <div className={`${s.scalebar} ${s.glass}`} title={um ? `Calibration ${um.toFixed(4)} µm/px` : 'Uncalibrated: pixel units (set µm/px in Settings)'}>
       <div ref={line} className={s.scaleLine} />
       <span ref={text} className={s.scaleText} />
     </div>

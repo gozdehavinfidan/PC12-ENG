@@ -1,4 +1,4 @@
-// Contract test: a recorded SSE stream from the real pipeline (synthetic image,
+// Contract test: a recorded SSE stream from the real pipeline (recorded image,
 // safe to commit) must satisfy the event protocol the UI is built on
 // (CLAUDE.md s4.1 / s8). Run: npm test
 import { readFileSync } from 'node:fs'
@@ -42,11 +42,10 @@ describe('SSE job stream (fixture replay)', () => {
     expect(tiles.every((t) => t.png.startsWith('iVBOR'))).toBe(true) // base64 PNG magic
   })
 
-  it('ends with a s8-shaped result flagged mock, then done', () => {
+  it('ends with a s8-shaped result, then done', () => {
     const last = events[events.length - 1]
     expect(last.type).toBe('done')
     const r = (events.find((e) => e.type === 'result') as { result: Result }).result
-    expect(r.mock).toBe(true)
     for (const k of ['image_id', 'model_version', 'cells', 'neurites', 'angles_deg', 'nti', 'qc'] as const) expect(r).toHaveProperty(k)
     expect(Object.keys(r.nti.contrib).sort()).toEqual(['angle', 'branching', 'neurite_length', 'soma'])
     expect(r.nti.score).toBeGreaterThanOrEqual(0)

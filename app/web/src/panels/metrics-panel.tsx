@@ -1,4 +1,4 @@
-import { Download, FileText, Image as ImageIcon, Play, Table } from 'lucide-react'
+import { Download, FileText, Play, Table } from 'lucide-react'
 import { motion } from 'motion/react'
 import { urls } from '../api/client'
 import type { Result, Summary } from '../api/types'
@@ -32,6 +32,7 @@ export function MetricsPanel({ imageId }: { imageId: string | null }) {
   const result = useApp((st) => (imageId ? st.results[imageId] : undefined))
   const live = useApp((st) => (imageId ? st.live[imageId] : undefined))
   const meta = useApp((st) => (imageId ? st.images[imageId] : undefined))
+  const imageError = useApp((st) => (imageId ? st.imageErrors[imageId] : undefined))
   const um = useApp((st) => (imageId ? st.umPerPx(imageId) : null))
   const streaming = !!live && (live.state === 'running' || live.state === 'queued')
 
@@ -42,8 +43,8 @@ export function MetricsPanel({ imageId }: { imageId: string | null }) {
       <div className={s.hero}>
         <div className={s.heroTop}>
           <span className="eyebrow">Neural Toxicity Index</span>
-          <Badge color="#f5b93a" tip="Placeholder formula until the TÜSEB NTI is fitted — shape is final, numbers are not">
-            mock formula
+          <Badge color="#f5b93a" tip="NTI weights are a provisional formula until fitted to the TÜSEB reference cohort.">
+            uncalibrated
           </Badge>
         </div>
         <div className={s.heroMain}>
@@ -76,6 +77,24 @@ export function MetricsPanel({ imageId }: { imageId: string | null }) {
         </div>
         {result && !streaming && <ContribBars contrib={result.nti.contrib} />}
       </div>
+
+      {meta && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '10px 0' }}>
+          {(meta.modality_label ?? meta.modality) && <Badge tip={meta.modality ?? undefined}>{meta.modality_label ?? meta.modality}</Badge>}
+          {meta.variant && <Badge tip="Processed variant of another acquisition">{meta.variant}</Badge>}
+          {meta.qc_flag && (
+            <Badge color="#f5b93a" tip="Flagged when the image set was registered">
+              QC: {meta.qc_flag}
+            </Badge>
+          )}
+          {imageError && (
+            <Badge color="#ff5c6c" tip={imageError}>
+              preparation failed
+            </Badge>
+          )}
+          <Badge tip={um ? `${um.toFixed(4)} µm per pixel` : 'No scale known: lengths and areas are in pixels'}>{um ? `${um.toFixed(3)} µm/px` : 'uncalibrated'}</Badge>
+        </div>
+      )}
 
       {streaming && live && (
         <motion.div className={s.liveBox} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
@@ -224,4 +243,3 @@ function ParamCards({ result, um }: { result: Result; um: number | null }) {
   )
 }
 
-export const ExportIcons = { ImageIcon }

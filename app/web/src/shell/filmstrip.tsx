@@ -84,7 +84,7 @@ export function Filmstrip({ mode = 'select' }: { mode?: 'select' | 'compare' }) 
   }, [selected, compare.b, mode, items])
 
   const done = order.filter((id) => images[id]?.has_result).length
-  const click = (id: string, e: React.MouseEvent) => {
+  const click = (id: string, e: { shiftKey: boolean; altKey: boolean }) => {
     const app = useApp.getState()
     if (mode === 'compare') {
       if (e.shiftKey || e.altKey) app.setCompare({ a: id })
@@ -126,8 +126,8 @@ export function Filmstrip({ mode = 'select' }: { mode?: 'select' | 'compare' }) 
         {items.slice(range[0], range[1]).map((it) => {
           if (it.kind === 'group')
             return (
-              <div key={`g-${it.label}`} className={s.filmGroup} title="Acquisition batch (from CZI metadata)">
-                <span className="eyebrow" style={{ fontSize: 12 }}>Batch</span>
+              <div key={`g-${it.label}`} className={s.filmGroup} title="Session group · acquisition date (cohort manifest)">
+                <span className="eyebrow" style={{ fontSize: 12 }}>Acquired</span>
                 <b>{it.label}</b>
                 <span>{it.count} images</span>
               </div>
@@ -144,11 +144,11 @@ export function Filmstrip({ mode = 'select' }: { mode?: 'select' | 'compare' }) 
               data-selected={sel}
               role="button"
               tabIndex={0}
-              title={`${m?.name ?? it.id}${m?.condition && m.condition !== 'unassigned' ? ` · ${m.condition}` : ''}${mode === 'compare' ? ' — click = B (test), Shift+click = A (reference)' : ''}`}
+              title={`${[m?.name ?? it.id, m?.condition && m.condition !== 'unassigned' ? m.condition : null, m?.modality_label ?? m?.modality, m?.variant, m?.qc_flag ? `QC: ${m.qc_flag}` : null].filter(Boolean).join(' · ')}${mode === 'compare' ? ' — click = B (test), Shift+click = A (reference)' : ''}`}
               onClick={(e) => click(it.id, e)}
-              onKeyDown={(e) => e.key === 'Enter' && useApp.getState().select(it.id)}
+              onKeyDown={(e) => e.key === 'Enter' && click(it.id, e)}
               draggable
-              onDragStart={(e) => e.dataTransfer.setData('text/intellicell-image', it.id)}
+              onDragStart={(e) => e.dataTransfer.setData('text/camex-image', it.id)}
             >
               {m?.pending ? <div className={s.pendingThumb}>preparing…</div> : <img src={urls.thumb(it.id)} alt="" loading="lazy" draggable={false} />}
               <div className={s.thumbTag}>
@@ -164,7 +164,7 @@ export function Filmstrip({ mode = 'select' }: { mode?: 'select' | 'compare' }) 
                 )}
                 {m?.variant && (
                   <span className={s.slotTag} style={{ background: '#44475a', fontWeight: 500 }}>
-                    variant
+                    {m.variant}
                   </span>
                 )}
               </div>

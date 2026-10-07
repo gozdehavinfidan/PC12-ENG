@@ -39,7 +39,7 @@ def _warm() -> str:
     return os.getpid().__str__()
 
 
-def _run_job(job_id, image_id, src, out_dir, q, flags, stream, tile_delay):
+def _run_job(job_id, image_id, src, out_dir, q, flags, stream, tile_delay, cfg=None, ctx=None):
     """Write into a private staging folder; publish into out_dir only if this
     job was not cancelled/superseded, so a job that loses the race can never
     overwrite the output of the job that replaced it."""
@@ -54,7 +54,7 @@ def _run_job(job_id, image_id, src, out_dir, q, flags, stream, tile_delay):
     try:
         emit({"type": "started", "pid": os.getpid()})
         res = pipeline.run(image_id, src, stage, emit, lambda: flags.get(job_id, False),
-                           stream_tiles=stream, tile_delay=tile_delay)
+                           stream_tiles=stream, tile_delay=tile_delay, cfg=cfg, ctx=ctx)
         (stage / "result.json").write_text(json.dumps(res), encoding="utf-8")
         if flags.get(job_id, False):
             raise pipeline.JobCancelled()
@@ -70,6 +70,28 @@ def _run_job(job_id, image_id, src, out_dir, q, flags, stream, tile_delay):
         shutil.rmtree(stage, ignore_errors=True)
 
 
+def _run_preview(job_id, raw_png, cfg, roi, mode, ctx, q, flags):
+    """Preprocess-screen preview of one region; a newer preview supersedes it."""
+    import pipeline
+
+    def emit(ev):
+        q.put((job_id, ev))
+
+    try:
+        emit({"type": "started", "pid": os.getpid()})
+        if flags.get(job_id, False):
+            raise pipeline.JobCancelled()
+        ev = pipeline.preview(raw_png, cfg, roi, mode, ctx)
+        if flags.get(job_id, False):
+            raise pipeline.JobCancelled()
+        emit(ev)
+        emit({"type": "done"})
+    except pipeline.JobCancelled:
+        emit({"type": "cancelled"})
+    except Exception as e:
+        emit({"type": "error", "message": f"{type(e).__name__}: {e}"})
+
+
 def _run_prepare(image_id, src):
     import registry
 
@@ -81,6 +103,7 @@ class Job:
     id: str
     image_id: str
     priority: str
+    kind: str = "infer"              # infer | preview
     state: str = "queued"            # queued | running | done | failed | cancelled
     progress: float = 0.0
     stage: str | None = None
@@ -96,7 +119,7 @@ class Job:
     future: object = None
 
     def summary(self) -> dict:
-        return {"id": self.id, "image_id": self.image_id, "priority": self.priority,
+        return {"id": self.id, "image_id": self.image_id, "priority": self.priority, "kind": self.kind,
                 "state": self.state, "progress": round(self.progress, 4), "stage": self.stage,
                 "created": self.created, "started": self.started, "finished": self.finished,
                 "error": self.error, "tiles_done": self.tiles_done, "tiles_total": self.tiles_total}
@@ -145,10 +168,11 @@ class JobManager:
         self.manager.shutdown()
 
     # ------------------------------------------------------------------ jobs
-    def submit(self, image_id: str, src: str, out_dir: str, priority: str = "interactive") -> Job:
+    def submit(self, image_id: str, src: str, out_dir: str, priority: str = "interactive",
+               cfg: dict | None = None, ctx: dict | None = None) -> Job:
         # supersede: an interactive job replaces any active job of the same image
         for j in list(self.jobs.values()):
-            if j.image_id == image_id and j.state in ("queued", "running"):
+            if j.kind == "infer" and j.image_id == image_id and j.state in ("queued", "running"):
                 if priority == "interactive" or j.priority == "background":
                     self.cancel(j.id, reason="superseded")
                 else:
@@ -158,8 +182,20 @@ class JobManager:
         pool = self.pool_i if priority == "interactive" else self.pool_b
         stream = priority == "interactive"
         job.future = pool.submit(_run_job, job.id, image_id, str(src), str(out_dir),
-                                 self.q, self.flags, stream, self.tile_delay if stream else 0.0)
+                                 self.q, self.flags, stream, self.tile_delay if stream else 0.0, cfg, ctx)
         self._broadcast({"type": "job", "job": job.summary()})
+        self._trim()
+        return job
+
+    def submit_preview(self, image_id: str, raw_png: str, cfg: dict, roi, mode: str, ctx: dict) -> Job:
+        """Previews run in the interactive pool; the newest preview of an image
+        supersedes older ones (dragging a slider never queues a backlog)."""
+        for j in list(self.jobs.values()):
+            if j.kind == "preview" and j.image_id == image_id and j.state in ("queued", "running"):
+                self.cancel(j.id, reason="superseded")
+        job = Job(id=f"p{next(self._ids)}", image_id=image_id, priority="interactive", kind="preview")
+        self.jobs[job.id] = job
+        job.future = self.pool_i.submit(_run_preview, job.id, raw_png, cfg, roi, mode, ctx, self.q, self.flags)
         self._trim()
         return job
 
@@ -206,7 +242,7 @@ class JobManager:
             job.progress = lo + (hi - lo) * job.tiles_done / job.tiles_total
         elif t == "done":
             job.state, job.progress, job.finished = "done", 1.0, time.time()
-            if self.on_finish:
+            if self.on_finish and job.kind == "infer":
                 self.on_finish(job)
         elif t == "cancelled":
             job.state, job.finished = "cancelled", time.time()
@@ -219,6 +255,8 @@ class JobManager:
             idx = job.base + len(job.events)
         for q in list(job.subscribers):
             q.put_nowait((idx, ev))
+        if job.kind == "preview":
+            return                       # previews are private to their SSE stream
         if t in ("started", "stage", "done", "cancelled", "error", "progress") or (t == "tile" and ev["i"] % 4 == 0):
             self._broadcast({"type": "job", "job": job.summary()})
 
@@ -250,7 +288,7 @@ class JobManager:
         for j in done[:-HISTORY_KEEP]:
             # drop the heavy tile pixels, keep result + terminal event so a late
             # subscriber still ends cleanly
-            if any(e["type"] == "tile" for e in j.events):
+            if any(e["type"] in ("tile", "preview") for e in j.events):
                 kept = [e for e in j.events if e["type"] in ("result", "done", "error", "cancelled")]
                 j.base += len(j.events) - len(kept)
                 j.events = kept

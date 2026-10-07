@@ -37,7 +37,7 @@ export interface RawAdjust {
 
 const DEFAULT_LAYERS: LayerState[] = [
   { id: 'raw', name: 'Micrograph', hint: 'Raw image · window/level, colormap, filters', color: '#9ea3c0', visible: true, opacity: 1, kind: 'image' },
-  { id: 'uncertainty', name: 'Uncertainty', hint: 'Where the segmentation is least sure', color: '#6d8bff', visible: true, opacity: 0.85, kind: 'mask' },
+  { id: 'uncertainty', name: 'Uncertainty', hint: 'Where the segmentation is least sure', color: '#6d8bff', visible: false, opacity: 0.85, kind: 'mask' },
   { id: 'soma', name: 'Soma mask', hint: 'Cell bodies · NTI parameter 4', color: '#ffb86c', visible: true, opacity: 0.8, kind: 'mask' },
   { id: 'neurite', name: 'Neurite mask', hint: 'Neurites · NTI parameter 1', color: '#8be9fd', visible: true, opacity: 0.7, kind: 'mask' },
   { id: 'skeleton', name: 'Skeleton', hint: 'Centre-lines used for length', color: '#f1f1ec', visible: false, opacity: 0.9, kind: 'mask' },

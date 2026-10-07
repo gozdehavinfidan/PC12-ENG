@@ -321,7 +321,7 @@ export function ContribBars({ contrib, width = 290 }: { contrib: Record<ContribK
         const v = contrib[k] ?? 0
         const w = (Math.min(lim, Math.abs(v)) / lim) * half
         return (
-          <div key={k} className={s.contribRow} title={`${CONTRIB_LABEL[k]} contributes ${v >= 0 ? '+' : ''}${v.toFixed(3)} to NTI (mock formula)`}>
+          <div key={k} className={s.contribRow} title={`${CONTRIB_LABEL[k]} contributes ${v >= 0 ? '+' : ''}${v.toFixed(3)} to NTI (uncalibrated formula)`}>
             <span className={s.contribLabel}>{CONTRIB_LABEL[k]}</span>
             <svg width={width - 120} height={16}>
               <line x1={mid - 120} x2={mid - 120} y1={0} y2={16} stroke="var(--line-3)" />

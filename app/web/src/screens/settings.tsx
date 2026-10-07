@@ -50,6 +50,7 @@ export function Settings() {
   const [h, setH] = useState<Health | null>(null)
   const backendUp = useApp((st) => st.backendUp)
   const prefs = useApp((st) => st.prefs)
+  const setCalibration = useApp((st) => st.setCalibration)
   const selected = useApp((st) => st.selected)
   const meta = useApp((st) => (selected ? st.images[selected] : undefined))
   const [external, setExternal] = useState<number | null>(null)
@@ -74,7 +75,7 @@ export function Settings() {
       <div className={s.pageHead}>
         <div>
           <h1 className={s.pageTitle}>Settings &amp; runtime</h1>
-          <div className={s.pageSub}>IntelliCell runs entirely on this computer: React UI ↔ FastAPI on localhost ↔ pipeline workers (ONNX CPU when the model lands).</div>
+          <div className={s.pageSub}>CAMEX (Cellular Analysis of Morphology with XAI for PC12) runs entirely on this computer: React UI ↔ FastAPI on localhost ↔ pipeline workers (classical image-processing pipeline).</div>
         </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 14 }}>
@@ -86,15 +87,17 @@ export function Settings() {
           <Row k="workers" v={h ? `${h.model.workers.interactive} interactive + ${h.model.workers.background} background` : '—'} />
           <Row k="warm-up" v={h?.model.warm_ms != null ? `${h.model.warm_ms} ms` : '—'} />
           <Row k="data folder" v={<span title={h?.data_dir} style={{ display: 'block', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', direction: 'rtl', textAlign: 'right' }}>{h?.data_dir ?? '—'}</span>} />
-          <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 8, fontSize: 13, lineHeight: 1.5, color: 'var(--warn)', background: 'color-mix(in oklab, var(--warn) 10%, transparent)', boxShadow: 'inset 0 0 0 1px color-mix(in oklab, var(--warn) 40%, transparent)' }}>
-            <b>Mock pipeline.</b> Classical-CV placeholder until the trained model is exported to ONNX.
+          <Row k="preset" v={h?.model.preset ?? '—'} />
+          <Row k="images" v={h ? String(h.images) : '—'} />
+          <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 8, fontSize: 13, lineHeight: 1.5, color: 'var(--text-2)', background: 'var(--bg-raised)', boxShadow: 'inset 0 0 0 1px var(--line-2)' }}>
+            <b>Classical image-processing pipeline.</b> No trained model is loaded; every number comes from the preset shown above.
           </div>
         </Card>
 
         <Card icon={<WifiOff size={18} />} title="Offline guarantee">
           <Row k="external requests this session" v={external == null ? '—' : <span style={{ color: external === 0 ? 'var(--ok)' : 'var(--bad)' }}>{external}</span>} />
           <Row k="fonts" v="Geist + Geist Mono, bundled" />
-          <Row k="3D engine / charts" v="three.js, d3 — bundled" />
+          <Row k="rendering / charts" v="three.js, d3 — bundled" />
           <Row k="inference" v="Python worker (never in the browser)" />
           <p className="muted" style={{ fontSize: 13, lineHeight: 1.6, marginTop: 10 }}>
             No CDN, no telemetry, no API docs from the web — the whole app is a static bundle served from localhost.
@@ -103,7 +106,7 @@ export function Settings() {
 
         <Card icon={<Ruler size={18} />} title="Calibration">
           <Row k="image" v={meta?.name ?? 'select an image in Analyze'} />
-          <Row k="µm / px (CZI metadata)" v={meta?.um_per_px != null ? meta.um_per_px.toFixed(4) : 'unknown'} />
+          <Row k="µm / px (cohort manifest)" v={meta?.um_per_px != null ? meta.um_per_px.toFixed(4) : 'uncalibrated'} />
           <Row k="override" v={selected && prefs.calibration[selected] ? prefs.calibration[selected].toFixed(4) : 'none'} />
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <input
@@ -115,13 +118,19 @@ export function Settings() {
             <Button
               size="sm"
               disabled={!selected || !(parseFloat(cal) > 0)}
-              onClick={() => selected && useApp.setState((st) => ({ prefs: { ...st.prefs, calibration: { ...st.prefs.calibration, [selected]: parseFloat(cal) } } }))}
+              onClick={() => {
+                if (selected) setCalibration(selected, parseFloat(cal))
+                setCal('')
+              }}
             >
               Apply
             </Button>
+            <Button size="sm" variant="ghost" disabled={!selected || !prefs.calibration[selected]} onClick={() => selected && setCalibration(selected, null)}>
+              Clear
+            </Button>
           </div>
           <p className="muted" style={{ fontSize: 13, lineHeight: 1.6, marginTop: 10 }}>
-            D5 is open: the metadata scale is shown as <b>[VERIFY]</b> until the department confirms the objective. Overrides only change display units, never the stored px values.
+Images without a scale are shown in pixels. An override only changes display units for this browser, never the stored px values.
           </p>
         </Card>
 
@@ -151,11 +160,10 @@ export function Settings() {
 
         <Card icon={<ShieldCheck size={18} />} title="Honest limits (shown in the UI)">
           <ul className="muted" style={{ fontSize: 13.5, lineHeight: 1.7, margin: 0, paddingLeft: 18 }}>
-            <li>NTI is a placeholder formula until fitted — every number carries mock=1.</li>
+            <li>NTI is an uncalibrated formula: its weights are provisional until fitted to the TÜSEB reference cohort.</li>
             <li>Condition distances are descriptive; batch drift can dominate; no p-values.</li>
             <li>Similarity uses morphometric feature vectors — no learned embedding.</li>
-            <li>3D is a 2.5D intensity relief of a 2D field, not a Z-stack.</li>
-            <li>Only classical filters (CLAHE, contrast, unsharp, gamma) — no GAN enhancement.</li>
+            <li>Only classical scikit-image filters and thresholds, chosen on the Preprocess screen — no GAN or deep enhancement.</li>
           </ul>
         </Card>
 

@@ -116,7 +116,9 @@ void main() {
       else if (uCmap == 3) col = magma(v);
       else col = vec3(1.0 - v);
     }
-    outc = vec4(col, uOpacity);
+    // opaque: lowering the micrograph opacity dims it toward black instead of
+    // letting the page background (white in the light theme) bleed through
+    outc = vec4(col * uOpacity, 1.0);
   } else if (uMode == 1) {
     float m = step(0.5, chan(texture2D(uTex, vUv)));
     if (m > 0.0) {
@@ -187,6 +189,13 @@ export function createLayerMaterial(mode: number) {
     transparent: true,
     depthTest: false,
     depthWrite: false,
+    // standard 'over' compositing for alpha too, so overlays never lower the
+    // canvas alpha (which would let the page background show through)
+    blending: THREE.CustomBlending,
+    blendSrc: THREE.SrcAlphaFactor,
+    blendDst: THREE.OneMinusSrcAlphaFactor,
+    blendSrcAlpha: THREE.OneFactor,
+    blendDstAlpha: THREE.OneMinusSrcAlphaFactor,
     uniforms: {
       uMode: { value: mode },
       uTex: { value: null },

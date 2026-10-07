@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import { api, subscribeGlobal, subscribeJob } from '../api/client'
-import type { GlobalEvent, ImageMeta, JobEvent, JobSummary, Result, RoiMetrics, StageCode } from '../api/types'
+import type { GlobalEvent, Health, ImageMeta, JobEvent, JobSummary, Result, RoiMetrics, StageCode } from '../api/types'
 
-export type Screen = 'analyze' | 'compare' | 'neuron' | 'similarity' | 'review' | 'batch' | 'settings'
+export type Screen = 'analyze' | 'preprocess' | 'compare' | 'similarity' | 'review' | 'batch' | 'settings'
 export type InspectorTab = 'layers' | 'objects' | 'metrics' | 'qc'
 export type Tool = 'pan' | 'roi-rect' | 'roi-poly'
 
@@ -24,6 +24,16 @@ export interface LiveJob {
   finishedMs?: number
   error?: string
   size?: { w: number; h: number; tile: number }
+}
+
+export interface ModelInfo {
+  state: 'warming' | 'ready' | 'offline'
+  warm_ms: number | null
+  version: string
+  provider: string
+  preset: string
+  runtime: string
+  workers: { interactive: number; background: number }
 }
 
 export interface Toast {
@@ -75,12 +85,14 @@ interface AppStore {
   images: Record<string, ImageMeta>
   order: string[]
   selected: string | null
-  compare: { a: string | null; b: string | null; mode: 'split' | 'swipe' | 'blend'; split: number }
+  compare: { a: string | null; b: string | null; mode: 'split' | 'swipe'; split: number }
   jobs: Record<string, JobSummary>
   live: Record<string, LiveJob>
   results: Record<string, Result>
   resultVersion: Record<string, number>
-  model: { state: 'warming' | 'ready' | 'offline'; warm_ms: number | null; version: string; provider: string }
+  model: ModelInfo
+  runtime: { dataDir: string; images: number }
+  imageErrors: Record<string, string>
   backendUp: boolean
   inspectorOpen: boolean
   inspectorTab: InspectorTab
@@ -106,11 +118,36 @@ interface AppStore {
   loadResult: (id: string, force?: boolean) => Promise<Result | null>
   analyze: (id: string) => Promise<void>
   cancel: (jobId: string) => Promise<void>
+  queueBackground: (ids: string[]) => Promise<void>
   upload: (file: File) => Promise<void>
   umPerPx: (id: string) => number | null
+  setCalibration: (id: string, umPerPx: number | null) => void
+}
+
+const CAL_KEY = 'camex.calibration'
+const OLD_CAL_KEY = 'intellicell.calibration'
+function loadCalibration(): Record<string, number> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(CAL_KEY) ?? localStorage.getItem(OLD_CAL_KEY) ?? '{}') as Record<string, unknown>
+    return Object.fromEntries(Object.entries(raw).filter(([, v]) => typeof v === 'number' && v > 0)) as Record<string, number>
+  } catch {
+    return {}
+  }
+}
+function saveCalibration(c: Record<string, number>) {
+  try {
+    localStorage.setItem(CAL_KEY, JSON.stringify(c))
+  } catch {
+    /* storage blocked: calibration stays for this session only */
+  }
 }
 
 let toastId = 1
+function omit<T>(o: Record<string, T>, k: string): Record<string, T> {
+  if (!(k in o)) return o
+  const { [k]: _drop, ...rest } = o
+  return rest
+}
 let pendingSeq = 1
 const inflight = new Map<string, Promise<Result | null>>()
 const fetchGen = new Map<string, number>() // newest result request per image wins
@@ -125,7 +162,9 @@ export const useApp = create<AppStore>((set, get) => ({
   live: {},
   results: {},
   resultVersion: {},
-  model: { state: 'warming', warm_ms: null, version: '—', provider: '—' },
+  model: { state: 'warming', warm_ms: null, version: '—', provider: '—', preset: '—', runtime: '—', workers: { interactive: 0, background: 0 } },
+  runtime: { dataDir: '—', images: 0 },
+  imageErrors: {},
   backendUp: false,
   inspectorOpen: true,
   inspectorTab: 'metrics',
@@ -140,7 +179,7 @@ export const useApp = create<AppStore>((set, get) => ({
   paletteOpen: false,
   helpOpen: false,
   exportOpen: false,
-  prefs: { flicker: true, calibration: {} },
+  prefs: { flicker: false, calibration: loadCalibration() },
 
   setScreen: (screen) => set({ screen, tool: 'pan' }),
   select: (id) => {
@@ -159,7 +198,7 @@ export const useApp = create<AppStore>((set, get) => ({
   toast: (t) => {
     const id = toastId++
     set((s) => ({ toasts: [...s.toasts.slice(-3), { ...t, id }] }))
-    setTimeout(() => get().dismiss(id), t.tone === 'bad' ? 9000 : 5200)
+    setTimeout(() => get().dismiss(id), t.action ? 15000 : t.tone === 'bad' ? 9000 : 5200)
   },
   dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((x) => x.id !== id) })),
 
@@ -281,6 +320,18 @@ export const useApp = create<AppStore>((set, get) => ({
     await api.cancel(jobId).catch(() => undefined)
   },
 
+  // Fire-and-forget batch queue: progress arrives over the global feed, so no
+  // per-job EventSource is opened (browsers cap concurrent SSE connections).
+  queueBackground: async (ids) => {
+    const results = await Promise.allSettled(ids.map((id) => api.infer(id)))
+    const failed = results.filter((r) => r.status === 'rejected').length
+    get().toast(
+      failed
+        ? { tone: 'warn', title: `Queued ${ids.length - failed} of ${ids.length} images`, body: `${failed} could not be queued.` }
+        : { tone: 'info', title: `Queued ${ids.length} image${ids.length === 1 ? '' : 's'}`, body: 'Running in the background — the app stays free.' },
+    )
+  },
+
   upload: async (file) => {
     get().toast({ tone: 'info', title: `Uploading ${file.name}`, body: 'Decoding on the server — the UI stays live.' })
     try {
@@ -298,9 +349,32 @@ export const useApp = create<AppStore>((set, get) => ({
   },
 
   umPerPx: (id) => get().prefs.calibration[id] ?? get().images[id]?.um_per_px ?? null,
+
+  setCalibration: (id, v) => {
+    const cal = { ...get().prefs.calibration }
+    if (v != null && v > 0) cal[id] = v
+    else delete cal[id]
+    saveCalibration(cal)
+    set((s) => ({ prefs: { ...s.prefs, calibration: cal } }))
+  },
 }))
 
 // ------------------------------------------------------------ bootstrapping
+function applyHealth(h: Health) {
+  useApp.setState({
+    model: {
+      state: h.model.state,
+      warm_ms: h.model.warm_ms,
+      version: h.model.version,
+      provider: h.model.provider,
+      preset: h.model.preset,
+      runtime: h.model.runtime,
+      workers: h.model.workers,
+    },
+    runtime: { dataDir: h.data_dir, images: h.images },
+  })
+}
+
 export function startBackendSync() {
   const st = useApp.getState
   const refresh = () =>
@@ -319,11 +393,7 @@ export function startBackendSync() {
       .catch(() => undefined)
   api
     .health()
-    .then((h) =>
-      useApp.setState({
-        model: { state: h.model.state, warm_ms: h.model.warm_ms, version: h.model.version, provider: h.model.provider },
-      }),
-    )
+    .then(applyHealth)
     .catch(() => undefined)
   void refresh()
   api
@@ -333,12 +403,19 @@ export function startBackendSync() {
 
   return subscribeGlobal(
     (ev: GlobalEvent) => {
+      if (ev.type === 'image_error') {
+        useApp.setState((s) => ({ imageErrors: { ...s.imageErrors, [ev.image_id]: ev.message } }))
+        const name = st().images[ev.image_id]?.name ?? ev.image_id
+        st().toast({ tone: 'bad', title: `Could not prepare ${name}`, body: ev.message })
+      }
       if (ev.type === 'model') useApp.setState((s) => ({ model: { ...s.model, state: ev.state, warm_ms: ev.warm_ms } }))
+      if (ev.type === 'preproc') useApp.setState((s) => ({ model: { ...s.model, preset: ev.preset, version: ev.version } }))
       if (ev.type === 'job') useApp.setState((s) => ({ jobs: { ...s.jobs, [ev.job.id]: ev.job } }))
       if (ev.type === 'image' && ev.image) {
         const prev = st().images[ev.image.id]
         useApp.setState((s) => ({
           images: { ...s.images, [ev.image.id]: ev.image },
+          imageErrors: omit(s.imageErrors, ev.image.id),
           order: s.order.includes(ev.image.id) ? s.order : [...s.order, ev.image.id],
         }))
         // a background job refreshed this image's result -> reload if shown
@@ -352,7 +429,7 @@ export function startBackendSync() {
       useApp.setState({ backendUp: up })
       if (up && !was) void refresh()
       if (!up) useApp.setState((s) => ({ model: { ...s.model, state: 'offline' } }))
-      else api.health().then((h) => useApp.setState((s) => ({ model: { ...s.model, state: h.model.state, version: h.model.version, provider: h.model.provider, warm_ms: h.model.warm_ms } }))).catch(() => undefined)
+      else api.health().then(applyHealth).catch(() => undefined)
     },
   )
 }

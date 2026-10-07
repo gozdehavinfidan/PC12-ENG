@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>CAMEX — Sunucu Görünümü</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<!-- Yerel (self-hosted) Manrope — deste ile aynı dosyalar; internetsiz salonda da çalışır. -->
+<link rel="stylesheet" href="assets/fonts/manrope.css">
+<style>
+  :root{
+    --bg:#0a0e16; --panel:#121826; --panel-2:#0f1420; --line:rgba(255,255,255,0.08);
+    --ink:#eef2f8; --muted:#9aa6bd; --muted-2:#6b7689;
+    --accent:#5b8cff; --accent-soft:rgba(91,140,255,0.14);
+    --ok:#34d399; --warn:#fbbf24; --bad:#f87171;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{
+    background:var(--bg); color:var(--ink); height:100vh; overflow:hidden;
+    font-family:'Manrope',system-ui,sans-serif;
+    display:grid; grid-template-rows:auto auto 1fr auto;
+  }
+
+  /* ── Header ─────────────────────────────────────────── */
+  header{
+    display:flex; align-items:center; gap:18px;
+    padding:14px 22px; border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#10182a,#0c1220);
+  }
+  .slidepos{display:flex; align-items:baseline; gap:10px; min-width:0;}
+  .slidepos .num{font-size:26px; font-weight:800; letter-spacing:-0.01em;}
+  .slidepos .num .total{color:var(--muted-2); font-weight:600; font-size:18px;}
+  .slidepos .ttl{font-size:18px; color:var(--muted); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .spacer{flex:1;}
+  .timer{
+    font-variant-numeric:tabular-nums; font-weight:800; font-size:34px; letter-spacing:0.02em;
+    padding:2px 14px; border-radius:12px; background:var(--panel-2); border:1px solid var(--line);
+  }
+  .timer .target{font-size:15px; color:var(--muted-2); font-weight:600; margin-left:6px;}
+  .timer.ok{color:var(--ok);} .timer.warn{color:var(--warn);} .timer.bad{color:var(--bad); border-color:rgba(248,113,113,0.4);}
+  .clock{font-variant-numeric:tabular-nums; color:var(--muted); font-weight:600; font-size:18px;}
+  .tbtns{display:flex; gap:8px;}
+  .mini{
+    appearance:none; border:1px solid var(--line); background:var(--panel); color:var(--muted);
+    border-radius:10px; padding:8px 12px; font:600 13px 'Manrope'; cursor:pointer;
+    transition:background .14s, color .14s, border-color .14s;
+  }
+  .mini:hover{background:var(--accent-soft); color:var(--ink); border-color:rgba(91,140,255,0.35);}
+
+  /* ── Body ───────────────────────────────────────────── */
+  main{display:grid; grid-template-columns:1.55fr 1fr; gap:18px; padding:18px 22px; min-height:0;}
+  .col{min-height:0; display:flex; flex-direction:column; gap:12px;}
+
+  .label{font-size:12px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; color:var(--muted-2);}
+
+  .script{
+    flex:1; min-height:0; overflow:auto; position:relative;
+    background:var(--panel); border:1px solid var(--line);
+    border-radius:16px; padding:26px 30px;
+    font-size:30px; line-height:1.5; font-weight:500; color:var(--ink);
+    scrollbar-width:thin; scrollbar-color:#2a3346 transparent;   /* Firefox eşleniği */
+  }
+  .script::-webkit-scrollbar{width:10px;} .script::-webkit-scrollbar-thumb{background:#2a3346; border-radius:8px;}
+  .script .empty{color:var(--muted-2); font-size:20px; font-weight:600;}
+  /* Adım eşlemeli metin parçaları: aktif parça yeşil vurgulanır ve ortalanır.
+     Bitişik aktif parçalar (ör. son parça + kuyruk) TEK yeşil kutu olarak
+     birleşir: aradaki kenar/boşluk/köşe yuvarlaması kaldırılır. */
+  .script .seg{
+    white-space:pre-wrap; padding:4px 12px; border-radius:10px; margin:0 0 14px;
+    border:1px solid transparent;
+    transition:background .18s, border-color .18s;
+  }
+  .script .seg:last-child{margin-bottom:0;}
+  .script .seg.is-active{
+    background:rgba(52,211,153,0.16);
+    border-color:rgba(52,211,153,0.4);
+  }
+  .script .seg.is-active.seg-join-down{
+    margin-bottom:0; border-bottom-color:transparent;
+    border-bottom-left-radius:0; border-bottom-right-radius:0;
+  }
+  .script .seg.is-active.seg-join-up{
+    border-top-color:transparent;
+    border-top-left-radius:0; border-top-right-radius:0;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .script .seg{transition:none;}
+  }
+  .warnstrip{
+    display:none; padding:6px 22px; background:rgba(251,191,36,0.14);
+    border-bottom:1px solid rgba(251,191,36,0.45); color:var(--warn);
+    font-size:13px; font-weight:700;
+  }
+  .warnstrip.on{display:block;}
+
+  .preview-wrap{
+    position:relative; width:100%; aspect-ratio:16/9; border-radius:14px; overflow:hidden;
+    background:#000; border:1px solid var(--line); box-shadow:0 12px 30px rgba(0,0,0,0.4);
+  }
+  .preview-wrap iframe{position:absolute; inset:0; width:100%; height:100%; border:0;}
+
+  .next{
+    flex:1; min-height:0; overflow:auto; background:var(--panel-2); border:1px dashed var(--line);
+    border-radius:14px; padding:16px 18px;
+  }
+  .next .nhead{display:flex; align-items:baseline; gap:8px; margin-bottom:8px;}
+  .next .nnum{font-weight:800; color:var(--accent);}
+  .next .nttl{font-weight:700; font-size:16px; color:var(--ink);}
+  .next .ntxt{font-size:16px; line-height:1.45; color:var(--muted); white-space:pre-wrap;}
+
+  /* ── Footer ─────────────────────────────────────────── */
+  footer{
+    display:flex; align-items:center; gap:14px; padding:14px 22px;
+    border-top:1px solid var(--line); background:#0c1220;
+  }
+  .nav{
+    flex:1; appearance:none; border:1px solid var(--line); background:var(--panel); color:var(--ink);
+    border-radius:14px; padding:16px; font:800 18px 'Manrope'; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    transition:background .14s, border-color .14s, transform .06s;
+  }
+  .nav:hover{background:var(--accent-soft); border-color:rgba(91,140,255,0.4);}
+  .nav:active{transform:translateY(1px);}
+  .nav.primary{background:var(--accent); border-color:var(--accent); color:#08101f;}
+  .nav.primary:hover{filter:brightness(1.06);}
+  .hint{color:var(--muted-2); font-size:12px; font-weight:600; white-space:nowrap;}
+  .disconnected{color:var(--bad);}
+
+  /* ── Slayta git ─────────────────────────────────────── */
+  .goto{display:flex; align-items:center; gap:8px; white-space:nowrap;}
+  .goto label{font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted-2);}
+  .goto input{
+    width:76px; padding:12px 10px; border-radius:12px; text-align:center;
+    border:1px solid var(--line); background:var(--panel-2); color:var(--ink);
+    font:800 18px 'Manrope'; appearance:textfield; -moz-appearance:textfield;
+  }
+  .goto input::-webkit-outer-spin-button, .goto input::-webkit-inner-spin-button{appearance:none; margin:0;}
+  .goto input:focus{outline:none; border-color:rgba(91,140,255,0.55); background:var(--panel);}
+  .goto input::placeholder{color:var(--muted-2); font-weight:600;}
+</style>
+</head>
+<body>
+  <header>
+    <div class="slidepos">
+      <div class="num"><span id="cur">–</span><span class="total"> / <span id="tot">13</span></span></div>
+      <div class="ttl" id="title">—</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="timer ok" id="timer">00:00<span class="target">/ 10:00</span></div>
+    <div class="tbtns">
+      <button class="mini" id="tStart">Başlat</button>
+      <button class="mini" id="tReset">Sıfırla</button>
+    </div>
+    <div class="clock" id="clock">--:--</div>
+  </header>
+
+  <div class="warnstrip" id="warnstrip"></div>
+
+  <main>
+    <div class="col">
+      <div class="label">Konuşma Metni</div>
+      <div class="script" id="script"><span class="empty">Metin yükleniyor…</span></div>
+    </div>
+    <div class="col">
+      <div class="label">Mevcut Slayt (önizleme)</div>
+      <div class="preview-wrap"><iframe id="preview" title="Slayt önizleme"></iframe></div>
+      <div class="label">Sonraki Slayt</div>
+      <div class="next" id="next"><span class="empty" style="color:var(--muted-2)">—</span></div>
+    </div>
+  </main>
+
+  <footer>
+    <button class="nav" id="prev">◀ Önceki</button>
+    <div class="goto">
+      <label for="gotoNum">Slayta git</label>
+      <input id="gotoNum" type="number" min="1" max="13" inputmode="numeric" placeholder="No">
+      <button class="mini" id="gotoBtn">Git</button>
+    </div>
+    <span class="hint" id="status">Bağlanıyor… &nbsp;•&nbsp; ← → ile gez · sayı + Enter ile atla · T sayaç</span>
+    <button class="nav primary" id="next-btn">Sonraki ▶</button>
+  </footer>
+
+<script type="module">
+import { NOTES, META } from './src/content/notes.js';
+
+const CH = 'diasage-deck';
+let channel = null;
+try { channel = ('BroadcastChannel' in window) ? new BroadcastChannel(CH) : null; } catch (_) {}
+const byN = new Map(NOTES.map(x => [x.n, x]));
+const TOTAL = NOTES.length || 13;
+let current = 0;          // 0-based index
+let lastMsgAt = 0;
+
+// ── Tek yetkili deste kilidi ────────────────────────────
+// Aynı kanalda birden çok seyirci destesi olabilir (hayalet sekme: oturum geri
+// yükleme / ikinci başlatıcı betik). Presenter, EN YÜKSEK (pri, ts, src) claim'li tek
+// desteye kilitlenir ve yalnızca onun slide/step/ping mesajlarını işler; komut
+// bu kilitten bağımsız yayınlanır ama onu da yalnızca yetkili deste işler.
+// P ile açılışta deste kendi kimliğini URL'e yazar → kilit yarışsız tohumlanır.
+const qs = new URLSearchParams(location.search);
+const claimOf = (m) => (m && m.src && typeof m.pri === 'number' && typeof m.ts === 'number')
+  ? { pri: m.pri, ts: m.ts, src: m.src } : null;
+const cmpClaim = (a, b) =>
+  (a.pri - b.pri) || (a.ts - b.ts) || (a.src < b.src ? -1 : (a.src > b.src ? 1 : 0));
+const AUTH_TYPES = { authority: 1, slide: 1, step: 1, ping: 1 };
+let deckSrc = qs.get('src') || null;
+let deckClaim = deckSrc ? { pri: parseInt(qs.get('pri'), 10) || 0, ts: parseInt(qs.get('ts'), 10) || 0, src: deckSrc } : null;
+// Tohumlanan kaynak hiç konuşmazsa (bayat URL parametresi — geri yüklenen eski
+// presenter penceresi) watchdog 4 sn'de kilidi bıraksın diye sayacı başlat.
+if (deckSrc) lastMsgAt = Date.now();
+
+const $ = (id) => document.getElementById(id);
+$('tot').textContent = String(TOTAL);
+const previewFrame = $('preview');
+// Önbellek-kırıcı: önizleme her zaman GÜNCEL index.html'i yüklemeli (yoksa
+// eski sürüm yüklenip deckApplyStep gibi yeni global'ler bulunmaz → adım aynası çalışmaz).
+previewFrame.src = 'index.html?role=preview&cb=' + Date.now();
+
+// Aynı mesaj birden çok taşıyıcıdan gelir; yineleri elemek için id + dedup.
+const SELF = Math.random().toString(36).slice(2);
+let seq = 0;
+const seen = new Set();
+const isDup = (m) => { if (!m || !m.id) return false; if (seen.has(m.id)) return true; seen.add(m.id); if (seen.size > 1000) seen.clear(); return false; };
+
+// Çok-yollu gönderim: BroadcastChannel + doğrudan opener (seyirci) + localStorage.
+function emit(msg){
+  msg.ch = CH;
+  msg.id = SELF + ':' + (++seq);
+  try { channel && channel.postMessage(msg); } catch (_) {}
+  try { if (window.opener && !window.opener.closed) window.opener.postMessage(msg, '*'); } catch (_) {}
+  try { localStorage.setItem(CH, JSON.stringify({ ...msg, _t: Date.now() })); } catch (_) {}
+}
+// Mevcut slaytı VE son adımı önizleme iframe'ine DOĞRUDAN ilet (ebeveyn→iframe
+// postMessage; file:// dahil her ortamda çalışan en güvenilir yol). lastStep,
+// geç/yeniden yüklenen iframe'in doğru adıma hizalanması için saklanır.
+let lastStep = null;
+// Relay'ler kilitli destenin claim damgasını taşır: önizleme iframe'i de aynı
+// benimse-en-yükseği filtresini uygular; damga, hayalet yayınlarının relay'i
+// ezmesini engeller.
+function stamped(msg){
+  msg.ch = CH;
+  if (deckClaim){ msg.src = deckClaim.src; msg.pri = deckClaim.pri; msg.ts = deckClaim.ts; }
+  return msg;
+}
+function forwardToPreview(){
+  try {
+    previewFrame.contentWindow.postMessage(stamped({ type: 'slide', index: current }), '*');
+    if (lastStep) previewFrame.contentWindow.postMessage(stamped({ type: 'step', slideIndex: lastStep.slideIndex, step: lastStep.step }), '*');
+  } catch (_) {}
+}
+previewFrame.addEventListener('load', forwardToPreview);
+
+// ── Adım eşlemeli metin ayrıştırma ──────────────────────
+// notes.js sözleşmesi: '→' ile başlayan her satır bir adım parçasıdır.
+// intro   = ilk '→' satırından önceki satırlar       → adım 0'da vurgulanır
+// segments= '→' satırları ('→ ' soyulmuş)            → parça k ↔ adım k
+// tail    = son '→' parçasının devam satırları        → son parçayla birlikte vurgulanır
+// '→' içermeyen not → tek düz blok, vurgusuz (statik slaytlar).
+const ARROW = '→';
+const parseCache = new Map();
+function parseScript(note){
+  if (parseCache.has(note.n)) return parseCache.get(note.n);
+  const lines = String(note.script).split('\n');
+  const intro = [], segments = [];
+  let cur = null, tail = [];
+  for (const line of lines){
+    if (line.startsWith(ARROW)){
+      if (cur) segments.push(cur.join('\n'));
+      cur = [line.replace(new RegExp('^' + ARROW + '\\s*'), '')];
+      tail = [];
+    } else if (cur){
+      // Son '→' parçasından sonraki düz satırlar kuyruk adayıdır; araya yeni
+      // bir '→' gelirse (üstte) kuyruk o parçaya katılmış olur.
+      cur.push(line); tail.push(line);
+    } else {
+      intro.push(line);
+    }
+  }
+  let tailText = '';
+  if (cur){
+    if (tail.length && cur.length > tail.length){
+      segments.push(cur.slice(0, cur.length - tail.length).join('\n'));
+      tailText = tail.join('\n');
+    } else {
+      segments.push(cur.join('\n'));
+    }
+  }
+  const parsed = { intro: intro.join('\n').trim(), segments, tail: tailText.trim() };
+  parseCache.set(note.n, parsed);
+  return parsed;
+}
+
+// ── Adım vurgusu ────────────────────────────────────────
+// Formül: adım 0 → intro; adım k → segments[k-1]; adım > S → son parça (clamp);
+// kuyruk son parça vurguluyken onunla birlikte vurgulanır.
+let lastHighlightKey = '';
+function applyStepHighlight(step){
+  const body = $('script');
+  const segs = body.querySelectorAll('.seg[data-step]');
+  if (!segs.length) return;
+  const maxSeg = segs.length - 1;                       // data-step 0..S
+  const target = Math.max(0, Math.min(maxSeg, Number(step) || 0));
+  // Beklenen clamp (slayt 5 finalesi: stepMax = parça sayısı + 1) uyarı üretmez;
+  // yalnızca beyan edilen stepMax'in de ötesine taşan adım anormaldir.
+  const declaredMax = parseInt(body.dataset.stepmax, 10) || maxSeg;
+  if (Number(step) > Math.max(maxSeg, declaredMax)) console.warn('Adım ' + step + ' > parça sayısı ' + maxSeg + ' — son parçaya sabitlendi.');
+  let targetEl = null;
+  segs.forEach((s) => {
+    const on = parseInt(s.dataset.step, 10) === target;
+    s.classList.toggle('is-active', on);
+    if (on) targetEl = s;
+  });
+  const tailEl = body.querySelector('.seg[data-tail]');
+  if (tailEl) tailEl.classList.toggle('is-active', target === maxSeg);
+  // Bitişik aktif parçaları tek kutuda birleştir (join sınıfları).
+  body.querySelectorAll('.seg').forEach((s) => s.classList.remove('seg-join-down', 'seg-join-up'));
+  const actives = Array.from(body.querySelectorAll('.seg.is-active'));
+  actives.forEach((s) => {
+    const next = s.nextElementSibling;
+    if (next && next.classList.contains('is-active')){
+      s.classList.add('seg-join-down');
+      next.classList.add('seg-join-up');
+    }
+  });
+  // Ortala — aktif GRUBU (parça + varsa kuyruk) ortalar; yalnızca hedef parça
+  // gerçekten değiştiyse kaydırır (kaydırma savaşını önler).
+  const key = current + ':' + target;
+  if (targetEl && key !== lastHighlightKey){
+    lastHighlightKey = key;
+    const first = actives[0] || targetEl;
+    const last = actives[actives.length - 1] || targetEl;
+    const groupTop = first.offsetTop;
+    const groupH = (last.offsetTop + last.clientHeight) - groupTop;
+    let top;
+    if (groupH > body.clientHeight * 0.9){
+      top = groupTop - 8;                                // taşan grup: üste hizala
+    } else {
+      top = groupTop - (body.clientHeight - groupH) / 2;
+    }
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    body.scrollTo({ top: Math.max(0, top), behavior: reduced ? 'auto' : 'smooth' });
+  }
+}
+
+// ── Render ──────────────────────────────────────────────
+function fmtTitle(note, n){ return note ? note.title : ('Slayt ' + n); }
+function render(){
+  const n = current + 1;
+  const note = byN.get(n);
+  $('cur').textContent = String(n);
+  $('title').textContent = fmtTitle(note, n);
+  const body = $('script');
+  lastHighlightKey = '';
+  if (note && note.script){
+    const parsed = parseScript(note);
+    body.innerHTML = '';
+    body.dataset.stepmax = typeof note.stepMax === 'number' ? String(note.stepMax) : '';
+    if (!parsed.segments.length){
+      const p = document.createElement('div');
+      p.className = 'seg'; p.textContent = note.script;
+      body.appendChild(p);
+      body.scrollTop = 0;
+    } else {
+      let stepNo = 0;
+      if (parsed.intro){
+        const p = document.createElement('div');
+        p.className = 'seg'; p.dataset.step = '0'; p.textContent = parsed.intro;
+        body.appendChild(p);
+      }
+      parsed.segments.forEach((s) => {
+        stepNo += 1;
+        const p = document.createElement('div');
+        p.className = 'seg'; p.dataset.step = String(stepNo); p.textContent = s;
+        body.appendChild(p);
+      });
+      if (parsed.tail){
+        const p = document.createElement('div');
+        p.className = 'seg'; p.setAttribute('data-tail', ''); p.textContent = parsed.tail;
+        body.appendChild(p);
+      }
+      // Geriden gelişte 'step' mesajı 'slide'dan ÖNCE ulaşır (deck'te controller
+      // dinleyicisi senkron bloğundan önce kayıtlıdır) → lastStep'i tüket.
+      const st = (lastStep && lastStep.slideIndex === current) ? lastStep.step : 0;
+      applyStepHighlight(st);
+    }
+  }
+  else { body.innerHTML = '<span class="empty">Bu slayt için metin henüz eklenmedi.</span>'; body.scrollTop = 0; }
+  // next slide
+  const nx = byN.get(n + 1);
+  const nextBox = $('next');
+  if (n < TOTAL){
+    nextBox.innerHTML = '';
+    const head = document.createElement('div'); head.className = 'nhead';
+    head.innerHTML = '<span class="nnum">'+String(n+1).padStart(2,'0')+'</span>' +
+                     '<span class="nttl">'+ (nx ? escapeHtml(nx.title) : ('Slayt '+(n+1))) +'</span>';
+    const txt = document.createElement('div'); txt.className = 'ntxt';
+    txt.textContent = nx && nx.script ? nx.script : '—';
+    nextBox.append(head, txt);
+  } else {
+    nextBox.innerHTML = '<span class="ntxt">Sunumun sonu.</span>';
+  }
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// ── Navigation (commands go to the audience deck) ───────
+function send(cmd, index){ emit({ type:'cmd', cmd, index }); maybeStartTimer(); }
+$('prev').onclick = () => send('prev');
+$('next-btn').onclick = () => send('next');
+
+// "Slayta git" alanı: sayı yaz + Enter (ya da Git) → doğrudan atla.
+const gotoInput = $('gotoNum');
+gotoInput.max = String(TOTAL);
+function gotoSlide(){
+  const v = parseInt(gotoInput.value, 10);
+  if (v >= 1 && v <= TOTAL){ send('goto', v - 1); }
+  gotoInput.value = ''; gotoInput.blur();
+}
+$('gotoBtn').onclick = gotoSlide;
+gotoInput.addEventListener('keydown', (e) => {
+  e.stopPropagation();
+  if (e.key === 'Enter'){ gotoSlide(); e.preventDefault(); }
+  else if (e.key === 'Escape'){ gotoInput.value = ''; gotoInput.blur(); e.preventDefault(); }
+});
+
+let numBuf = '', numTimer = null;
+function pushDigit(d){
+  numBuf += d;
+  clearTimeout(numTimer);
+  if (parseInt(numBuf,10)*10 > TOTAL) flushDigits();
+  else numTimer = setTimeout(flushDigits, 650);
+}
+function flushDigits(){
+  clearTimeout(numTimer);
+  const v = parseInt(numBuf,10); numBuf='';
+  if (v >= 1 && v <= TOTAL) send('goto', v-1);
+}
+
+window.addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const t = e.target;
+  if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;   // "Slayta git" alanı vb.
+  const k = e.key;
+  if (k==='ArrowRight'||k==='PageDown'||k===' '||k==='Spacebar'){ send('next'); e.preventDefault(); }
+  else if (k==='ArrowLeft'||k==='PageUp'){ send('prev'); e.preventDefault(); }
+  else if (k==='Home'){ send('goto',0); e.preventDefault(); }
+  else if (k==='End'){ send('goto',TOTAL-1); e.preventDefault(); }
+  else if (/^[0-9]$/.test(k)){ pushDigit(k); e.preventDefault(); }
+  else if (k==='Enter' && numBuf){ flushDigits(); e.preventDefault(); }
+  else if (k==='t'||k==='T'){ toggleTimer(); e.preventDefault(); }
+  else if (k==='r'||k==='R'){ resetTimer(); e.preventDefault(); }
+});
+
+// ── Sync with audience deck (tek dağıtıcı: dedup BİR kez, türe göre dağıt) ──
+// Yalnızca KİLİTLİ (en yüksek claim'li) destenin slide/step/ping/authority
+// mesajları "canlılık" sayılır ve işlenir; bayat kaynaklar tamamen yok sayılır.
+// 'step' önizleme iframe'ine doğrudan relay edilir (ebeveyn→iframe; file://
+// dahil güvenilir). 'slide' yalnızca index gerçekten değişince render edilir →
+// uzun metinde kaydırma konumu korunur.
+function route(m){
+  if (!m || m.ch !== CH || isDup(m)) return;
+  if (m.type === 'bye'){
+    // Yetkili deste kapanıyor/yenileniyor: kilidi ANINDA bırak (watchdog'u bekleme).
+    const bc = claimOf(m);
+    if (bc && bc.src === deckSrc){ deckSrc = null; deckClaim = null; }
+    return;
+  }
+  if (!AUTH_TYPES[m.type]) return;   // cmd/whereami/probe: yetki ya da canlılık taşımaz
+  const c = claimOf(m);
+  if (c){
+    if (deckSrc === null || (c.src !== deckSrc && cmpClaim(c, deckClaim) > 0)){
+      const changed = deckSrc !== c.src;
+      deckSrc = c.src; deckClaim = c;
+      if (changed) emit({ type: 'whereami' });   // yeni yetkiliden konum/adım iste
+    } else if (c.src === deckSrc){
+      deckClaim = c;                              // aynı destenin yükselen claim'ini izle
+    } else {
+      return;                                     // bayat (daha düşük claim'li) kaynak
+    }
+  } else if (deckSrc !== null){
+    return;                                       // kilitliyken damgasız mesaja güvenme
+  }
+  lastMsgAt = Date.now();
+  setStatus(true);
+  if (m.type === 'slide' && typeof m.index === 'number'){
+    // lastStep BİLEREK sıfırlanmaz: geriden gelişte 'step' (MAX) mesajı 'slide'
+    // mesajından önce ulaşır; render() onu tüketerek son parçayı vurgular.
+    if (m.index !== current){ current = m.index; render(); }
+    forwardToPreview();
+  } else if (m.type === 'step' && typeof m.slideIndex === 'number'){
+    lastStep = { slideIndex: m.slideIndex, step: m.step };
+    if (m.slideIndex === current) applyStepHighlight(m.step);
+    try { previewFrame.contentWindow.postMessage(stamped({ type: 'step', slideIndex: m.slideIndex, step: m.step }), '*'); } catch (_) {}
+  }
+  // 'ping' / 'authority' → kilit + canlılık güncellemesi (yukarıda işlendi)
+}
+channel && (channel.onmessage = (e) => route(e.data));
+window.addEventListener('message', (e) => route(e.data));            // seyirciden (opener)
+window.addEventListener('storage', (e) => { if (e.key === CH && e.newValue){ try { route(JSON.parse(e.newValue)); } catch (_) {} } });
+// Konumu öğrenmek için seyirciye sor (açılış yarışını tolere etmek için birkaç kez).
+emit({ type:'whereami' });
+setTimeout(() => emit({ type:'whereami' }), 600);
+setTimeout(() => emit({ type:'whereami' }), 1500);
+function setStatus(connected){
+  const s = $('status');
+  if (connected){ s.classList.remove('disconnected'); s.innerHTML = '← → ile gez · sayı + Enter ile atla · <b>T</b> sayaç'; }
+}
+// Connection watchdog
+setInterval(() => {
+  if (lastMsgAt && Date.now() - lastMsgAt > 4000){
+    $('status').classList.add('disconnected');
+    $('status').textContent = 'Sunum penceresi bulunamadı — index.html açık mı?';
+    // Ölü kilidi bırak: yeniden açılan (daha düşük claim'li de olsa) yeni
+    // yetkili deste benimsenebilsin. Canlı bir kilit her 2 sn ping aldığından
+    // bu dal ona hiçbir zaman dokunmaz.
+    deckSrc = null; deckClaim = null;
+  }
+}, 2000);
+
+// ── Timer ───────────────────────────────────────────────
+const TARGET = (META && META.targetSeconds) || 600;
+let elapsed = 0, running = false, tick = null;
+function paint(){
+  const mm = String(Math.floor(elapsed/60)).padStart(2,'0');
+  const ss = String(elapsed%60).padStart(2,'0');
+  const t = $('timer');
+  t.firstChild.textContent = mm+':'+ss;
+  t.classList.remove('ok','warn','bad');
+  if (elapsed > TARGET) t.classList.add('bad');
+  else if (elapsed > TARGET*0.8) t.classList.add('warn');
+  else t.classList.add('ok');
+}
+function startTimer(){ if (running) return; running = true; $('tStart').textContent='Duraklat'; tick = setInterval(()=>{ elapsed++; paint(); },1000); }
+function pauseTimer(){ running = false; $('tStart').textContent='Başlat'; clearInterval(tick); }
+function toggleTimer(){ running ? pauseTimer() : startTimer(); }
+function resetTimer(){ pauseTimer(); elapsed = 0; paint(); }
+function maybeStartTimer(){ if (!running && elapsed === 0) startTimer(); } // auto-start on first nav
+$('tStart').onclick = toggleTimer;
+$('tReset').onclick = resetTimer;
+
+// ── Wall clock ──────────────────────────────────────────
+function clock(){ const d = new Date(); $('clock').textContent = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+setInterval(clock, 1000); clock();
+
+// ── Tutarlılık denetimi ─────────────────────────────────
+// stepMax taşıyan her notun parça sayısı deck'in adım sayısıyla eşleşmeli.
+// (Slayt 5 finale kuralı: son adım yeni parça açmaz → stepMax - 1 de geçerli.)
+// Uyuşmazlık yalnızca SUNUCU ekranında gösterilir; jüri ekranı temiz kalır.
+(function checkStepConsistency(){
+  const bad = [];
+  NOTES.forEach((note) => {
+    if (typeof note.stepMax !== 'number') return;
+    const segs = parseScript(note).segments.length;
+    if (segs !== note.stepMax && segs !== note.stepMax - 1){
+      bad.push('slayt ' + note.n + ': beklenen ' + note.stepMax + ', bulunan ' + segs + ' parça');
+    }
+  });
+  if (bad.length){
+    const s = $('warnstrip');
+    s.textContent = 'Adım uyuşmazlığı — ' + bad.join(' · ');
+    s.classList.add('on');
+    console.warn('Adım uyuşmazlığı:', bad.join(' | '));
+  }
+})();
+
+render(); paint();
+</script>
+</body>
+</html>

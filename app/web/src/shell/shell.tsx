@@ -1,6 +1,5 @@
 import {
   Activity,
-  Box,
   ChartScatter,
   CircleAlert,
   CircleCheck,
@@ -15,6 +14,7 @@ import {
   Sun,
   Search,
   Settings2,
+  SlidersHorizontal,
   TriangleAlert,
   X,
 } from 'lucide-react'
@@ -29,8 +29,8 @@ import s from './shell.module.css'
 
 export const NAV: { id: Screen; label: string; icon: typeof Microscope; hint: string }[] = [
   { id: 'analyze', label: 'Analyze', icon: Microscope, hint: 'Watch it think — live segmentation & NTI' },
+  { id: 'preprocess', label: 'Preprocess', icon: SlidersHorizontal, hint: 'Preprocessing presets — screen filters before analysis' },
   { id: 'compare', label: 'Compare', icon: Columns2, hint: 'Before / after toxicity — synced views' },
-  { id: 'neuron', label: 'Neuron 3D', icon: Box, hint: 'Neuron room — explore the neurite graph in 3D' },
   { id: 'similarity', label: 'Similarity', icon: ChartScatter, hint: 'Cell atlas — feature-space neighbours (descriptive)' },
   { id: 'review', label: 'Review', icon: ClipboardCheck, hint: 'Labeling workstation — uncertainty-ranked queue' },
   { id: 'batch', label: 'Batch', icon: ListChecks, hint: 'Cohort queue, jobs and conditions' },
@@ -67,23 +67,23 @@ function Rail() {
   const setScreen = useApp((st) => st.setScreen)
   return (
     <nav className={s.rail} aria-label="Screens">
-      <div className={s.brand} title="IntelliCell">
-        <BrandMark />
+      <div className={s.brand} title="CAMEX — Cellular Analysis of Morphology with XAI for PC12">
+        <BrandMark size={28} />
       </div>
       {NAV.map((n, i) => (
-        <RailButton key={n.id} active={screen === n.id} onClick={() => setScreen(n.id)} tip={`${n.label} — ${n.hint}  ·  Alt+${i + 1}`}>
-          <n.icon size={22} strokeWidth={1.8} />
+        <RailButton key={n.id} active={screen === n.id} onClick={() => setScreen(n.id)} tip={`${n.label} — ${n.hint}  ·  Alt+${i + 1}`} label={n.label}>
+          <n.icon size={30} strokeWidth={1.8} />
         </RailButton>
       ))}
       <div className={s.railSpacer} />
-      <RailButton active={screen === 'settings'} onClick={() => setScreen('settings')} tip="Settings & runtime  ·  Alt+7">
-        <Settings2 size={22} strokeWidth={1.7} />
+      <RailButton active={screen === 'settings'} onClick={() => setScreen('settings')} tip={`Settings & runtime  ·  Alt+${NAV.length + 1}`} label="Settings">
+        <Settings2 size={30} strokeWidth={1.7} />
       </RailButton>
     </nav>
   )
 }
 
-function RailButton({ active, onClick, tip, children }: { active: boolean; onClick: () => void; tip: string; children: ReactNode }) {
+function RailButton({ active, onClick, tip, label, children }: { active: boolean; onClick: () => void; tip: string; label: string; children: ReactNode }) {
   return (
     <button className={s.navBtn} data-active={active} onClick={onClick} aria-label={tip} aria-current={active ? 'page' : undefined} title={tip}>
       {active && (
@@ -93,6 +93,7 @@ function RailButton({ active, onClick, tip, children }: { active: boolean; onCli
         </>
       )}
       {children}
+      <span className={s.navLabel}>{label}</span>
     </button>
   )
 }
@@ -104,15 +105,10 @@ function ModelBadge() {
   return (
     <div
       className={s.modelBadge}
-      title={`Pipeline ${model.version} · ${model.provider}${model.warm_ms ? ` · workers warmed in ${model.warm_ms} ms` : ''}`}
+      title={`Pipeline ${model.version} · ${model.provider} · ${model.runtime}${model.warm_ms ? ` · workers warmed in ${model.warm_ms} ms` : ''}`}
     >
       <Dot color={color} pulse={model.state !== 'ready'} />
       <b>{label}</b>
-      {model.state === 'ready' && (
-        <span className={`mono ${s.modelVersion}`} style={{ color: 'var(--text-3)', fontSize: 13 }}>
-          {model.version} · CPU
-        </span>
-      )}
     </div>
   )
 }
@@ -121,6 +117,7 @@ function JobTray() {
   const jobs = useApp((st) => st.jobs)
   const images = useApp((st) => st.images)
   const cancel = useApp((st) => st.cancel)
+  const workers = useApp((st) => st.model.workers)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const list = useMemo(() => Object.values(jobs).sort((a, b) => b.created - a.created), [jobs])
@@ -137,11 +134,17 @@ function JobTray() {
     return () => window.removeEventListener('pointerdown', close)
   }, [open])
 
+  if (!active.length && !open) return null   // nothing is being analysed: nothing to show
   return (
     <div ref={ref}>
-      <button className={s.trayBtn} onClick={() => setOpen((o) => !o)} aria-expanded={open} title="Background jobs">
-        {active.length ? <Ring value={avg} size={18} /> : <Activity size={16} />}
-        <span className="num">{active.length ? `${running.length} running · ${active.length - running.length} queued` : 'Jobs idle'}</span>
+      <button
+        className={s.trayBtn}
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        title="Images being analysed in the background. Click to see the list or cancel one."
+      >
+        {active.length ? <Ring value={avg} size={22} /> : <Activity size={20} />}
+        <span>{active.length ? `Analysing images · ${active.length} left` : 'Analysis finished'}</span>
       </button>
       <AnimatePresence>
         {open && (
@@ -153,9 +156,9 @@ function JobTray() {
             transition={{ duration: 0.16 }}
           >
             <div className={s.trayHead}>
-              <span style={{ fontWeight: 600 }}>Jobs</span>
+              <span style={{ fontWeight: 600 }}>Analysis queue</span>
               <span className="muted" style={{ fontSize: 13 }}>
-                2 interactive + 2 background workers · FIFO · supersede on re-run
+                {workers.interactive + workers.background} images are processed at a time; the rest wait their turn.
               </span>
             </div>
             <div className={s.trayList}>
@@ -178,7 +181,7 @@ function JobTray() {
                   <div style={{ minWidth: 0 }}>
                     <div className={s.jobName}>{images[j.image_id]?.name ?? j.image_id}</div>
                     <div className={s.jobMeta}>
-                      <span>{j.priority}</span>
+                      <span>{j.priority === 'interactive' ? 'started by you' : 'automatic'}</span>
                       <span>{j.state === 'running' ? `${j.stage ?? ''} ${j.tiles_total ? `· tile ${j.tiles_done}/${j.tiles_total}` : ''}` : j.state}</span>
                       <span>{timeAgo(j.created)}</span>
                     </div>
@@ -220,10 +223,10 @@ export function ThemeToggle() {
       onClick={toggle}
     >
       <span className={s.themeIcon} data-on={!light}>
-        <Moon size={15} />
+        <Moon size={19} />
       </span>
       <span className={s.themeIcon} data-on={light}>
-        <Sun size={15} />
+        <Sun size={19} />
       </span>
       <motion.span className={s.themeKnob} layout transition={{ type: 'spring', stiffness: 520, damping: 34 }} style={{ left: light ? 'calc(50% + 1px)' : 3 }} />
     </button>
@@ -241,14 +244,14 @@ function TopBar() {
       ? compare.a && compare.b
         ? `${images[compare.a]?.name ?? compare.a}  ↔  ${images[compare.b]?.name ?? compare.b}`
         : null
-      : ['analyze', 'neuron', 'review'].includes(screen) && selected
+      : ['analyze', 'preprocess', 'review'].includes(screen) && selected
         ? (images[selected]?.name ?? selected)
         : null
   return (
     <header className={s.topbar}>
       <div className={s.crumbs}>
-        <span className={s.product}>
-          Intelli<em>Cell</em>
+        <span className={s.product} title="Cellular Analysis of Morphology with XAI for PC12">
+          CA<em>MEX</em>
         </span>
         <span className={s.crumbSep}>/</span>
         <span className={s.crumb}>{nav?.label ?? 'Settings'}</span>
@@ -263,21 +266,15 @@ function TopBar() {
       </div>
       <div className={s.topSpacer} />
       <button className={s.search} onClick={() => useApp.setState({ paletteOpen: true })}>
-        <Search size={16} />
+        <Search size={20} />
         <span className={s.searchLabel}>Search &amp; commands</span>
         <Kbd>Ctrl K</Kbd>
       </button>
-      <span
-        className={s.mockBadge}
-        title="No trained model yet: every number comes from a classical-CV placeholder pipeline that speaks the real contract (mock: true)."
-      >
-        <TriangleAlert size={14} /> MOCK DATA
-      </span>
       <ModelBadge />
       <JobTray />
       <ThemeToggle />
       <IconButton tip="Keyboard shortcuts  ·  ?" onClick={() => useApp.setState({ helpOpen: true })}>
-        <Keyboard size={18} />
+        <Keyboard size={22} />
       </IconButton>
     </header>
   )
@@ -304,6 +301,19 @@ function Toasts() {
             <div>
               <div className={s.toastTitle}>{t.title}</div>
               {t.body && <div className={s.toastBody}>{t.body}</div>}
+              {t.action && (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  style={{ marginTop: 8 }}
+                  onClick={() => {
+                    t.action!.run()
+                    dismiss(t.id)
+                  }}
+                >
+                  {t.action.label}
+                </Button>
+              )}
             </div>
             <IconButton small tip="Dismiss" onClick={() => dismiss(t.id)}>
               <X size={15} />
@@ -339,7 +349,7 @@ function useCommands(): Cmd[] {
       icon: <n.icon size={17} />,
       run: () => app.setScreen(n.id),
     }))
-    cmds.push({ id: 'go-settings', group: 'Go to', label: 'Settings', hint: 'Alt+7', icon: <Settings2 size={17} />, run: () => app.setScreen('settings') })
+    cmds.push({ id: 'go-settings', group: 'Go to', label: 'Settings', hint: `Alt+${NAV.length + 1}`, icon: <Settings2 size={17} />, run: () => app.setScreen('settings') })
     cmds.push(
       { id: 'run', group: 'Actions', label: 'Run analysis on current image', hint: 'R', icon: <Command size={17} />, run: () => { const id = useApp.getState().selected; if (id) void useApp.getState().analyze(id) } },
       { id: 'stack', group: 'Actions', label: 'Toggle layer stack (3D)', hint: 'S', run: () => useApp.setState((st) => ({ stack: !st.stack })) },
@@ -455,7 +465,7 @@ function Palette() {
 
 export const SHORTCUTS: [string, string[]][] = [
   ['Command palette', ['Ctrl', 'K']],
-  ['Switch screen', ['Alt', '1–7']],
+  ['Switch screen', ['Alt', `1–${NAV.length + 1}`]],
   ['Run analysis', ['R']],
   ['Cancel running job', ['Ctrl', '.']],
   ['Toggle layer 1–9', ['1…9']],

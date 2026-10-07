@@ -1,22 +1,21 @@
-"""Mock S0-S5 pipeline: classical computer vision that speaks the real contract.
+"""S0-S5 classical pipeline (scikit-image operators, user-configurable).
 
-There is no trained model yet (CLAUDE.md s1). So that the UI is built against the
-real behaviour, this module does what the ONNX pipeline will do, with classical
-operators instead of a network:
+There is no trained model yet (CLAUDE.md s1); segmentation is classical image
+processing whose filters and thresholds the user picks on the Preprocess screen
+(preproc.py). The ONNX model will replace S1/S2 behind the same contract:
 
   S0 load      decode the image (CZI / PNG / TIFF / JPG), read the um/px scale
-  S1 prepare   background subtraction + robust noise estimate (global thresholds)
+  S1 prepare   polarity + filter stack + soma/neurite thresholds (preproc.py)
   S2 segment   256x256 tiles with a 16 px halo: soma = bright blobs, neurite =
                ridge filter; uncertainty = closeness to the decision threshold.
                Every tile is emitted as soon as it is done (this *is* the
                "watch it think" stream, CLAUDE.md s4.4)
   S3 skeleton  clean-up + skeleton of the neurite mask
   S4 measure   branches, junctions, angles, soma morphology, QC
-  S5 score     NTI (mock formula) and per-parameter summaries
+  S5 score     NTI and per-parameter summaries
 
-Every number produced here carries ``mock: true``. The NTI formula below is a
-placeholder that has the right *shape* (score + per-parameter contributions);
-it is not the TUSEB NTI definition.
+The NTI weights below are provisional (not yet fitted to the TUSEB reference
+cohort); results label the formula "uncalibrated".
 """
 from __future__ import annotations
 
@@ -33,9 +32,16 @@ from PIL import Image
 from scipy import ndimage as ndi
 from skimage import feature, filters, measure, morphology
 
+import preproc
+
 TILE = 256
 HALO = 16
-MODEL_VERSION = "mock-classical-v1"
+PIPELINE = "classical-v1"
+
+
+def model_version(cfg: dict) -> str:
+    """Results are stale when the pipeline or its preprocessing config changes."""
+    return f"{PIPELINE}+{preproc.cfg_hash(cfg)}"
 
 Emit = Callable[[dict], None]
 Cancelled = Callable[[], bool]
@@ -56,15 +62,15 @@ def read_image(path: str | Path) -> tuple[np.ndarray, float | None, str | None]:
             arr = czi.asarray()
             meta = czi.metadata()
         arr = np.squeeze(arr)
+        if arr.ndim > 3:                   # several frames/planes: take the first
+            arr = arr.reshape(-1, *arr.shape[-3:])[0]
         if arr.ndim == 3 and arr.shape[-1] == 3:
             if "Bgr" in meta:              # Zeiss colour cameras store BGR
                 arr = arr[..., ::-1]
         elif arr.ndim == 2:
             arr = np.stack([arr] * 3, axis=-1)
-        else:                              # multi-channel: take the first plane
-            arr = arr.reshape(-1, *arr.shape[-3:])[0]
-            if arr.shape[-1] != 3:
-                arr = np.stack([arr[..., 0]] * 3, axis=-1)
+        else:                              # multi-channel without RGB samples
+            arr = np.stack([arr[..., 0]] * 3, axis=-1)
         if arr.dtype != np.uint8:
             hi = np.percentile(arr, 99.9) or 1
             arr = np.clip(arr.astype(np.float32) / hi * 255, 0, 255).astype(np.uint8)
@@ -88,44 +94,51 @@ def intensity(rgb: np.ndarray) -> np.ndarray:
 
 
 # ------------------------------------------------------------------ S1 prepare
-def prepare(gray: np.ndarray) -> tuple[np.ndarray, dict]:
-    # background on a 4x downscaled copy: 16x cheaper, and the background is smooth
-    small = gray[::4, ::4]
-    bg_small = ndi.gaussian_filter(small, 12)
-    bg = ndi.zoom(bg_small, (gray.shape[0] / small.shape[0], gray.shape[1] / small.shape[1]), order=1)
-    bg = bg[: gray.shape[0], : gray.shape[1]]
-    pre = np.clip(gray - bg, 0, None)
+def _smooth(img: np.ndarray, cfg: dict) -> np.ndarray:
+    s = cfg["soma"]["smooth"]
+    return ndi.gaussian_filter(img, s) if s > 0 else img
+
+
+def prepare(gray: np.ndarray, cfg: dict) -> tuple[np.ndarray, dict]:
+    """Filter stack + thresholds. `gray` already has the polarity applied."""
+    pre = preproc.apply_stack(gray, cfg)
     med = float(np.median(pre))
     mad = float(np.median(np.abs(pre - med))) * 1.4826 + 1e-4
-    # neurite threshold is estimated on the ridge response of a downscaled copy
-    ridge_small = filters.sato(pre[::3, ::3], sigmas=[1], black_ridges=False)
-    r_med = float(np.median(ridge_small))
-    r_mad = float(np.median(np.abs(ridge_small - r_med))) * 1.4826 + 1e-5
-    stats = {
-        "noise": mad,
-        "soma_thr": med + max(18 * mad, 0.18),
-        "ridge_thr": r_med + 12 * r_mad,
-        "ridge_scale": 3 * r_mad,
-    }
+    # local soma methods need the full-image smoothed copy (a map, not a scalar)
+    needs_map = cfg["soma"]["method"] in preproc.LOCAL_METHODS or cfg["soma"]["method"] in preproc.GLOBAL_METHODS
+    soma_thr, warn = preproc.soma_threshold(_smooth(pre, cfg) if needs_map else pre, pre, cfg)
+    nst, warn2 = preproc.neurite_stats(pre, cfg)
+    stats = {"noise": mad, "soma_thr": soma_thr, **nst, "warnings": warn + warn2}
     return pre, stats
 
 
+def _at(thr, ay0, ay1, ax0, ax1):
+    return thr[ay0:ay1, ax0:ax1] if isinstance(thr, np.ndarray) else thr
+
+
 # ------------------------------------------------------------------ S2 segment
-def segment_tile(pre: np.ndarray, stats: dict, x0: int, y0: int, x1: int, y1: int):
+def segment_tile(pre: np.ndarray, stats: dict, x0: int, y0: int, x1: int, y1: int, cfg: dict,
+                 ridge_resp: np.ndarray | None = None):
     h, w = pre.shape
     ax0, ay0 = max(0, x0 - HALO), max(0, y0 - HALO)
     ax1, ay1 = min(w, x1 + HALO), min(h, y1 + HALO)
     sub = pre[ay0:ay1, ax0:ax1]
-    smooth = ndi.gaussian_filter(sub, 1.5)
-    soma = smooth > stats["soma_thr"]
-    soma = ndi.binary_opening(soma, structure=morphology.disk(2))
-    ridge = filters.sato(sub, sigmas=[1, 2], black_ridges=False)
-    neur = (ridge > stats["ridge_thr"]) & ~soma
+    smooth = _smooth(sub, cfg)
+    sthr = _at(stats["soma_thr"], ay0, ay1, ax0, ax1)
+    soma = smooth > sthr
+    r_open = int(cfg["soma"]["open_radius"])
+    if r_open > 0:
+        soma = ndi.binary_opening(soma, structure=morphology.disk(r_open))
+    ridge = preproc.ridge(sub, cfg) if ridge_resp is None else ridge_resp[ay0:ay1, ax0:ax1]
+    if stats.get("ridge_low") is not None:
+        neur = filters.apply_hysteresis_threshold(ridge, stats["ridge_low"], stats["ridge_thr"]) & ~soma
+    else:
+        neur = (ridge > stats["ridge_thr"]) & ~soma
     # uncertainty: 1 at the decision boundary, fading with distance to it
     z = (ridge - stats["ridge_thr"]) / stats["ridge_scale"]
     unc = np.exp(-0.5 * z * z) * (ridge > 0.35 * stats["ridge_thr"])
-    zs = (smooth - stats["soma_thr"]) / (6 * stats["noise"] + 1e-6)
-    unc = np.maximum(unc, np.exp(-0.5 * zs * zs) * (smooth > 0.5 * stats["soma_thr"]))
+    zs = (smooth - sthr) / (6 * stats["noise"] + 1e-6)
+    unc = np.maximum(unc, np.exp(-0.5 * zs * zs) * (smooth > 0.5 * sthr))
     sl = (slice(y0 - ay0, y0 - ay0 + (y1 - y0)), slice(x0 - ax0, x0 - ax0 + (x1 - x0)))
     return soma[sl], neur[sl], unc[sl].astype(np.float32)
 
@@ -213,10 +226,11 @@ def _drop_small(mask: np.ndarray, min_area: int, min_extent: int = 0) -> np.ndar
     return keep[lab]
 
 
-def measure_all(pre, soma, neur, unc, um_per_px) -> dict:
+def measure_all(pre, soma, neur, unc, um_per_px, cfg: dict | None = None) -> dict:
+    cfg = cfg or preproc.defaults()
     h, w = soma.shape
-    soma = _drop_small(soma, 12)
-    neur = _drop_small(neur & ~soma, 70, min_extent=32)
+    soma = _drop_small(soma, int(cfg["soma"]["min_area"]))
+    neur = _drop_small(neur & ~soma, int(cfg["neurite"]["min_area"]), min_extent=int(cfg["neurite"]["min_extent"]))
     soma_zone = ndi.binary_dilation(soma, iterations=2)
     skel = morphology.skeletonize(neur & ~soma_zone)
     nb = ndi.convolve(skel.astype(np.uint8), _NB, mode="constant") * skel
@@ -406,14 +420,14 @@ def measure_all(pre, soma, neur, unc, um_per_px) -> dict:
 
 
 # ------------------------------------------------------------------- S5 score
-# Reference values for the mock NTI: typical per-cell values of a healthy field.
+# Reference values for the provisional NTI: typical per-cell values of a healthy field.
 REF = {"neurite_length": 220.0, "branching": 3.0, "angle_disp": 45.0, "circularity": 0.75}
 
 
 def nti_score(cells, branches, angles) -> dict:
-    """Mock NTI in [0, 1], higher = more neurotoxic-looking. Each contribution is a
+    """NTI in [0, 1], higher = more neurotoxic-looking. Each contribution is a
     bounded (tanh) deviation from the reference, so the score is an additive,
-    explainable sum. Placeholder until the real definition is fitted."""
+    explainable sum. Weights are provisional until fitted (calibrated: False)."""
     n = max(len(cells), 1)
     L = sum(b["length_px"] for b in branches) / n
     B = len(branches) / n
@@ -429,11 +443,11 @@ def nti_score(cells, branches, angles) -> dict:
     if not cells:   # no somata: the index is undefined, not "toxic"
         return {"score": None, "contrib": {k: 0.0 for k in contrib}, "inputs": {
             "neurite_length_per_cell_px": 0, "branches_per_cell": 0,
-            "angle_dispersion_deg": 0, "mean_circularity": 0}, "mock": True}
+            "angle_dispersion_deg": 0, "mean_circularity": 0}, "calibrated": False}
     return {"score": round(score, 3), "contrib": {k: round(v, 3) for k, v in contrib.items()},
             "inputs": {"neurite_length_per_cell_px": round(L, 1), "branches_per_cell": round(B, 2),
                        "angle_dispersion_deg": round(A, 1), "mean_circularity": round(C, 3)},
-            "mock": True}
+            "calibrated": False}
 
 
 def cell_nti(c) -> float:
@@ -447,9 +461,14 @@ def cell_nti(c) -> float:
 # ---------------------------------------------------------------------- run
 def run(image_id: str, path: str | Path, out_dir: str | Path, emit: Emit,
         cancelled: Cancelled = lambda: False, stream_tiles: bool = True,
-        tile_delay: float = 0.0) -> dict:
+        tile_delay: float = 0.0, cfg: dict | None = None, ctx: dict | None = None) -> dict:
     """Run S0-S5 on one image, emitting contract events; writes layer PNGs and
-    result.json into out_dir. Raises JobCancelled when cancelled() turns True."""
+    result.json into out_dir. Raises JobCancelled when cancelled() turns True.
+
+    cfg: preprocessing config (preproc.normalize); ctx: image metadata that the
+    file itself cannot tell -- {"modality", "um_per_px", "preset"}."""
+    cfg = preproc.normalize(cfg)
+    ctx = ctx or {}
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     timings: dict[str, float] = {}
@@ -466,10 +485,12 @@ def run(image_id: str, path: str | Path, out_dir: str | Path, emit: Emit,
         return r
 
     rgb, um, _ = stage("S0", "Decode image", lambda: read_image(path))
+    if "um_per_px" in ctx:          # calibrated scale from the cohort manifest (may be None)
+        um = ctx["um_per_px"]
     h, w = rgb.shape[:2]
     emit({"type": "meta", "width": w, "height": h, "um_per_px": um, "tile": TILE})
-    gray = intensity(rgb)
-    pre, stats = stage("S1", "Background + noise model", lambda: prepare(gray))
+    gray = preproc.apply_polarity(intensity(rgb), cfg, ctx.get("modality"))
+    pre, stats = stage("S1", "Filters + thresholds", lambda: prepare(gray, cfg))
 
     soma = np.zeros((h, w), bool)
     neur = np.zeros((h, w), bool)
@@ -482,7 +503,7 @@ def run(image_id: str, path: str | Path, out_dir: str | Path, emit: Emit,
             if cancelled():
                 raise JobCancelled()
             x1, y1 = min(w, x0 + TILE), min(h, y0 + TILE)
-            s, n, u = segment_tile(pre, stats, x0, y0, x1, y1)
+            s, n, u = segment_tile(pre, stats, x0, y0, x1, y1, cfg)
             soma[y0:y1, x0:x1], neur[y0:y1, x0:x1], unc[y0:y1, x0:x1] = s, n, u
             if stream_tiles:
                 run_cells += ndi.label(s)[1]
@@ -497,7 +518,7 @@ def run(image_id: str, path: str | Path, out_dir: str | Path, emit: Emit,
                 emit({"type": "progress", "i": i, "n": len(tiles)})   # light: no pixels
 
     stage("S2", "Tiled segmentation", seg_all)
-    m = stage("S3", "Skeleton + clean-up", lambda: measure_all(pre, soma, neur, unc, um))
+    m = stage("S3", "Skeleton + clean-up", lambda: measure_all(pre, soma, neur, unc, um, cfg))
     # (measure_all does S3 and S4 together; S4 is reported separately for the UI)
     emit({"type": "stage", "stage": "S4", "label": "Morphometry", "state": "running"})
     for c in m["cells"]:
@@ -516,8 +537,10 @@ def run(image_id: str, path: str | Path, out_dir: str | Path, emit: Emit,
     cells, neurites = m["cells"], m["neurites"]
     result = {
         "image_id": image_id,
-        "model_version": MODEL_VERSION,
-        "mock": True,
+        "model_version": model_version(cfg),
+        "pipeline": PIPELINE,
+        "preproc": {"preset": ctx.get("preset", "default"), "hash": preproc.cfg_hash(cfg), "params": cfg,
+                    "warnings": stats.get("warnings", [])},
         "width": w, "height": h, "um_per_px": um,
         "cells": cells,
         "neurites": neurites,
@@ -541,3 +564,104 @@ def run(image_id: str, path: str | Path, out_dir: str | Path, emit: Emit,
         "timings_ms": timings,
     }
     return result
+
+
+# ------------------------------------------------------------------ preview
+PREVIEW_MAX = 2048
+
+
+def _png(arr: np.ndarray, mode: str) -> str:
+    buf = io.BytesIO()
+    Image.fromarray(arr, mode).save(buf, "PNG", compress_level=1)
+    return base64.b64encode(buf.getvalue()).decode("ascii")
+
+
+def _to8(img: np.ndarray, lo_p: float = 0.5, hi_p: float = 99.8) -> np.ndarray:
+    lo, hi = np.percentile(img, [lo_p, hi_p])
+    return (np.clip((img - lo) / ((hi - lo) or 1.0), 0, 1) * 255).astype(np.uint8)
+
+
+def _hist(values: np.ndarray, bins: int = 96) -> dict:
+    v = values[np.isfinite(values)].ravel()
+    lo, hi = (float(np.percentile(v, 0.1)), float(np.percentile(v, 99.9))) if v.size else (0.0, 1.0)
+    if hi <= lo:
+        hi = lo + 1e-6
+    counts, _ = np.histogram(v, bins=bins, range=(lo, hi))
+    return {"lo": lo, "hi": hi, "counts": counts.astype(int).tolist()}
+
+
+def preview(raw_png: str | Path, cfg: dict | None, roi: list | None, mode: str,
+            ctx: dict | None = None) -> dict:
+    """Preprocess screen: run polarity + filter stack + thresholds on one region
+    (<= PREVIEW_MAX px a side, native resolution so filter sizes mean the same as
+    in the full run). mode = "preview" | "try_all"."""
+    cfg = preproc.normalize(cfg)
+    ctx = ctx or {}
+    t0 = time.perf_counter()
+    rgb = np.asarray(Image.open(raw_png).convert("RGB"))
+    H, W = rgb.shape[:2]
+    if roi and len(roi) == 4:
+        x, y, w, h = (int(round(v)) for v in roi)
+    else:
+        w, h = min(W, PREVIEW_MAX), min(H, PREVIEW_MAX)
+        x, y = (W - w) // 2, (H - h) // 2
+    w, h = max(16, min(w, PREVIEW_MAX)), max(16, min(h, PREVIEW_MAX))
+    x, y = max(0, min(x, W - w)), max(0, min(y, H - h))
+    w, h = min(w, W - x), min(h, H - y)
+    crop = rgb[y:y + h, x:x + w]
+    gray = preproc.apply_polarity(intensity(crop), cfg, ctx.get("modality"))
+    pre, stats = prepare(gray, cfg)
+    smooth = _smooth(pre, cfg)
+    out = {"type": "preview", "mode": mode, "roi": [x, y, w, h], "image_size": [W, H],
+           "warnings": list(stats.get("warnings", [])),
+           "raw": _png(np.ascontiguousarray(crop), "RGB"),
+           "filtered": _png(_to8(pre), "L")}
+
+    if mode == "try_all":
+        step = max(1, int(math.ceil(max(w, h) / 384)))
+        small = smooth[::step, ::step]
+        grid = []
+        for r in preproc.try_all(small):
+            item = {"method": r["method"], "threshold": r["threshold"], "error": r.get("error")}
+            if r.get("mask") is not None:
+                item["png"] = _png((r["mask"] * 255).astype(np.uint8), "L")
+                item["fg_ratio"] = round(float(r["mask"].mean()), 4)
+            grid.append(item)
+        out["grid"] = grid
+        out["ms"] = round((time.perf_counter() - t0) * 1000)
+        return out
+
+    rdg = preproc.ridge(pre, cfg)
+    soma, neur, unc = segment_tile(pre, stats, 0, 0, w, h, cfg, ridge_resp=rdg)
+    soma = _drop_small(soma, int(cfg["soma"]["min_area"]))
+    neur = _drop_small(neur & ~soma, int(cfg["neurite"]["min_area"]), min_extent=int(cfg["neurite"]["min_extent"]))
+    skel = morphology.skeletonize(neur)
+    sthr = stats["soma_thr"]
+    local = isinstance(sthr, np.ndarray)
+    ov = np.zeros((h, w, 4), np.uint8)
+    ov[soma] = (255, 184, 108, 255)          # soma = amber (CLAUDE.md s6)
+    ov[neur] = (139, 233, 253, 255)          # neurite = cyan
+    ov[skel] = (248, 248, 242, 255)          # skeleton on top
+    un = np.zeros((h, w, 4), np.uint8)
+    un[..., 0:3] = (109, 139, 255)        # --uncert
+    un[..., 3] = np.clip(unc * 255, 0, 255).astype(np.uint8)
+    out.update({
+        "overlay": _png(ov, "RGBA"),
+        "uncertainty": _png(un, "RGBA"),
+        "hist": {
+            "soma": {**_hist(smooth), "threshold": float(np.median(sthr)) if local else float(sthr),
+                     "local": local},
+            "neurite": {**_hist(rdg), "threshold": float(stats["ridge_thr"]),
+                        "low": None if stats.get("ridge_low") is None else float(stats["ridge_low"])},
+        },
+        "stats": {
+            "soma_count": int(ndi.label(soma)[1]),
+            "soma_px": int(soma.sum()),
+            "neurite_px": int(neur.sum()),
+            "skeleton_px": int(skel.sum()),
+            "fg_ratio": round(float((soma | neur).mean()), 4),
+            "um_per_px": ctx.get("um_per_px"),
+        },
+        "ms": round((time.perf_counter() - t0) * 1000),
+    })
+    return out

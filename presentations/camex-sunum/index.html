@@ -1,0 +1,1280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<script>window.addEventListener('pageshow',function(e){if(e.persisted)location.reload();});</script>
+<title>CAMEX — PC12 Morphology</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="src/styles/styles.css?v=1">
+<link rel="stylesheet" href="src/styles/camex.css?v=36">
+<script src="src/engine/deck-stage.js?v=1"></script>
+<script>
+/* Tek-yetkili deste el sıkışması için ERKEN etkileşim yakalayıcı: window'a İLK
+   kaydolan capture dinleyicisi olmalı ki adım denetleyicilerinin
+   stopImmediatePropagation'ı kullanıcı jestini yutamasın. İşlevin kendisini
+   sayfa sonundaki senkron bloğu atar (yalnızca seyirci rolünde). */
+(() => {
+  const h = (e) => { if (window.__deckClaimGesture) window.__deckClaimGesture(e); };
+  window.addEventListener('keydown', h, true);
+  window.addEventListener('pointerdown', h, true);
+})();
+</script>
+<script src="src/slides/popup.js?v=1"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/addons/"
+  }
+}
+</script>
+<script src="vendor/gsap/gsap.min.js"></script>
+</head>
+<body style="margin:0;background:#FFFFFF;">
+<deck-stage width="1920" height="1080">
+<!-- ============== 01 — COVER ============== -->
+<section data-label="Cover" class="cover">
+  <div class="cover-grid"></div>
+  <div class="frame">
+    <div class="deck-header">
+      <div class="left"><img src="assets/images/logos/ikcu-logo.png" alt="IKCU"></div>
+      <div class="right"></div>
+    </div>
+    <div style="margin-top:120px;">
+      <div class="cover-eyebrow anim-fade-up delay-1" style="text-align:center;">ENG401 <span class="red">●</span> PC12</div>
+      <div class="cover-title-wrap"><canvas id="dot-title" width="1800" height="260"></canvas></div>
+      <div class="cover-subtitle-typewriter">
+        <span id="tw-static">Cellular Analysis of Morphology with XAI for PC12 — </span><span id="tw-dynamic" class="tw-accent"></span><span id="tw-cursor" class="tw-cursor">_</span>
+      </div>
+    </div>
+    <div class="cover-meta anim-fade-up delay-4">
+      <div class="item"><div class="lbl">Authors</div><div class="val">Gözde Havin Fidan · Berke Dinç</div></div>
+      <div class="item"><div class="lbl">Supervisors</div><div class="val">Volkan Kılıç · Mustafa Şen</div></div>
+      <div class="item"><div class="lbl">Institution</div><div class="val">İzmir Kâtip Çelebi University</div></div>
+      <div class="item"><div class="lbl">Course</div><div class="val">ENG401</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 02 — OUTLINE ============== -->
+<section data-label="Outline" class="slide-outline">
+  <div class="frame">
+    <div class="deck-header"><div class="left"><img src="assets/images/logos/ikcu-logo.png"></div><div class="right"></div></div>
+    <div class="section-label anim-fade-up">OVERVIEW</div>
+    <h1 class="slide-title anim-fade-up delay-1">Outline</h1>
+    <div class="flow-timeline" data-step="0" id="outline-flow">
+      <div class="flow-labels">
+        <div class="station-label color-01">DATA</div>
+        <div class="station-label color-02">SETUP</div>
+        <div class="station-label color-03">MODEL</div>
+        <div class="station-label color-04">RESULTS</div>
+      </div>
+      <div class="flow-track-wrap anim-fade-up delay-2">
+        <div class="flow-track-bg"></div><div class="flow-track-fill"></div>
+        <span class="flow-track-cap start"></span><span class="flow-track-cap end"></span>
+      </div>
+      <div class="flow-grid">
+        <div class="flow-col color-01">
+          <div class="station-circle"><span class="station-num">1</span>
+            <svg width="66" height="66" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/></svg>
+          </div>
+          <ul class="station-slides"><li><span>91 labelled PC12 micrographs</span></li><li><span>Three classes besides background</span></li></ul>
+        </div>
+        <div class="flow-col color-02">
+          <div class="station-circle"><span class="station-num">2</span>
+            <svg width="66" height="66" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3"/><path d="M7.5 14h9"/></svg>
+          </div>
+          <ul class="station-slides"><li><span>A fair comparison</span></li><li><span>Preprocessing: three steps</span></li><li><span>Preprocessing tests</span></li><li><span>Augmentation tests</span></li></ul>
+        </div>
+        <div class="flow-col color-03">
+          <div class="station-circle"><span class="station-num">3</span>
+            <svg width="66" height="66" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg>
+          </div>
+          <ul class="station-slides"><li><span>Cell bodies: Cellpose-SAM</span></li><li><span>Segmentation models tested</span></li><li><span>How the network reads an image</span></li></ul>
+        </div>
+        <div class="flow-col color-04">
+          <div class="station-circle"><span class="station-num">4</span>
+            <svg width="66" height="66" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+          </div>
+          <ul class="station-slides"><li><span>The CAMEX desktop application</span></li></ul>
+        </div>
+      </div>
+    </div>
+    <div class="page-num"></div>
+  </div>
+</section>
+
+<!-- ============== 03 — DATASET ============== -->
+<section data-label="Dataset">
+  <div class="frame">
+    <div class="deck-header"><div class="left"><img src="assets/images/logos/ikcu-logo.png"></div><div class="right"></div></div>
+    <div class="section-label sl--data anim-fade-up">DATA</div>
+    <h1 class="slide-title anim-fade-up delay-1">91 labelled PC12 micrographs</h1>
+    <div class="body dataset-centred" id="dataset-flow">
+      <div class="fig dark anim-fade-up delay-2" style="flex:1.15;">
+        <img src="assets/figures/pc12.png" alt="PC12 fluorescence micrograph">
+      </div>
+      <div class="col grow" style="justify-content:center;">
+        <div class="grid c2">
+          <div class="kcard frag" style="--accent:var(--data)"><div class="k-eyebrow">Images</div><div class="k-value"><span data-count="91">91</span></div><div class="k-sub">fluorescence micrographs of PC12 cells</div></div>
+          <div class="kcard frag" style="--accent:var(--data)"><div class="k-eyebrow">Bit depth</div><div class="k-value" style="font-size:44px">8 bit</div><div class="k-sub">per colour channel (RGB) · CZI converted to PNG</div></div>
+          <div class="kcard frag span2" style="--accent:var(--data)">
+            <div class="k-eyebrow">Micrograph size &amp; resolution</div>
+            <div class="imgtype">
+              <div class="it-box"><div class="it-wrap"><img class="it-img" src="assets/figures/thumb_20x.png" alt="20x image"><span class="it-badge">20×</span></div></div>
+              <div class="it-text"><div class="k-title">1920 × 1080 px</div><div class="k-sub">53 images · 1 px = 0.185 µm</div></div>
+            </div>
+            <div class="imgtype">
+              <div class="it-box"><div class="it-wrap"><img class="it-img" src="assets/figures/thumb_5x.png" alt="5x image"><span class="it-badge">5×</span></div></div>
+              <div class="it-text"><div class="k-title">3840 × 2160 px</div><div class="k-sub">38 images · 1 px ≈ 0.37 µm</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="page-num"></div>
+  </div>
+</section>
+
+<!-- ============== 05 — LABELLING ============== -->
+<section data-label="Labelling">
+  <div class="frame">
+    <div class="deck-header"><div class="left"><img src="assets/images/logos/ikcu-logo.png"></div><div class="right"></div></div>
+    <div class="section-label sl--data anim-fade-up">DATA</div>
+    <h1 class="slide-title anim-fade-up delay-1">Three classes besides background</h1>
+    <div class="body" id="label-flow">
+      <div class="col anim-fade-up delay-2" style="flex:1.25; gap:10px;">
+        <div class="fig dark" style="flex:1;">
+          <img src="assets/figures/label_classes.png" alt="Labelled micrograph: cells, branches and a cell clump">
+        </div>
+        <div class="fig-cap-out">Relabelled in <b>HumanSignal</b></div>
+      </div>
+      <div class="col grow label-centred" style="justify-content:center;">
+        <div class="kcard frag" style="--accent:#2F5BEA">
+          <div class="k-title" style="color:#2F5BEA">Cell</div>
+          <div class="k-sub">count · area · shape</div>
+        </div>
+        <div class="kcard frag" style="--accent:#A21CAF">
+          <div class="k-title" style="color:#A21CAF">Branch</div>
+          <div class="k-sub">length · angles</div>
+        </div>
+        <div class="kcard frag" style="--accent:#D9480F">
+          <div class="k-title" style="color:#D9480F">Clump of cells</div>
+          <div class="k-sub">overlapping cells · borders and branches are not separable</div>
+        </div>
+      </div>
+    </div>
+    <div class="page-num"></div>
+  </div>
+</section>
+
+<!-- ============== 07 — PROTOCOL ============== -->
+<section data-label="Protocol">
+  <div class="frame">
+    <div class="deck-header"><div class="left"><img src="assets/images/logos/ikcu-logo.png"></div><div class="right"></div></div>
+    <div class="section-label sl--setup anim-fade-up">SETUP</div>
+    <h1 class="slide-title anim-fade-up delay-1">A fair comparison</h1>
+    <div class="body" style="align-items:center;">
+      <div class="col anim-fade-up delay-2" style="flex:1;">
+        <div class="split-tree" style="zoom:1.15">
+          <div class="node">26 labelled images</div>
+          <div class="node lock child c1">5 · test <small>opened once, at the end</small></div>
+          <div class="node dev child c2">21 · train + validation <small>5-fold cross-validation</small></div>
+        </div>
+      </div>
+      <div class="col grow" id="protocol-flow">
+        <div class="kcard frag" style="--accent:var(--setup)"><div class="k-eyebrow">5-fold cross-validation</div><div class="k-title">5 folds of ~4 images</div><div class="k-sub">train on 4 folds (~17) · validate on 1 (~4) · each image validated once</div></div>
+        <div class="kcard frag" style="--accent:var(--setup)"><div class="k-eyebrow">Same network for every test</div><div class="k-title">U-Net · ResNet-34 encoder</div><div class="k-sub">ImageNet-pretrained</div></div>
+        <div class="kcard frag" style="--accent:var(--setup)"><div class="k-eyebrow">Repeats</div><div class="k-title">3 seeds × 5 folds = 15 runs</div><div class="k-sub">per method</div></div>
+        <div class="kcard frag good clickable" data-popup="pop-cldice" role="button" tabindex="0"><div class="k-eyebrow">Accepted if</div><div class="k-title">clDice: gain ≥ 0.02 in 5 / 5 folds <span class="info-dot">i</span></div><div class="k-sub">soma Dice: drop ≤ 0.01 · junction F1: drop ≤ 0.02</div></div>
+        <dialog class="popup" id="pop-cldice">
+          <div class="popup-body">
+            <button class="popup-close" aria-label="Close">×</button>
+            <div class="popup-title">clDice · centreline Dice</div>
+            <div class="popup-lead">Is every neurite found, without gaps or invented branches?</div>
+            <div class="popup-grid">
+              <svg viewBox="0 0 340 360" width="340" height="360" aria-label="Label, prediction and centrelines of one neurite">
+                <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M170 296 V180 L70 40 M170 180 L280 40" stroke="#BBF7D0" stroke-width="34"/>
+                  <path d="M170 296 V180 L70 40" stroke="#60A5FA" stroke-opacity="0.55" stroke-width="24"/>
+                  <path d="M170 296 V180 L70 40" stroke="#166534" stroke-width="3" stroke-dasharray="7 6"/>
+                  <path d="M170 180 L280 40" stroke="#DC2626" stroke-width="4" stroke-dasharray="7 6"/>
+                </g>
+                <text x="232" y="190" class="pl2" fill="#DC2626">missed</text>
+                <rect x="14" y="328" width="16" height="16" fill="#BBF7D0"/><text x="36" y="342" class="pl3">label</text>
+                <rect x="104" y="328" width="16" height="16" fill="#60A5FA" fill-opacity="0.55"/><text x="126" y="342" class="pl3">prediction</text>
+                <line x1="226" y1="336" x2="252" y2="336" stroke="#166534" stroke-width="3" stroke-dasharray="6 5"/><text x="258" y="342" class="pl3">centreline</text>
+              </svg>
+              <div class="popup-math">
+                <div class="pm-ex">centreline = 1-pixel skeleton of a mask</div>
+                <div class="pm-eq">T<sub>prec</sub> = predicted centreline inside the label<br>T<sub>sens</sub> = label centreline inside the prediction</div>
+                <div class="pm-eq">clDice = 2 · T<sub>prec</sub> · T<sub>sens</sub> / (T<sub>prec</sub> + T<sub>sens</sub>)</div>
+                <div class="pm-calc">Example: one branch missed → T<sub>prec</sub> = 1.00 · T<sub>sens</sub> ≈ 0.62 → clDice ≈ <b>0.76</b></div>
+                <div class="pm-note">1 = every neurite complete · gaps and invented branches lower it</div>
+              </div>
+            </div>
+          </div>
+        </dialog>
+      </div>
+    </div>
+    <div class="page-num"></div>
+  </div>
+</section>
+
+<!-- ============== 09 — PREPROCESSING ============== -->
+<section data-label="Preprocessing">
+  <div class="frame">
+    <div class="deck-header"><div class="left"><img src="assets/images/logos/ikcu-logo.png"></div><div class="right"></div></div>
+    <div class="section-label sl--setup anim-fade-up">SETUP</div>
+    <h1 class="slide-title anim-fade-up delay-1">Preprocessing: three steps</h1>
+    <p class="lead anim-fade-up delay-2">Used on the first 26 labelled images</p>
+    <div class="body" style="flex-direction:column;" id="prep-flow">
+      <div class="pipe">
+        <div class="p-step frag"><div class="p-num">1</div><div class="p-title">Intensity channel</div><img class="p-img" src="assets/figures/prep_s1_gray.png" alt="Step 1 result"><div class="p-sub">max(R, G, B) / 255</div></div>
+        <div class="p-arrow">→</div>
+        <div class="p-step frag clickable" data-popup="pop-bilinear" role="button" tabindex="0"><div class="p-num">2</div><div class="p-title">Downscale × 0.33</div><img class="p-img" src="assets/figures/prep_s2_down.png" alt="Step 2 result"><div class="p-sub">bilinear interpolation <span class="info-dot">i</span></div></div>
+        <div class="p-arrow">→</div>
+        <div class="p-step frag"><div class="p-num">3</div><div class="p-title">Percentile 1 – 99.8</div><img class="p-img" src="assets/figures/prep_s3_norm.png" alt="Step 3 result"><div class="p-sub">per-image stretch · 1 % → 0 · 99.8 % → 1</div></div>
+      </div>
+      <div class="fig hist-panel">
+        <canvas id="prep-hist" width="1720" height="300" aria-label="Intensity histogram after each preprocessing step"></canvas>
+      </div>
+      <dialog class="popup" id="pop-bilinear">
+        <div class="popup-body">
+          <button class="popup-close" aria-label="Close">×</button>
+          <div class="popup-title">Bilinear interpolation</div>
+          <div class="popup-lead">Each new pixel falls between 4 original pixels → weighted mean, closer pixel = larger weight</div>
+          <div class="popup-grid">
+            <svg viewBox="0 0 340 340" width="340" height="340" aria-label="Four pixels and the new sample point">
+              <rect x="10" y="10" width="160" height="160" fill="#6B6B6B"/><text x="80" y="60" class="pv">A = 100</text>
+              <rect x="170" y="10" width="160" height="160" fill="#C8C8C8"/><text x="250" y="60" class="pv dark">B = 200</text>
+              <rect x="10" y="170" width="160" height="160" fill="#323232"/><text x="90" y="300" class="pv">C = 50</text>
+              <rect x="170" y="170" width="160" height="160" fill="#969696"/><text x="250" y="300" class="pv">D = 150</text>
+              <line x1="90" y1="170" x2="130" y2="170" stroke="#F97316" stroke-width="3"/>
+              <line x1="130" y1="90" x2="130" y2="170" stroke="#F97316" stroke-width="3" stroke-dasharray="6 5"/>
+              <text x="110" y="196" class="pl">dx</text><text x="148" y="140" class="pl">dy</text>
+              <circle cx="130" cy="170" r="11" fill="#EF4444" stroke="#fff" stroke-width="3"/>
+            </svg>
+            <div class="popup-math">
+              <div class="pm-eq">f = (1−dx)(1−dy)·A + dx(1−dy)·B<br>&nbsp;&nbsp;&nbsp;+ (1−dx)dy·C + dx·dy·D</div>
+              <div class="pm-ex">Example: <b>dx = 0.25</b>, <b>dy = 0.5</b></div>
+              <div class="pm-calc">0.375·100 + 0.125·200 + 0.375·50 + 0.125·150<br>= 37.5 + 25 + 18.75 + 18.75 = <b>100</b></div>
+              <div class="pm-note">× 0.33 → every new pixel takes its value from its 4 nearest original pixels</div>
+            </div>
+          </div>
+        </div>
+      </dialog>
+    </div>
+    <div class="page-num"></div>
+  </div>
+</section>
+
+<!-- ============== 10 — WHAT WE TESTED ============== -->
+<section data-label="Preprocessing tested" class="slide-limits">
+  <div class="frame">
+    <div class="deck-header"><div class="left"><img src="assets/images/logos/ikcu-logo.png"></div><div class="right"></div></div>
+    <div class="section-label sl--setup anim-fade-up">SETUP</div>
+    <h1 class="slide-title anim-fade-up delay-1">Preprocessing tests</h1>
+    <div class="strike-list tests-list" data-step="0" id="tested-flow">
+      <div class="sl-row color-03" data-stage="0" data-keep="1">
+        <div class="sl-num">1</div>
+        <div class="sl-meta"><div class="sl-title-wrap"><span class="sl-title">Downscale × 0.33</span><span class="sl-strike"></span></div><div class="sl-keys">best result · used in our pipeline</div></div>
+      </div>
+      <div class="sl-row color-05" data-stage="0">
+        <div class="sl-num">2</div>
+        <div class="sl-meta"><div class="sl-title-wrap"><span class="sl-title">Contrast &amp; denoising</span><span class="sl-strike"></span></div><div class="sl-keys">CLAHE · asinh · NLM · gamma · sharpening</div></div>
+      </div>
+      <div class="sl-row color-02" data-stage="0">
+        <div class="sl-num">3</div>
+        <div class="sl-meta"><div class="sl-title-wrap"><span class="sl-title">Ridge-filter channels</span><span class="sl-strike"></span></div><div class="sl-keys">Sato · Frangi · Meijering</div></div>
+      </div>
+      <div class="sl-row sl-retest color-04" data-stage="0" data-retest="1">
+        <div class="sl-num">4</div>
+        <div class="sl-meta"><div class="sl-title-wrap"><span class="sl-title">Anti-aliased downscale</span><span class="sl-strike"></span></div><div class="sl-keys">Gaussian blur before downscaling</div></div>
+      </div>
+    </div>
+    <div class="page-num"></div>
+  </div>
+</section>
+
+<!-- ============== 11 — AUGMENTATION ============== -->
+<section data-label="Augmentation">
+  <div class="frame">
+    <div class="deck-header"><div class="left"><img src="assets/images/logos/ikcu-logo.png"></div><div class="right"></div></div>
+    <div class="section-label sl--setup anim-fade-up">SETUP</div>
+    <h1 class="slide-title anim-fade-up delay-1">Augmentation tests</h1>
+    <div class="body" style="flex-direction:column;" id="aug-flow">
+      <div class="pipe aug-cards">
+        <div class="p-step frag"><div class="p-num">1</div><div class="p-title">Random crops</div><img class="p-img" src="assets/figures/aug_card_crops.png" alt="Crop windows on one image"><div class="p-sub"><span class="c-green">green</span>: near a cell or neurite (2 of 3) · <span class="c-yellow">yellow</span>: anywhere (1 of 3)</div></div>
+        <div class="p-arrow">→</div>
+        <div class="p-step frag"><div class="p-num">2</div><div class="p-title">8 rotations &amp; flips</div><img class="p-img" src="assets/figures/aug_card_dihedral.png" alt="The eight rotations and flips of one crop"><div class="p-sub">cells have no preferred direction</div></div>
+      </div>
+      <div class="fig frag retest-panel">
+        <div class="retest-head">Retest with more data</div>
+        <img src="assets/figures/aug_retest_strip.png" alt="Augmentations kept for a retest">
+        <div class="retest-also">junction-focused crops · combined robustness set</div>
+      </div>
+    </div>
+    <div class="page-num"></div>
+  </div>
+</section>
+
+<!-- ============== 16 — SOMA ============== -->
+<section data-label="Cell bodies">
+  <div class="frame">
+    <div class="deck-header"><div class="left"><img src="assets/images/logos/ikcu-logo.png"></div><div class="right"></div></div>
+    <div class="section-label sl--model anim-fade-up">MODEL</div>
+    <h1 class="slide-title anim-fade-up delay-1">Cell bodies: Cellpose-SAM</h1>
+    <div class="body" id="soma-flow" style="justify-content:center;">
+      <div class="col frag" style="justify-content:center;flex:0 1 1150px;">
+        <table class="cmp-table num">
+          <thead><tr><th>Method</th><th><span class="th-click" data-popup="pop-dice" role="button" tabindex="0">Dice <span class="info-dot">i</span></span></th><th><span class="th-click" data-popup="pop-objf1" role="button" tabindex="0">Object F1 <span class="info-dot">i</span></span></th><th><span class="th-click" data-popup="pop-count" role="button" tabindex="0">Count error <span class="info-dot">i</span></span></th></tr></thead>
+          <tbody>
+            <tr><td>U-Net (best variant)</td><td>0.867</td><td>0.634</td><td>0.25</td></tr>
+            <tr><td>nnU-Net</td><td class="best">0.871</td><td>0.565</td><td class="worst">0.83</td></tr>
+            <tr><td>Cellpose-SAM, no training</td><td class="worst">0.624</td><td>0.543</td><td>0.28</td></tr>
+            <tr class="row-us"><td>Cellpose-SAM, fine-tuned</td><td>0.871</td><td>0.699</td><td>0.21</td></tr>
+          </tbody>
+        </table>
+        <dialog class="popup" id="pop-dice">
+          <div class="popup-body">
+            <button class="popup-close" aria-label="Close">×</button>
+            <div class="popup-title">Dice · pixel overlap</div>
+            <div class="popup-lead">How much of the cell-body area is right?</div>
+            <div class="popup-math popup-solo">
+              <div class="pm-eq">Dice = 2 · |P ∩ L| / (|P| + |L|)</div>
+              <div class="pm-ex">P = predicted cell-body pixels · L = labelled cell-body pixels</div>
+              <div class="pm-calc">Example: 90 pixels shared, 100 predicted, 100 labelled → 2·90 / 200 = <b>0.90</b></div>
+              <div class="pm-note">1 = perfect overlap · two touching cells drawn as one blob still score high</div>
+            </div>
+          </div>
+        </dialog>
+        <dialog class="popup" id="pop-objf1">
+          <div class="popup-body">
+            <button class="popup-close" aria-label="Close">×</button>
+            <div class="popup-title">Object F1 · cell-by-cell matching</div>
+            <div class="popup-lead">Is every cell found as its own object?</div>
+            <div class="popup-math popup-solo">
+              <div class="pm-ex">a predicted cell matches a labelled cell if IoU ≥ 0.5 · each cell matched at most once</div>
+              <div class="pm-eq">IoU = overlap / union of the two cells</div>
+              <div class="pm-eq">precision = matched / predicted cells<br>recall = matched / labelled cells<br>F1 = 2 · precision · recall / (precision + recall)</div>
+              <div class="pm-calc">Example: 10 labelled cells, 2 touching cells merged into 1 → 9 predicted, 8 matched<br>precision 0.89 · recall 0.80 → F1 ≈ <b>0.84</b></div>
+              <div class="pm-note">1 = every cell found once · merged or split cells lower it</div>
+            </div>
+          </div>
+        </dialog>
+        <dialog class="popup" id="pop-count">
+          <div class="popup-body">
+            <button class="popup-close" aria-label="Close">×</button>
+            <div class="popup-title">Count error · cell count</div>
+            <div class="popup-lead">How far is the number of cells from the truth?</div>
+            <div class="popup-math popup-solo">
+              <div class="pm-eq">count error = |N<sub>predicted</sub> − N<sub>labelled</sub>| / N<sub>labelled</sub></div>
+              <div class="pm-ex">computed per image, then averaged over the images</div>
+              <div class="pm-calc">Example: 10 labelled cells, 8 found → |8 − 10| / 10 = <b>0.20</b></div>
+              <div class="pm-note">0 = exact count · 0.21 ≈ count off by about one cell in five</div>
+            </div>
+          </div>
+        </dialog>
+      </div>
+    </div>
+    <div class="page-num"></div>
+  </div>
+</section>
+
+<!-- ============== 14 — ARCHITECTURE ============== -->
+<section data-label="Architecture">
+  <div class="frame">
+    <div class="deck-header"><div class="left"><img src="assets/images/logos/ikcu-logo.png"></div><div class="right"></div></div>
+    <div class="section-label sl--model anim-fade-up">MODEL</div>
+    <h1 class="slide-title anim-fade-up delay-1">Segmentation models tested</h1>
+    <p class="lead anim-fade-up delay-2">Neurite (branch) clDice · change vs. the U-Net reference · mean of 5-fold cross-validation · <span class="th-click" data-popup="pop-loss" role="button" tabindex="0">same training loss <span class="info-dot">i</span></span></p>
+    <div class="body" style="align-items:center;justify-content:center;">
+      <div class="col" style="flex:0 1 1150px;">
+        <div class="bars anim-fade-up delay-2" id="arch-bars">
+          <div class="bar-row best"><div class="b-name">UNet++ + SegFormer</div><div class="bar-track"><div class="bar pos best" style="--w:9.2%"></div></div><div class="b-val pos">+0.015</div></div>
+          <div class="bar-row"><div class="b-name">UNet++</div><div class="bar-track"><div class="bar pos hi" style="--w:6.2%"></div></div><div class="b-val pos">+0.010</div></div>
+          <div class="bar-row"><div class="b-name">SegFormer-B2</div><div class="bar-track"><div class="bar pos hi" style="--w:8.0%"></div></div><div class="b-val pos">+0.013</div></div>
+          <div class="bar-row"><div class="b-name">MAnet</div><div class="bar-track"><div class="bar pos" style="--w:3.1%"></div></div><div class="b-val pos">+0.005</div></div>
+          <div class="bar-row"><div class="b-name">U-Net · ResNeSt-50</div><div class="bar-track"><div class="bar pos" style="--w:0.8%"></div></div><div class="b-val pos">+0.001</div></div>
+          <div class="bar-row"><div class="b-name">U-Net · ConvNeXt-T</div><div class="bar-track"><div class="bar neg" style="--w:1.8%"></div></div><div class="b-val neg">−0.003</div></div>
+          <div class="bar-row"><div class="b-name">UPerNet · FPN</div><div class="bar-track"><div class="bar neg" style="--w:4.3%"></div></div><div class="b-val neg">−0.007</div></div>
+          <div class="bar-row"><div class="b-name">U-Net · EfficientNet-B4</div><div class="bar-track"><div class="bar neg" style="--w:6.2%"></div></div><div class="b-val neg">−0.010</div></div>
+          <div class="bar-row"><div class="b-name">DeepLabV3+</div><div class="bar-track"><div class="bar neg" style="--w:11.1%"></div></div><div class="b-val neg">−0.018</div></div>
+          <div class="bar-row"><div class="b-name">nnU-Net (20 epochs)</div><div class="bar-track"><div class="bar neg" style="--w:41.2%"></div></div><div class="b-val neg">−0.067</div></div>
+          <div class="bar-row"><div class="b-name">DINOv2 + DPT</div><div class="bar-track"><div class="bar neg" style="--w:77.5%"></div></div><div class="b-val neg">−0.126</div></div>
+        </div>
+      </div>
+    </div>
+      <dialog class="popup" id="pop-loss">
+        <div class="popup-body">
+          <button class="popup-close" aria-label="Close">×</button>
+          <div class="popup-title">Training loss</div>
+          <div class="popup-lead">What every network on this slide minimises while it learns (nnU-Net uses its own training setup)</div>
+          <div class="popup-math popup-solo">
+            <div class="pm-eq"><b>L = BCE + Dice + λ · soft-clDice</b></div>
+            <div class="pm-eq">BCE = − mean [ y · log p + (1 − y) · log (1 − p) ]</div>
+            <div class="pm-ex">every pixel: is it the right class?</div>
+            <div class="pm-eq">Dice loss = 1 − 2 · Σ p·y / (Σ p + Σ y)</div>
+            <div class="pm-ex">the whole structure: overlap, even though 97 % of the pixels are background</div>
+            <div class="pm-eq">soft-clDice loss = 1 − 2 · T<sub>prec</sub> · T<sub>sens</sub> / (T<sub>prec</sub> + T<sub>sens</sub>)</div>
+            <div class="pm-ex">centre lines (soft skeletons): punishes <b>broken</b> neurites</div>
+            <div class="pm-calc">p = predicted probability · y = label (0 or 1) · λ = weight of soft-clDice (1.0)</div>
+            <div class="pm-note">soft-clDice added: clDice +0.023 · Betti-0 error 9.6 → 7.4 · junction F1 +0.031</div>
+          </div>
+        </div>
+      </dialog>
+    <div class="page-num"></div>
+  </div>
+</section>
+
+<!-- ============== NETWORK VIEW — window + kernel animation ============== -->
+<section data-label="Network view">
+  <div class="frame">
+    <div class="deck-header"><div class="left"><img src="assets/images/logos/ikcu-logo.png"></div><div class="right"></div></div>
+    <div class="section-label sl--model anim-fade-up">MODEL</div>
+    <h1 class="slide-title anim-fade-up delay-1">How the network reads an image</h1>
+    <div class="body" id="conv-flow">
+      <div class="col grow">
+        <div class="fig dark anim-fade-up delay-2" style="flex:1;padding:0;overflow:hidden;">
+          <canvas id="conv-image" width="1120" height="630" style="width:100%;height:100%;object-fit:contain;"></canvas>
+        </div>
+        <span class="conv-step" hidden></span><span class="conv-step" hidden></span>
+        <div class="kcard conv-step frag" style="--accent:var(--model);margin-top:14px;">
+          <div class="k-eyebrow">Overlapping windows</div>
+          <div class="k-title">32 px overlap · weighted average</div>
+          <div class="k-sub">the window centre counts most (Hann weight) → no seams</div>
+        </div>
+      </div>
+      <div class="col anim-fade-up delay-3" style="flex:0 0 660px;justify-content:center;">
+        <canvas id="conv-zoom" width="640" height="720" style="width:100%;height:auto;"></canvas>
+      </div>
+    </div>
+    <div class="page-num"></div>
+  </div>
+</section>
+
+<!-- ============== 18 — CAMEX ============== -->
+<section data-label="CAMEX">
+  <div class="frame">
+    <div class="deck-header"><div class="left"><img src="assets/images/logos/ikcu-logo.png"></div><div class="right"></div></div>
+    <div class="section-label sl--results anim-fade-up">RESULTS</div>
+    <h1 class="slide-title anim-fade-up delay-1">The <span class="text-grad">CAMEX</span> desktop application</h1>
+    <p class="lead anim-fade-up delay-2">Fully offline · React + FastAPI</p>
+
+    <div class="panel-grid">
+      <!-- 3D laptop (src/slides/laptop.js): the step controller picks the screen;
+           the matching orb lights up through the panelchange event. -->
+      <div class="laptop-frame anim-fade delay-2">
+        <div id="laptop-stage" class="laptop-stage" aria-label="CAMEX desktop application — animated preview"></div>
+        <div class="laptop-shadow"></div>
+      </div>
+
+      <div class="panel-orbs panel-orbs--4 anim-fade-up delay-3" id="panel-orbs">
+        <div class="panel-orb" data-panel="0">
+          <div class="panel-orb-num">1</div>
+          <div class="panel-orb-circle">
+            <span class="panel-orb-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/><circle cx="11" cy="11" r="2"/></svg>
+            </span>
+            <h3 class="panel-orb-title">Analyze<span class="panel-orb-sub">masks · numbered cells · NTI</span></h3>
+          </div>
+        </div>
+        <div class="panel-orb" data-panel="1">
+          <div class="panel-orb-num">2</div>
+          <div class="panel-orb-circle">
+            <span class="panel-orb-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M12 4v16"/><path d="M7 10l-2 2 2 2M17 10l2 2-2 2"/></svg>
+            </span>
+            <h3 class="panel-orb-title">Compare<span class="panel-orb-sub">synced views · per-cell Δ</span></h3>
+          </div>
+        </div>
+        <div class="panel-orb" data-panel="2">
+          <div class="panel-orb-num">3</div>
+          <div class="panel-orb-circle">
+            <span class="panel-orb-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2"/><circle cx="5" cy="18" r="1.2"/></svg>
+            </span>
+            <h3 class="panel-orb-title">Review<span class="panel-orb-sub">uncertainty-ranked queue</span></h3>
+          </div>
+        </div>
+        <div class="panel-orb" data-panel="3">
+          <div class="panel-orb-num">4</div>
+          <div class="panel-orb-circle">
+            <span class="panel-orb-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7" r="1.6"/><circle cx="9" cy="10" r="1.6"/><circle cx="5" cy="13" r="1.6"/><circle cx="17" cy="15" r="1.6"/><circle cx="19" cy="11" r="1.6"/><circle cx="15" cy="18" r="1.6"/><path d="M3 3v18h18"/></svg>
+            </span>
+            <h3 class="panel-orb-title">Similarity<span class="panel-orb-sub">cell-feature atlas</span></h3>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-num"></div>
+  </div>
+</section>
+
+<!-- ============== 19 — THANK YOU ============== -->
+<section data-label="Thank you" class="thanks-slide">
+  <div class="frame">
+    <div class="deck-header"><div class="left"><img src="assets/images/logos/ikcu-logo.png"></div><div class="right"></div></div>
+    <div style="margin-top:auto;margin-bottom:auto;position:relative;z-index:2;">
+      <div class="anim-fade-up" style="font-size:22px;letter-spacing:0.3em;color:var(--muted);text-transform:uppercase;margin-bottom:30px;">ENG401 <span style="color:var(--red);">●</span> PC12</div>
+      <h1 class="anim-fade-up delay-1">Thank you</h1>
+      <p class="sub anim-fade-up delay-2">
+        <span class="text-grad">CAMEX</span> — Cellular Analysis of Morphology with XAI for PC12:<br>from the micrograph to per-cell measurements.
+      </p>
+      <div class="author anim-fade-up delay-3">
+        <div class="author-item"><div class="author-label">AUTHORS</div><div class="author-name">Gözde Havin Fidan · Berke Dinç</div></div>
+        <div class="author-item"><div class="author-label">SUPERVISORS</div><div class="author-name">Volkan Kılıç · Mustafa Şen</div></div>
+        <div class="author-item"><div class="author-label">INSTITUTION</div><div class="author-name">İzmir Kâtip Çelebi University</div></div>
+      </div>
+    </div>
+    <div class="page-num"></div>
+  </div>
+</section>
+
+</deck-stage>
+<script>
+(() => {
+  // Page numbers are computed, so slides can be added, removed or reordered freely.
+  const secs = document.querySelectorAll('deck-stage > section');
+  secs.forEach((s, i) => {
+    const el = s.querySelector('.page-num');
+    if (el) el.innerHTML = `${i + 1}<span class="sep">/</span><span class="total">${secs.length}</span>`;
+  });
+})();
+</script>
+<script>
+(() => {
+  const orbs = document.querySelectorAll('.panel-orb[data-panel]');
+  if (!orbs.length) return;
+  window.addEventListener('panelchange', (e) => {
+    const idx = e.detail && typeof e.detail.index === 'number' ? e.detail.index : -1;
+    orbs.forEach((orb) => {
+      orb.classList.toggle('is-current', parseInt(orb.dataset.panel, 10) === idx);
+    });
+  });
+})();
+</script>
+<script>
+(function(){
+  const COLOR_STOPS = [
+    {p:0.00, c:[11,61,145]},
+    {p:0.30, c:[37,99,201]},
+    {p:0.55, c:[184,59,201]},
+    {p:0.80, c:[233,75,138]},
+    {p:1.00, c:[200,16,46]}
+  ];
+  function colorAtX(t) {
+    t = Math.max(0, Math.min(1, t));
+    for (let i = 0; i < COLOR_STOPS.length-1; i++) {
+      if (t >= COLOR_STOPS[i].p && t <= COLOR_STOPS[i+1].p) {
+        const lt = (t - COLOR_STOPS[i].p) / (COLOR_STOPS[i+1].p - COLOR_STOPS[i].p);
+        const a = COLOR_STOPS[i].c, b = COLOR_STOPS[i+1].c;
+        return [
+          Math.round(a[0]+(b[0]-a[0])*lt),
+          Math.round(a[1]+(b[1]-a[1])*lt),
+          Math.round(a[2]+(b[2]-a[2])*lt)
+        ];
+      }
+    }
+    return COLOR_STOPS[COLOR_STOPS.length-1].c;
+  }
+
+  function buildAnim(canvas, opts){
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const off = document.createElement('canvas');
+    off.width=W; off.height=H;
+    const octx = off.getContext('2d');
+
+    let particles = [];
+    let startTime = null;
+    let textLines = opts.text.split('\n');
+    let targets = [];
+
+    function rebuild(){
+      octx.clearRect(0,0,W,H);
+      octx.fillStyle='#fff';
+      octx.textAlign='center';
+      octx.textBaseline='middle';
+      octx.font = opts.font;
+      const lineH = opts.lineHeight || (parseFloat(opts.font)*1.1);
+      const total = (textLines.length-1)*lineH;
+      textLines.forEach((ln,i)=>{
+        octx.fillText(ln, W/2, H/2 - total/2 + i*lineH);
+      });
+      const data = octx.getImageData(0,0,W,H).data;
+      const step = opts.pixelStep || 6;
+      targets = [];
+      for (let y=0; y<H; y+=step){
+        for (let x=0; x<W; x+=step){
+          if (data[(y*W+x)*4+3]>180) targets.push({x,y});
+        }
+      }
+    }
+
+    function reseed(){
+      rebuild();
+      const cx=W/2, cy=H/2;
+      particles = targets.map((t,i)=>{
+        const angle = Math.random()*Math.PI*2;
+        const dist = (W+H)*0.5 + Math.random()*200;
+        return {
+          tx: t.x, ty: t.y,
+          x: cx + Math.cos(angle)*dist,
+          y: cy + Math.sin(angle)*dist,
+          vx:0, vy:0,
+          delay: Math.random()*30,
+          maxSpeed: (opts.maxSpeed||9) + Math.random()*1.5,
+          maxForce: 0.5,
+          size: opts.particleSize + Math.random()*0.6,
+          color: colorAtX(t.x/W)
+        };
+      });
+      startTime = performance.now();
+    }
+
+    function buildGradient(){
+      const g = ctx.createLinearGradient(0,0,W,0);
+      g.addColorStop(0, '#0B3D91');
+      g.addColorStop(0.30,'#2563C9');
+      g.addColorStop(0.55,'#B83BC9');
+      g.addColorStop(0.80,'#E94B8A');
+      g.addColorStop(1, '#C8102E');
+      return g;
+    }
+
+    function drawSmoothText(alpha, shimmerX){
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = buildGradient();
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.font = opts.font;
+      const lineH = opts.lineHeight || (parseFloat(opts.font)*1.1);
+      const total = (textLines.length-1)*lineH;
+      textLines.forEach((ln,i)=>{
+        ctx.fillText(ln, W/2, H/2 - total/2 + i*lineH);
+      });
+      // shimmer
+      if (shimmerX !== null){
+        ctx.globalCompositeOperation='source-atop';
+        const sg = ctx.createLinearGradient(shimmerX-180, 0, shimmerX+180, 0);
+        sg.addColorStop(0,'rgba(255,255,255,0)');
+        sg.addColorStop(0.5,'rgba(255,255,255,0.55)');
+        sg.addColorStop(1,'rgba(255,255,255,0)');
+        ctx.fillStyle = sg;
+        ctx.fillRect(0,0,W,H);
+      }
+      ctx.restore();
+    }
+
+    const ASSEMBLE_MS = 1600;
+    const SETTLE_MS = 400;
+
+    function frame(){
+      // Kapak aktif değilken zincir kendini bırakır (ana iş parçacığını slayt
+      // 8/10'un 3B sahneleriyle yarıştırmamak için). Kapağa dönüşte aşağıdaki
+      // slideIndexChanged dinleyicisi restart() + yeni zincirle tazeler.
+      if (!coverActive){ rafOn = false; return; }
+      if (startTime === null){ requestAnimationFrame(frame); return; }
+      const t = performance.now() - startTime;
+      ctx.clearRect(0,0,W,H);
+
+      const phase = t < ASSEMBLE_MS ? 'assemble'
+                  : t < ASSEMBLE_MS + SETTLE_MS ? 'settle'
+                  : 'final';
+
+      if (phase === 'assemble'){
+        for (const p of particles){
+          // steering toward target
+          const dx = p.tx - p.x, dy = p.ty - p.y;
+          const dist = Math.hypot(dx,dy);
+          let prox = 1;
+          if (dist < 80) prox = dist/80;
+          let desX = 0, desY = 0;
+          if (dist > 0.1){
+            desX = (dx/dist) * p.maxSpeed * prox;
+            desY = (dy/dist) * p.maxSpeed * prox;
+          }
+          let stX = desX - p.vx, stY = desY - p.vy;
+          const stMag = Math.hypot(stX,stY);
+          if (stMag > p.maxForce){
+            stX = (stX/stMag) * p.maxForce;
+            stY = (stY/stMag) * p.maxForce;
+          }
+          p.vx += stX; p.vy += stY;
+          p.x += p.vx; p.y += p.vy;
+          // draw
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+          ctx.fillStyle = `rgb(${p.color[0]},${p.color[1]},${p.color[2]})`;
+          ctx.globalAlpha = 0.85;
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      } else if (phase === 'settle'){
+        // crossfade dots → smooth text
+        const k = (t - ASSEMBLE_MS) / SETTLE_MS;
+        ctx.globalAlpha = 1 - k;
+        for (const p of particles){
+          ctx.beginPath();
+          ctx.arc(p.tx, p.ty, p.size, 0, Math.PI*2);
+          ctx.fillStyle = `rgb(${p.color[0]},${p.color[1]},${p.color[2]})`;
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        drawSmoothText(k, null);
+      } else {
+        const sp = ((t - ASSEMBLE_MS - SETTLE_MS) % 4000) / 4000;
+        const shimX = -200 + sp * (W + 400);
+        drawSmoothText(1, shimX);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    return { reseed, frame };
+  }
+
+  let titleAnim = null;
+  // Kapak animasyonları (parçacık canvas'ı + daktilo) yalnızca kapak slaydı
+  // aktifken çalışır; yön deck-stage'in slideIndexChanged mesajıyla belirlenir.
+  let coverActive = true;
+  let rafOn = false;
+  function init(){
+    const tc = document.getElementById('dot-title');
+    if (tc){
+      titleAnim = buildAnim(tc, {
+        text: 'CAMEX',
+        font: '800 230px Manrope, sans-serif',
+        pixelStep: 5,
+        particleSize: 2.5,
+        maxSpeed: 11
+      });
+      titleAnim.reseed();
+      rafOn = true;
+      requestAnimationFrame(titleAnim.frame);
+    }
+    initTypewriter();
+  }
+
+  function restart(){
+    if (titleAnim) titleAnim.reseed();
+    restartTypewriter();
+  }
+
+  // ============== Typewriter for subtitle ==============
+  const TW_PHRASES = [
+    'neurite segmentation',
+    'cell body counting',
+    'per-cell morphometry',
+    'an offline desktop application'
+  ];
+  let twTimer = null;
+  let twState = { idx: 0, char: 0, deleting: false };
+  // Kuşak belirteci: her init yeni kuşak açar; eski kuşağın zincir adımları
+  // ilk fırsatta kendini bırakır. (Tek twTimer kimliğine güvenmek yetmez:
+  // açılışta fonts.ready→init ile deck'in slideIndexChanged:0 mesajı →
+  // restart() YARIŞIR ve iki paralel zincir doğabilir; clearTimeout yalnızca
+  // son zincirin bekleyen adımını öldürür, bayat zincir yazmaya devam eder.)
+  let twGen = 0;
+
+  function initTypewriter(){
+    twState = { idx: 0, char: 0, deleting: false };
+    const gen = ++twGen;
+    const wrap = document.querySelector('.cover-subtitle-typewriter');
+    if (wrap){
+      wrap.style.opacity = '0';
+      wrap.style.transition = 'opacity 600ms ease';
+    }
+    twTimer = setTimeout(()=>{
+      if (gen !== twGen) return;
+      if (wrap) wrap.style.opacity = '1';
+      runTypewriter(gen);
+    }, 2200);
+  }
+  function restartTypewriter(){
+    if (twTimer) clearTimeout(twTimer);
+    const dyn = document.getElementById('tw-dynamic');
+    if (dyn) dyn.textContent = '';
+    initTypewriter();
+  }
+  function stopTypewriter(){
+    twGen++;                              // tüm zincirler (bayatlar dâhil) ölür
+    if (twTimer) clearTimeout(twTimer);
+  }
+  function runTypewriter(gen){
+    if (gen !== twGen) return;
+    const dyn = document.getElementById('tw-dynamic');
+    if (!dyn) return;
+    const phrase = TW_PHRASES[twState.idx];
+    if (twState.deleting){
+      twState.char--;
+      dyn.textContent = phrase.slice(0, twState.char);
+      if (twState.char <= 0){
+        twState.deleting = false;
+        twState.idx = (twState.idx + 1) % TW_PHRASES.length;
+        twTimer = setTimeout(()=>runTypewriter(gen), 400);
+        return;
+      }
+      twTimer = setTimeout(()=>runTypewriter(gen), 30);
+    } else {
+      twState.char++;
+      dyn.textContent = phrase.slice(0, twState.char);
+      if (twState.char >= phrase.length){
+        twTimer = setTimeout(()=>{ if (gen !== twGen) return; twState.deleting = true; runTypewriter(gen); }, 1800);
+        return;
+      }
+      twTimer = setTimeout(()=>runTypewriter(gen), 55);
+    }
+  }
+
+  if (document.fonts && document.fonts.ready){
+    document.fonts.ready.then(init);
+  } else {
+    init();
+  }
+
+  window.addEventListener('message', (e)=>{
+    if (!e.data || typeof e.data.slideIndexChanged !== 'number') return;
+    if (e.data.slideIndexChanged === 0){
+      coverActive = true;
+      restart();
+      if (titleAnim && !rafOn){ rafOn = true; requestAnimationFrame(titleAnim.frame); }
+    } else if (coverActive){
+      // Kapaktan ayrılış: canvas zinciri frame() başındaki bayrakla kendini
+      // bırakır; daktilo kuşağı kapatılır (bayat zincirler dâhil hepsi ölür).
+      // Görsel fark yok — kapak zaten görünmezdir; dönüşte restart() tazeler.
+      coverActive = false;
+      stopTypewriter();
+    }
+  });
+})();
+</script>
+<script>
+(() => {
+  const stage = document.querySelector('deck-stage');
+  const sections = document.querySelectorAll('deck-stage > section');
+  const CONTROLLERS = [
+    { slideId: 'outline-flow',  elementId: 'outline-flow',  itemSelector: '.flow-col' },
+    { slideId: 'dataset-flow',  elementId: 'dataset-flow',  itemSelector: '.frag' },
+    { slideId: 'label-flow',    elementId: 'label-flow',    itemSelector: '.frag' },
+    { slideId: 'protocol-flow', elementId: 'protocol-flow', itemSelector: '.frag' },
+    {
+      // Preprocessing: step cards reveal one by one; the histogram canvas follows the step.
+      slideId: 'prep-flow', elementId: 'prep-flow', itemSelector: '.frag',
+      render(el, step) {
+        el.querySelectorAll('.frag').forEach((it, i) => {
+          it.classList.toggle('is-revealed', i < step);
+          it.classList.toggle('is-current', i === step - 1);
+        });
+        if (window.deckApplyPrepStep) window.deckApplyPrepStep(step);
+      },
+    },
+    {
+      // Kept rows brighten (stage 1); rejected rows are struck through (stage 2);
+      // methods kept for a retest on the larger dataset are highlighted, not struck (stage 3).
+      slideId: 'tested-flow', elementId: 'tested-flow', itemSelector: '.sl-row',
+      render(el, step) {
+        el.querySelectorAll('.sl-row').forEach((row, i) => {
+          row.dataset.stage = i < step ? (row.dataset.keep ? '1' : row.dataset.retest ? '3' : '2') : '0';
+        });
+      },
+    },
+    { slideId: 'aug-flow',      elementId: 'aug-flow',      itemSelector: '.frag' },
+    {
+      // Network view: canvas animation (window -> kernel); summary chips on the last step.
+      slideId: 'conv-flow', elementId: 'conv-flow', itemSelector: '.conv-step',
+      render(el, step) {
+        el.querySelectorAll('.conv-step').forEach((it, i) => it.classList.toggle('is-revealed', i < step));
+        if (window.deckApplyConvStep) window.deckApplyConvStep(step);
+      },
+    },
+    { slideId: 'soma-flow',     elementId: 'soma-flow',     itemSelector: '.frag' },
+    {
+      // CAMEX: the laptop screen (Analyze -> Compare -> Review -> Similarity) and the
+      // matching orb follow the step; the 3D module (laptop.js) does the drawing.
+      slideId: 'panel-orbs', elementId: 'panel-orbs', itemSelector: '.panel-orb',
+      render(el, step) { if (window.deckApplyDoctorPanelStep) window.deckApplyDoctorPanelStep(step); },
+    },
+  ];
+
+  // Yalnızca doğrudan çocuk <section>'lar: slayt 13 içindeki iç <section>'lar
+  // (letters-grants/letters-papers) indeks kaymasına yol açmasın.
+
+  // Build live controller objects (skip any whose target element is missing)
+  const ctrls = CONTROLLERS
+    .map(cfg => {
+      const el = document.getElementById(cfg.elementId);
+      if (!el) return null;
+      const items = Array.from(el.querySelectorAll(cfg.itemSelector));
+      cfg.slideIndex = Array.prototype.indexOf.call(sections, el.closest('deck-stage > section'));
+      const stagesPerItem = cfg.stagesPerItem || 1;
+      // selectOne: "N ekrandan birini seç" semantiği (karusel) — adım = aktif
+      // indeks olduğundan toplam adım N-1. Varsayılan "N öğeyi tek tek aç" → N.
+      const MAX = cfg.selectOne ? Math.max(0, items.length - 1) : items.length * stagesPerItem;
+      return { ...cfg, el, items, MAX };
+    })
+    .filter(Boolean);
+
+  // applyStep: adımı uygula (olay yaymaz). setStep: uygula + uzak senkron bildir.
+  function applyStep(c, n) {
+    n = Math.max(0, Math.min(c.MAX, n));
+    c.el.dataset.step = String(n);
+    if (typeof c.render === 'function') {
+      c.render(c.el, n);
+    } else {
+      c.items.forEach((it, i) => {
+        it.classList.toggle('is-revealed', i < n);
+        it.classList.toggle('is-current', i === n - 1);
+      });
+    }
+  }
+  function setStep(c, n) {
+    applyStep(c, n);
+    // Slayt içi adım değişimini sunucu önizlemesine yansıtmak için duyur.
+    try { window.dispatchEvent(new CustomEvent('deck-localstep', { detail: { slideIndex: c.slideIndex, step: parseInt(c.el.dataset.step, 10) } })); } catch (_) {}
+  }
+
+  // Reset step on each (re-)entry. Direction-aware:
+  //   forward arrival → step 0 (start fresh)
+  //   backward arrival → step MAX (already explored)
+  if (stage) {
+    stage.addEventListener('slidechange', (e) => {
+      const c = ctrls.find(c => c.slideIndex === e.detail.index);
+      if (!c) return;
+      if (e.detail.previousIndex > c.slideIndex) setStep(c, c.MAX);
+      else setStep(c, 0);
+    });
+  }
+
+  function activeCtrl() {
+    return ctrls.find(c => sections[c.slideIndex] && sections[c.slideIndex].hasAttribute('data-deck-active'));
+  }
+
+  // ─── Adım-duyarlı gezinme (klavye + sunucu uzaktan kumandası ortak) ───────
+  // Programatik İleri/Geri (sunucu görünümünün komutu) de klavye gibi davranmalı:
+  // önce aktif slaytın iç adımını ilerlet/gerilet; adımlar bitince slaytı değiştir.
+  // Böylece İleri tuşu slayt içi animasyonları ATLAMADAN adım adım ilerletir.
+  function smartNext() {
+    const c = activeCtrl();
+    if (c) {
+      const cur = parseInt(c.el.dataset.step || '0', 10);
+      if (cur < c.MAX) { setStep(c, cur + 1); return; }
+    }
+    if (stage) stage.next();
+  }
+  function smartPrev() {
+    const c = activeCtrl();
+    if (c) {
+      const cur = parseInt(c.el.dataset.step || '0', 10);
+      if (cur > 0) { setStep(c, cur - 1); return; }
+    }
+    if (stage) stage.prev();
+  }
+  // Uzak adım uygula (sunucu önizleme iframe'i için — olay yaymaz → geri besleme yok).
+  function deckApplyStep(slideIndex, n) {
+    const c = ctrls.find(c => c.slideIndex === slideIndex);
+    if (c) { applyStep(c, n); return; }
+    // Slayt 5 (Yenilik) kendi modülünü kullanır; uzak adımı ona devret.
+    
+  }
+  // Aktif slaytın o anki adımı (whereami yanıtında önizlemeyi hizalamak için).
+  function deckActiveStep() {
+    const c = activeCtrl();
+    if (c) return { slideIndex: c.slideIndex, step: parseInt(c.el.dataset.step || '0', 10) };
+    const active = document.querySelector('deck-stage section[data-deck-active]');
+    
+    return null;
+  }
+  window.deckSmartNav = { next: smartNext, prev: smartPrev };
+  window.deckApplyStep = deckApplyStep;
+  window.deckActiveStep = deckActiveStep;
+  // Aktif slaytın adımını doğrudan ayarla (karusel tık/ok düğmeleri kullanır).
+  window.deckSetActiveStep = (n) => { const c = activeCtrl(); if (c) setStep(c, n); };
+
+  // Intercept keydown in capture phase (beats deck-stage's bubble listener).
+  window.addEventListener('keydown', (e) => {
+    const c = activeCtrl();
+    if (!c) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    const k = e.key;
+    const isForward = (k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'Spacebar');
+    const isBackward = (k === 'ArrowLeft' || k === 'PageUp');
+    if (!isForward && !isBackward) return;
+
+    const cur = parseInt(c.el.dataset.step || '0', 10);
+    if (isForward && cur < c.MAX) {
+      setStep(c, cur + 1);
+      e.stopImmediatePropagation();
+      e.preventDefault();
+    } else if (isBackward && cur > 0) {
+      setStep(c, cur - 1);
+      e.stopImmediatePropagation();
+      e.preventDefault();
+    }
+  }, true);
+
+  // Also wire up deck overlay's prev/next buttons + tap zones inside shadow DOM
+  function findShadowControls() {
+    if (!stage || !stage.shadowRoot) return null;
+    return {
+      next: stage.shadowRoot.querySelector('.next'),
+      prev: stage.shadowRoot.querySelector('.prev'),
+      tapFwd: stage.shadowRoot.querySelector('.tapzone--fwd'),
+      tapBack: stage.shadowRoot.querySelector('.tapzone--back'),
+    };
+  }
+  function attachClickInterceptor(el, dir) {
+    if (!el) return;
+    el.addEventListener('click', (e) => {
+      const c = activeCtrl();
+      if (!c) return;
+      const cur = parseInt(c.el.dataset.step || '0', 10);
+      if (dir === 'forward' && cur < c.MAX) {
+        setStep(c, cur + 1);
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      } else if (dir === 'backward' && cur > 0) {
+        setStep(c, cur - 1);
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      }
+    }, true);
+  }
+  requestAnimationFrame(() => {
+    const c = findShadowControls();
+    if (c) {
+      attachClickInterceptor(c.next, 'forward');
+      attachClickInterceptor(c.prev, 'backward');
+      attachClickInterceptor(c.tapFwd, 'forward');
+      attachClickInterceptor(c.tapBack, 'backward');
+    }
+  });
+})();
+</script>
+<script>
+(() => {
+  const stage = document.querySelector('deck-stage');
+  if (!stage) return;
+  const CH = 'diasage-deck';
+  const role = new URLSearchParams(location.search).get('role') || 'audience';
+  let channel = null;
+  try { channel = ('BroadcastChannel' in window) ? new BroadcastChannel(CH) : null; } catch (_) {}
+  let presenterWin = null;
+
+  // Aynı mesaj 3 taşıyıcıdan da gelir; göreli komutların (next/prev) 3 kez
+  // çalışmaması için her mesaja benzersiz id verip alıcıda yineleri eleriz.
+  const SELF = Math.random().toString(36).slice(2);
+  let seq = 0;
+  const seen = new Set();
+  const isDup = (m) => { if (!m || !m.id) return false; if (seen.has(m.id)) return true; seen.add(m.id); if (seen.size > 1000) seen.clear(); return false; };
+
+  // Yetki claim'i (üstteki sözleşme yorumuna bakın). pri, yerel etkileşimle 1 olur.
+  const claim = { pri: 0, ts: Date.now() };
+  const claimOf = (m) => (m && m.src && typeof m.pri === 'number' && typeof m.ts === 'number')
+    ? { pri: m.pri, ts: m.ts, src: m.src } : null;
+  const cmpClaim = (a, b) =>
+    (a.pri - b.pri) || (a.ts - b.ts) || (a.src < b.src ? -1 : (a.src > b.src ? 1 : 0));
+  // Bu türleri yalnızca kendini yetkili sayan bir deste yayar → claim karşılaştırılır.
+  const AUTH_TYPES = { authority: 1, slide: 1, step: 1, ping: 1 };
+
+  function emit(msg){
+    msg.ch = CH;
+    msg.id = SELF + ':' + (++seq);
+    // Her mesaj göndericinin claim damgasını taşır (alıcılar yalnızca AUTH_TYPES
+    // türlerinde karşılaştırır; cmd/whereami/probe için damga bilgilendiricidir).
+    msg.src = SELF; msg.pri = claim.pri; msg.ts = claim.ts;
+    try { channel && channel.postMessage(msg); } catch (_) {}
+    try { if (presenterWin && !presenterWin.closed) presenterWin.postMessage(msg, '*'); } catch (_) {}
+    try { if (window.opener && !window.opener.closed) window.opener.postMessage(msg, '*'); } catch (_) {}
+    try { localStorage.setItem(CH, JSON.stringify({ ...msg, _t: Date.now() })); } catch (_) {}
+  }
+  function readStorage(e){ if (e.key !== CH || !e.newValue) return null; try { return JSON.parse(e.newValue); } catch (_) { return null; } }
+
+  if (role === 'preview') {
+    // Salt-gösterim takipçi: kontrol/giriş yok; YALNIZCA en yüksek claim'li
+    // kaynağın mutlak slayt/adım mesajlarını izler (hayalet bir destenin yayını
+    // önizlemeyi de zehirlemesin). Önizleme hiçbir zaman yetki claim'i yapmaz.
+    stage.setAttribute('noui', '');
+    document.documentElement.style.pointerEvents = 'none';
+    let lockSrc = null, lockClaim = null, lockAt = 0;
+    const follow = (m) => {
+      if (!m || m.ch !== CH || isDup(m)) return;
+      if (m.type === 'bye'){ const c = claimOf(m); if (c && c.src === lockSrc){ lockSrc = null; lockClaim = null; } return; }
+      if (!AUTH_TYPES[m.type]) return;
+      const c = claimOf(m);
+      if (c){
+        if (lockSrc !== null && c.src !== lockSrc && cmpClaim(c, lockClaim) <= 0) return; // bayat kaynak
+        lockSrc = c.src; lockClaim = c;
+      } else if (lockSrc !== null) {
+        return; // kilitliyken damgasız duruma güvenme
+      }
+      lockAt = Date.now();
+      if (m.type === 'slide' && typeof m.index === 'number') stage.goTo(m.index);
+      else if (m.type === 'step' && typeof m.slideIndex === 'number' && window.deckApplyStep) window.deckApplyStep(m.slideIndex, m.step);
+    };
+    // Kilitli kaynak susarsa (yetkili kapatıldı) kilidi bırak → yeniden açılan
+    // (daha düşük claim'li) yeni yetkili benimsenebilsin.
+    setInterval(() => { if (lockSrc && Date.now() - lockAt > 4000){ lockSrc = null; lockClaim = null; } }, 2000);
+    channel && (channel.onmessage = (e) => follow(e.data));
+    window.addEventListener('message', (e) => follow(e.data));     // ebeveyn presenter'dan
+    window.addEventListener('storage', (e) => follow(readStorage(e)));
+    emit({ type: 'whereami' });
+    return;
+  }
+
+  // role = audience — yetki durum makinesi: candidate → authority | passive.
+  let mode = 'candidate';   // 'candidate' | 'authority' | 'passive'
+  const cmdBuffer = [];     // candidate penceresinde gelen komutlar (yetki alınırsa oynatılır)
+  let lastAssert = 0;
+  let banner = null;
+
+  function showBanner(){
+    if (!banner){
+      banner = document.createElement('div');
+      banner.textContent = 'Bu pencere etkin sunum penceresi değil — sunum başka bir pencerede sürüyor. Bu pencereden sürdürmek için bir tuşa basın ya da tıklayın.';
+      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483600;background:#0e1a33;color:#fff;font:600 15px/1.45 Manrope,system-ui,sans-serif;padding:10px 20px;text-align:center;box-shadow:0 6px 18px rgba(0,0,0,.35);cursor:default;';
+      document.body.appendChild(banner);
+    }
+    banner.style.display = 'block';
+  }
+  function hideBanner(){ if (banner) banner.style.display = 'none'; }
+
+  function execCmd(m){
+    // Adım-duyarlı: önce slayt içi animasyonu ilerlet, bitince slaytı değiştir.
+    if (m.cmd === 'next') (window.deckSmartNav ? window.deckSmartNav.next() : stage.next());
+    else if (m.cmd === 'prev') (window.deckSmartNav ? window.deckSmartNav.prev() : stage.prev());
+    else if (m.cmd === 'goto' && typeof m.index === 'number') stage.goTo(m.index);
+  }
+  function announceState(){
+    emit({ type: 'slide', index: stage.index, total: stage.length });
+    const st = window.deckActiveStep && window.deckActiveStep();
+    if (st) emit({ type: 'step', slideIndex: st.slideIndex, step: st.step });
+  }
+  function becomeAuthority(){
+    if (mode === 'authority') return;
+    mode = 'authority';
+    hideBanner();
+    emit({ type: 'authority' });
+    // Candidate penceresinde biriken komutları sırayla oynat (kayıp tuş olmasın).
+    cmdBuffer.splice(0).forEach(execCmd);
+  }
+  function reconcile(theirs){
+    if (mode === 'candidate'){
+      // Aday, CANLI bir yetkili duyduğunda claim kıyaslamadan ona boyun eğer:
+      // yeni yüklenen pencere (bu makinede daha geç ts'ye sahip olsa da) sunumu
+      // KENDİLİĞİNDEN ele geçiremez — kullanıcı dokunduğu anda pri-1 claim
+      // yetkiyi zaten anında geri alır. Böylece sunum ortasında tembel geri
+      // yüklenen bir sekme yetkiyi asla çalamaz.
+      mode = 'passive'; cmdBuffer.length = 0; showBanner();
+      return;
+    }
+    const cmp = cmpClaim(theirs, { pri: claim.pri, ts: claim.ts, src: SELF });
+    if (cmp > 0){
+      // Bizden yüksek claim'li canlı bir yetkili var → pasifleş, sessiz kal.
+      if (mode !== 'passive'){ mode = 'passive'; cmdBuffer.length = 0; showBanner(); }
+    } else if (cmp < 0 && mode === 'authority'){
+      // Bizden düşük claim'li biri kendini yetkili sanıyor → yetkiyi (kısıtlı) yeniden duyur.
+      const now = Date.now();
+      if (now - lastAssert > 1000){ lastAssert = now; emit({ type: 'authority' }); }
+    }
+  }
+
+  const handle = (m) => {
+    if (!m || m.ch !== CH || isDup(m)) return;
+    if (m.src === SELF) return;
+    if (AUTH_TYPES[m.type]){
+      // Başka bir "yetkili"nin yayını: yalnızca claim uzlaştırması için anlamlı.
+      const c = claimOf(m);
+      if (c) reconcile(c);
+      return;
+    }
+    if (m.type === 'cmd') {
+      if (mode === 'authority') execCmd(m);
+      else if (mode === 'candidate') cmdBuffer.push(m);
+      // passive: hayalet deste komut İŞLEMEZ — sayfa atlama hatasının kökü buydu.
+    } else if (m.type === 'whereami') {
+      if (mode === 'authority') announceState();
+    } else if (m.type === 'probe') {
+      if (mode === 'authority') emit({ type: 'authority' });
+    }
+  };
+  channel && (channel.onmessage = (e) => handle(e.data));
+  window.addEventListener('message', (e) => handle(e.data));        // sunucu penceresinden (opener)
+  window.addEventListener('storage', (e) => handle(readStorage(e)));
+
+  // Açılış: canlı bir yetkili var mı diye sor; ~400 ms sessizlikte yetkiyi al.
+  // (Geç/arka planda geri yüklenen hayalet sekme bu sorgu sayesinde canlı
+  // yetkiliye boyun eğer; yanıt gecikse bile pri-0 claim'i pri-1'i asla geçemez.)
+  emit({ type: 'probe' });
+  setTimeout(() => { if (mode === 'candidate') becomeAuthority(); }, 400);
+
+  // Yerel kullanıcı etkileşimi = bu pencere gerçekten sunuluyor → pri-1 claim +
+  // anında yetki. <head>'deki ERKEN capture dinleyicisi bu işlevi çağırır; adım
+  // denetleyicilerinin stopImmediatePropagation'ı bile jesti yutamaz.
+  window.__deckClaimGesture = () => {
+    claim.pri = 1; claim.ts = Date.now();
+    if (mode !== 'authority') becomeAuthority();
+  };
+
+  stage.addEventListener('slidechange', (e) => { if (mode === 'authority') emit({ type: 'slide', index: e.detail.index, total: e.detail.total }); });
+
+  // Slayt içi adım değişimini sunucu önizlemesine yansıt (klavye/komut farketmez).
+  window.addEventListener('deck-localstep', (e) => { if (mode === 'authority' && e.detail) emit({ type: 'step', slideIndex: e.detail.slideIndex, step: e.detail.step }); });
+
+  // Kalp atışı: her 2 sn'de bir 'ping' — YALNIZCA yetkiliden. Presenter'ın
+  // watchdog'u canlı kalır; pasif (hayalet) desteler kanala hiçbir şey yazmaz.
+  setInterval(() => { if (mode === 'authority') emit({ type: 'ping' }); }, 2000);
+
+  // Kapanış/yenileme: yetkili 'bye' yayar → presenter/önizleme kilidi ANINDA
+  // bırakır (4 sn'lik sessizlik watchdog'unu beklemeden); yeniden yüklenen deste
+  // yeni kimliğiyle hemen benimsenebilir.
+  window.addEventListener('pagehide', () => { if (mode === 'authority') emit({ type: 'bye' }); });
+
+  // 'p' → sunucu penceresini aç (handle'ı sakla → doğrudan mesajlaşma kurulur).
+  window.addEventListener('keydown', (e) => {
+    if ((e.key === 'p' || e.key === 'P') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      const t = e.target;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      openPresenter();
+    }
+  });
+
+  function isFs(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+  function openPresenter(){
+    // Popup açmak, TEK EKRANDA seyirci penceresini tam ekrandan düşürür (tarayıcı
+    // kuralı — aynı ekranda popup + tam ekran bir arada olamaz). Tam ekrandaysak
+    // pencereyi açıp odağı geri alıyoruz ve bir SONRAKİ tıklamada tam ekranı
+    // otomatik geri getiriyoruz (tek tıkla kurtarma). İki ekranda zaten sorun olmaz.
+    const wasFs = isFs();
+    // 'popup=yes' → tarayıcı bunu sekme değil AYRI bir pencere olarak açar
+    // (sekme-olarak-açma davranışına düşen tarayıcılar için açık bildirim).
+    // P tuşu (erken capture dinleyicisi) pri-1 claim'i zaten yaptı → presenter,
+    // URL parametreleriyle BU destenin kimliğine kilitli açılır; açılıştaki
+    // whereami yarışı böylece tamamen kapanır.
+    presenterWin = window.open('presenter.html?cb=' + Date.now() +
+      '&src=' + encodeURIComponent(SELF) + '&pri=' + claim.pri + '&ts=' + claim.ts,
+      'diasage-presenter', 'popup=yes,width=1366,height=860,left=40,top=40');
+    try { window.focus(); } catch (_) {}
+    if (wasFs) {
+      const restore = () => {
+        window.removeEventListener('pointerdown', restore);
+        if (!isFs()) stage.toggleFullscreen();
+      };
+      window.addEventListener('pointerdown', restore, { once: true });
+    }
+  }
+})();
+</script>
+<script src="src/slides/conv-anim.js?v=5"></script>
+<script src="src/slides/effects.js?v=1"></script>
+<script src="src/slides/prep-hist.js?v=8"></script>
+<script type="module" src="src/slides/laptop.js?v=1"></script>
+</body>
+</html>

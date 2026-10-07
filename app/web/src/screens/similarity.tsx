@@ -2,7 +2,7 @@ import { Info, Microscope, RefreshCw, TriangleAlert } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, urls } from '../api/client'
-import type { SimCell, Similarity as Sim } from '../api/types'
+import type { SimCell, SimGroupKey, Similarity as Sim } from '../api/types'
 import { ntiColorHex } from '../charts/charts'
 import { cssVar, useTheme } from '../state/theme'
 import { Badge, Button, Section, Segmented } from '../components/ui'
@@ -11,7 +11,9 @@ import sh from '../shell/shell.module.css'
 import s from './screens.module.css'
 
 // validated categorical slots, fixed order (dataviz rule: colour follows the entity)
-type ColorKey = 'batch' | 'condition' | 'nti'
+type ColorKey = SimGroupKey | 'nti'
+
+const keyOf = (c: SimCell, k: SimGroupKey) => (c[k] as string | null | undefined) ?? '—'
 const SLOTS = ['#2b8fe0', '#d9772a', '#2fa67f', '#b88916', '#d6528f', '#8f7ef0']
 const FEATURE_LABEL: Record<string, string> = {
   area_px: 'soma area',
@@ -69,7 +71,7 @@ function Atlas({ sim, colorKey, selected, onSelect }: { sim: Sim; colorKey: Colo
   const [hover, setHover] = useState<{ i: number; x: number; y: number } | null>(null)
   const [size, setSize] = useState({ w: 800, h: 600 })
   const theme = useTheme((st) => st.theme) // canvas cannot read CSS vars: redraw on theme change
-  const groups = useMemo(() => (colorKey === 'nti' ? [] : [...new Set(sim.cells.map((c) => c[colorKey]))].sort()), [sim, colorKey])
+  const groups = useMemo(() => (colorKey === 'nti' ? [] : [...new Set(sim.cells.map((c) => keyOf(c, colorKey)))].sort()), [sim, colorKey])
   const color = useCallback((g: string) => (groups.length > SLOTS.length && groups.indexOf(g) >= SLOTS.length - 1 ? '#6b6e85' : SLOTS[groups.indexOf(g) % SLOTS.length]), [groups])
   const pad = 40
   // 1st-99th percentile frame; the rare cell outside is pinned to the edge
@@ -143,7 +145,7 @@ function Atlas({ sim, colorKey, selected, onSelect }: { sim: Sim; colorKey: Colo
         const y = cy + (p.y - cy) * e
         const dim = nn && i !== selected && !nn.has(i)
         g.globalAlpha = dim ? 0.18 : 0.85
-        g.fillStyle = colorKey === 'nti' ? ntiColorHex(cell.nti, ink.mid) : color(cell[colorKey])
+        g.fillStyle = colorKey === 'nti' ? ntiColorHex(cell.nti, ink.mid) : color(keyOf(cell, colorKey))
         g.beginPath()
         g.arc(x, y, 4, 0, Math.PI * 2)
         g.fill()
@@ -268,7 +270,7 @@ function Atlas({ sim, colorKey, selected, onSelect }: { sim: Sim; colorKey: Colo
                 {sim.cells[hover.i].image_id} · #{sim.cells[hover.i].cell_id}
               </b>
               <span className="muted">
-                {sim.cells[hover.i].batch} · {sim.cells[hover.i].condition}
+                {sim.cells[hover.i].batch} · {sim.cells[hover.i].condition}{sim.cells[hover.i].group ? ` · ${sim.cells[hover.i].group}` : ''}
               </span>
               <span className="mono">NTI {sim.cells[hover.i].nti.toFixed(2)}</span>
               <span className="muted">click for neighbours</span>
@@ -292,13 +294,13 @@ export function Similarity() {
   const load = useCallback(() => {
     setErr(null)
     api
-      .similarity()
+      .similarity(colorKey === 'nti' ? undefined : colorKey)
       .then((d) => {
         setSim(d)
         setSelected(null)
       })
       .catch((e) => setErr(String(e.message)))
-  }, [])
+  }, [colorKey])
   useEffect(() => load(), [load, nDone])
 
   const sel = sim && selected != null ? sim.cells[selected] : null
@@ -315,7 +317,7 @@ export function Similarity() {
         <div className={s.compareBar}>
           <span style={{ fontWeight: 600 }}>Cell atlas</span>
           <Badge tip="Standardised morphometric feature vectors (robust z) projected with PCA — no learned embedding (DeepProfiler weights are 5-channel Cell Painting only)">
-            <Info size={13} /> PCA · {sim?.features.length ?? 6} features · {sim?.cells.length ?? '…'} cells
+            <Info size={13} /> PCA · {sim ? sim.features.length : '—'} features · {sim?.cells.length ?? '…'} cells
           </Badge>
           <div style={{ flex: 1 }} />
           <span className="muted" style={{ fontSize: 13 }}>
@@ -327,6 +329,8 @@ export function Similarity() {
             options={[
               { value: 'nti', label: 'Cell NTI' },
               { value: 'condition', label: 'Condition' },
+              { value: 'group', label: 'Group' },
+              { value: 'modality', label: 'Modality' },
               { value: 'batch', label: 'Batch' },
             ]}
           />

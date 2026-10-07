@@ -1,4 +1,4 @@
-"""IntelliCell desktop shell (D16): FastAPI on localhost + a pywebview window.
+"""CAMEX desktop shell (Cellular Analysis of Morphology with XAI for PC12) (D16): FastAPI on localhost + a pywebview window.
 
 Double-click flow (launcher/run.bat or the PyInstaller onedir .exe):
   1. start the FastAPI server in a background thread (it spawns the worker
@@ -56,15 +56,15 @@ def main() -> None:
 
     import main as server
 
-    port = _free_port(int(os.environ.get("INTELLICELL_PORT", "8765")))
+    port = _free_port(int(os.environ.get("CAMEX_PORT") or os.environ.get("INTELLICELL_PORT", "8765")))
     config = uvicorn.Config(server.app, host="127.0.0.1", port=port, log_level="warning")
     srv = uvicorn.Server(config)
     threading.Thread(target=srv.run, daemon=True, name="api").start()
     base = f"http://127.0.0.1:{port}"
     if not _wait_healthy(f"{base}/api/health"):
-        raise SystemExit("IntelliCell backend did not start")
+        raise SystemExit("CAMEX backend did not start")
 
-    if os.environ.get("INTELLICELL_BROWSER"):   # debugging: use the system browser
+    if os.environ.get("CAMEX_BROWSER") or os.environ.get("INTELLICELL_BROWSER"):   # debugging: use the system browser
         import webbrowser
 
         webbrowser.open(base)
@@ -73,7 +73,7 @@ def main() -> None:
 
     import webview
 
-    webview.create_window("IntelliCell", base, width=1600, height=1000, min_size=(1200, 760), background_color="#0b0c11")
+    webview.create_window("CAMEX — Cellular Analysis of Morphology with XAI for PC12", base, width=1600, height=1000, min_size=(1200, 760), background_color="#0b0c11")
     webview.start()
     srv.should_exit = True
 

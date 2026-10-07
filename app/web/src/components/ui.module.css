@@ -169,6 +169,14 @@
   gap: 6px;
   transition: color var(--t-fast) var(--ease);
 }
+.segFull {
+  display: flex;
+  width: 100%;
+}
+.segFull .segItem {
+  flex: 1;
+  height: 34px;
+}
 .segItem:hover {
   color: var(--text-1);
 }

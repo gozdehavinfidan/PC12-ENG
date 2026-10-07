@@ -19,8 +19,8 @@
   z-index: 20;
 }
 .brand {
-  width: 40px;
-  height: 40px;
+  width: 52px;
+  height: 52px;
   display: grid;
   place-items: center;
   margin-bottom: 12px;
@@ -30,10 +30,13 @@
 }
 .navBtn {
   position: relative;
-  width: 46px;
-  height: 46px;
-  display: grid;
-  place-items: center;
+  width: 88px;
+  height: 74px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   border-radius: 12px;
   color: var(--text-3);
   transition:
@@ -67,6 +70,13 @@
 .navBtn svg {
   position: relative;
 }
+.navLabel {
+  position: relative;
+  font-size: 14px;
+  font-weight: 560;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
 .railSpacer {
   flex: 1;
 }
@@ -85,13 +95,14 @@
 .crumbs {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
-  font-size: var(--fs-13);
+  font-size: 17px;
 }
 .product {
-  font-weight: 650;
+  font-weight: 700;
   letter-spacing: -0.01em;
+  font-size: 21px;
 }
 .product em {
   font-style: normal;
@@ -107,7 +118,7 @@
 .crumbImage {
   color: var(--text-1);
   font-family: var(--font-mono);
-  font-size: var(--fs-12);
+  font-size: 15px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -119,8 +130,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 36px;
-  width: 280px;
+  height: 42px;
+  width: 300px;
   min-width: 0;
   flex-shrink: 1;
   padding: 0 8px 0 10px;
@@ -128,7 +139,7 @@
   background: var(--bg-canvas);
   box-shadow: inset 0 0 0 1px var(--line-2);
   color: var(--text-3);
-  font-size: var(--fs-12);
+  font-size: 15px;
   transition: box-shadow var(--t-fast) var(--ease);
 }
 .search:hover {
@@ -147,11 +158,11 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 36px;
+  height: 42px;
   flex: none;
-  padding: 0 10px;
+  padding: 0 14px;
   border-radius: var(--r-md);
-  font-size: var(--fs-12);
+  font-size: 15px;
   color: var(--text-2);
   background: var(--bg-raised);
   box-shadow: inset 0 0 0 1px var(--line-2);
@@ -161,22 +172,27 @@
   font-weight: 560;
   color: var(--text-1);
 }
-.mockBadge {
+.presetChip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   height: 30px;
   padding: 0 11px;
   border-radius: 7px;
   flex: none;
   font-family: var(--font-mono);
   font-size: 12px;
+  color: var(--text-3);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line-2);
+  cursor: pointer;
+}
+.presetChip b {
+  color: var(--text-1);
   font-weight: 600;
-  letter-spacing: 0.08em;
-  color: var(--warn);
-  background: repeating-linear-gradient(-45deg, rgba(245, 185, 58, 0.1) 0 6px, rgba(245, 185, 58, 0.04) 6px 12px);
-  box-shadow: inset 0 0 0 1px rgba(245, 185, 58, 0.45);
-  cursor: help;
+}
+.presetChip:hover {
+  color: var(--text-1);
 }
 
 /* theme toggle */
@@ -185,8 +201,8 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: center;
-  width: 72px;
-  height: 36px;
+  width: 86px;
+  height: 42px;
   padding: 0 3px;
   border-radius: 999px;
   background: var(--bg-canvas);
@@ -211,7 +227,7 @@
   position: absolute;
   top: 3px;
   width: calc(50% - 4px);
-  height: 30px;
+  height: 36px;
   border-radius: 999px;
   background: var(--bg-panel);
   box-shadow: 0 0 0 1px var(--line-2), 0 2px 8px -2px var(--shadow-soft);
@@ -225,12 +241,12 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 36px;
+  height: 42px;
   flex: none;
   white-space: nowrap;
-  padding: 0 10px;
+  padding: 0 14px;
   border-radius: var(--r-md);
-  font-size: var(--fs-12);
+  font-size: 15px;
   color: var(--text-2);
   background: var(--bg-raised);
   box-shadow: inset 0 0 0 1px var(--line-2);
