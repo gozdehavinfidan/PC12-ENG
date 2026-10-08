@@ -106,3 +106,5 @@
 2026-10-08T07:01:28Z|BM|status|WP2.3|done|35b3dc7d
 2026-10-08T07:01:45Z|BM|pct|WP6.1|100|0c20b67e
 2026-10-08T07:01:53Z|BM|status|WP0.3|done|5b604e8c
+2026-10-08T12:53:18Z|BM|task|Y0158|IP0;MIcromanipulator and microscope setup;BM;2;4|ac545e8c
+2026-10-08T12:53:26Z|BM|status|Y0158|done|45007f20
