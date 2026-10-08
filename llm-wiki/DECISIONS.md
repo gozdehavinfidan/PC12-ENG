@@ -16,6 +16,15 @@ Format:
 
 
 
+### D18 — WP2 ↔ WP3 yeniden numaralandı; WP1.3 plandan çıkarıldı  [W4] [accepted]  **amends D15 (ID = çizelge satırı kuralı)**
+- Context: Model geliştirme (çizelgede WP3) fiilen yeni veri etiketlemesinden (çizelgede WP2) önce
+  koştu; dashboard timeline'ı paketleri numara sırasıyla çizdiği için sıra gerçeği yansıtmıyordu.
+  `[+]` WP1.3 (çift-etiket uyuşma ölçümü) ekip kararıyla plandan çıkarıldı.
+- Options: (a) sadece görüntüleme sırasını değiştir, ID'ler çizelgeyle aynı kalsın; (b) yeniden numarala.
+- Decision: (b). Model geliştirme = WP2 (WP2.0–WP2.5), yeni veri etiketlemesi = WP3 (WP3.1–WP3.2).
+- Tradeoffs / confidence: bu iki pakette ID'ler artık kurs çizelgesinin satırlarıyla eşleşmiyor
+  (çizelge WP3.x = bizim WP2.x). Olay günlüğünde bu ID'lere ait olay yoktu → yetim olay oluşmadı. High.
+
 ### D17 — UI tasarım sistemi + tek three.js görüntü motoru (2D ↔ 3D katman yığını)  [W3] [proposed]
 - Context: D16 stack'i kurdu (React+Vite+FastAPI+pywebview); CLAUDE.md §3–§7 UI kapsamını
   (U1–U5 + 18 §D KEEP'leri) ve §4 concurrency şartını koydu. Görüntüleyicinin nasıl

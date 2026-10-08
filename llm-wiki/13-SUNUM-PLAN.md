@@ -108,7 +108,7 @@ Every SUNUM row below has four fields, and none of them is optional:
 
 ## SUNUM 5 — W11 · M5 · speaker: ML (Gözde)
 
-- **Demo:** results including the new data batch (**WP3.5** retrain on the
+- **Demo:** results including the new data batch (**WP2.5** retrain on the
   expanded set); the **first feature-extraction output** (**WP4.2**, which is
   mid-package this week) — skeleton→graph neurite length/count/angle on a few
   images; **Integrated Gradients** overlays showing where the model looks;

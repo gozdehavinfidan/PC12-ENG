@@ -279,8 +279,8 @@ hücre-crop encoder'ı `10-IDEAS-STRETCH`'te `[IDEA]` olarak bekler.
 
 ## 4. Labeling iş istasyonu (HITL + active learning)
 
-> App'in ikinci kişiliği: W9–W11 batch-2 etiketlemesinde (WP2.1) ve W4
-> çift-etiket IAA ölçümünde (WP1.3) fiilen kullanılacak.
+> App'in ikinci kişiliği: W9–W11 batch-2 etiketlemesinde (WP3.1) ve W4
+> çift-etiket IAA ölçümünde fiilen kullanılacak.
 
 ### Kopyalanacak desenler (hepsi doğrulandı)
 
@@ -323,7 +323,7 @@ hücre-crop encoder'ı `10-IDEAS-STRETCH`'te `[IDEA]` olarak bekler.
   doğrulamalı) — hücre-bazlı sürekli özelliklere (uzunluk, alan) uygulanır:
   <https://github.com/raphaelvallat/pingouin>.
 - Pratik: 20 görsel alt küme çift-etiket → tek geçişte hem Dice-IAA hem
-  özellik-bazlı ICC. (WP1.3'ün somutu.)
+  özellik-bazlı ICC.
 
 ### Review kuyruğu ekranı (1 ekran taslak)
 

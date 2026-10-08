@@ -18,7 +18,7 @@
 
    RULES (follow these or git will fight you):
      * Keep every task on ONE line. Git merges line by line, so Berke editing
-       WP1.3 and Gozde editing WP3.1 at the same time will NOT conflict.
+       WP1.2 and Gozde editing WP2.1 at the same time will NOT conflict.
      * Append to the END of log[] and decisions[]. app.js reverses them for
        display. Prepending conflicts every single week.
      * Do NOT put reasoning here — reasoning lives in DECISIONS.md. This file
@@ -93,9 +93,9 @@ window.PC12_DATA = {
   // chart does not show. Colours live HERE, not in app.js.
   ips: [
     { id: "IP0", label: "WP0 \u2014 Project setup & planning", color:"#cbd5e1", desc:"Not in the course Gantt \u2014 ours. Weeks 1-2: repository and environment, the llm-wiki knowledge base, this dashboard, and the plan the rest of the project is measured against." },
-    { id: "IP1", label: "WP1 \u2014 Relabelling of the existing dataset", color:"#5eb8c9", desc:"The ~70 microscopy images we already hold. Audit their labels, relabel them under a single frozen protocol, then preprocess and split them into cross-validation folds. This package is the critical path: everything downstream inherits its label quality." },
-    { id: "IP2", label: "WP2 \u2014 Labelling of the incoming dataset", color:"#79c4a8", desc:"The batch that arrives later in the semester. Labelled under the SAME protocol as WP1 \u2014 otherwise old and new data cannot be pooled or compared, and the generalisation claim collapses." },
-    { id: "IP3", label: "WP3 \u2014 Segmentation model development", color:"#7dd3a0", desc:"Train a model to delineate cell bodies and neurites. Foundation-model baseline first, then the training pipeline, a pilot to validate the architecture, tuning, and full 5-fold training. The architecture decision is made at WP3.4 on cross-validation evidence, not in advance." },
+    { id: "IP1", label: "WP1 \u2014 Relabelling of the existing dataset", color:"#5eb8c9", desc:"The 91 microscopy images we already hold. Audit their labels, relabel them under a single frozen protocol, then preprocess and split them into cross-validation folds. This package is the critical path: everything downstream inherits its label quality." },
+    { id: "IP2", label: "WP2 \u2014 Segmentation model development", color:"#7dd3a0", desc:"Train a model to delineate cell bodies and neurites. Foundation-model baseline first, then the training pipeline, a pilot to validate the architecture, tuning, and full 5-fold training. The architecture decision is made at WP2.4 on cross-validation evidence, not in advance." },
+    { id: "IP3", label: "WP3 \u2014 Labelling of the incoming dataset", color:"#79c4a8", desc:"The batch that arrives later in the semester. Labelled under the SAME protocol as WP1 \u2014 otherwise old and new data cannot be pooled or compared, and the generalisation claim collapses." },
     { id: "IP4", label: "WP4 \u2014 Morphometric analysis & validation", color:"#c7d96b", desc:"Convert segmentation masks into quantitative morphology: separate touching cells into instances, extract neurite length, count and branching angle from the skeleton graph, formulate the Neural Toxicity Index, and validate every number against manual measurement (Bland-Altman)." },
     { id: "IP5", label: "WP5 \u2014 Explainability (XAI) layer", color:"#b8a4e3", desc:"Attribution and uncertainty on top of the trained model, so a biologist can see WHY a prediction was made and when the model is unsure. Method selection and a prototype first, then the end-user layer and its validation." },
     { id: "IP6", label: "WP6 \u2014 Desktop application & delivery", color:"#f2b880", desc:"Package the pipeline into an application a researcher can run offline: interface, report generation, ONNX integration, end-to-end testing and the final demonstration. Integration lands in W14-W15, i.e. after the last presentation." },
@@ -104,6 +104,8 @@ window.PC12_DATA = {
   // --- TASKS \u2014 one per LINE ---------------------------------------------
   // IDs mirror the Gantt row numbers (WP3.2 here IS WP3.2 in the chart), so the
   // board and the chart can be read side by side without a lookup table.
+  // Exception (D18): the chart's WP2 (new data) and WP3 (model) are swapped
+  // here, because model development ran first - chart WP3.x = our WP2.x.
   // Rows marked [+] are OURS, added on top of the chart; every other row is a
   // 1:1 copy of a chart row, weeks included.
   // Owner mapping from the chart: EEE -> ML (G\u00f6zde), TEAM -> EK, BME -> BM.
@@ -114,19 +116,17 @@ window.PC12_DATA = {
     { id:"WP0.4", ip:"IP0", title:"Data inventory & labelling protocol",               owner:"BM", w:[2,2],   status:"todo",  pct:0,   ms:"M1" },
     { id:"WP0.5", ip:"IP0", title:"Project dashboard infrastructure",                 owner:"ML", w:[1,2],   status:"done",  pct:100, ms:"M1" },
 
-    { id:"WP1.1", ip:"IP1", title:"Dataset audit & relabelling (~70 images)",     owner:"EK", w:[3,4],   status:"todo",  pct:0,   ms:"M2", note:"CRITICAL PATH. Who labelled the ~70 images, under what protocol? ALSO O1: is there dose/timepoint metadata? NTI (WP4.5) depends on the answer." },
+    { id:"WP1.1", ip:"IP1", title:"Dataset audit & relabelling (91 images)",     owner:"EK", w:[3,4],   status:"todo",  pct:0,   ms:"M2", note:"CRITICAL PATH. Who labelled the 91 images, under what protocol? ALSO O1: is there dose/timepoint metadata? NTI (WP4.5) depends on the answer." },
     { id:"WP1.2", ip:"IP1", title:"Preprocessing, augmentation & 5-fold split",       owner:"ML", w:[3,4],   status:"todo",  pct:0,   ms:"M2", note:"Split by IMAGE (ideally by well) and THEN patch. Patch-level leakage makes every DSC we report meaningless (R4)." },
-    { id:"WP1.3", ip:"IP1", title:"[+] Labelling agreement (10% labelled twice)",   owner:"EK", w:[4,4],   status:"todo",  pct:0,   ms:"M2", note:"Ours, not in the chart. The agreement score is the CEILING on any DSC we can honestly claim, and it is the W4 presentation claim." },
+    { id:"WP2.0", ip:"IP2", title:"[+] Foundation-model baseline (Cellpose-SAM, zero-shot)",owner:"ML", w:[5,5],   status:"todo",  pct:0,   ms:"M3", note:"Ours. Costs about a day and can beat a trained U-Net at n=91; running it late would mean training for weeks against an unknown bar." },
+    { id:"WP2.1", ip:"IP2", title:"Training pipeline setup & first run",             owner:"ML", w:[5,5],   status:"todo",  pct:0,   ms:"M3" },
+    { id:"WP2.2", ip:"IP2", title:"Pilot training & architecture validation",    owner:"ML", w:[6,6],   status:"todo",  pct:0,   ms:"M3", note:"The chart names DS-UNet here (track A2). Our architecture is our own (D8/D13); this row is the pilot-validation slot, not a commitment to theirs." },
+    { id:"WP2.3", ip:"IP2", title:"Class-balance, resolution & hyperparameter tuning",owner:"ML", w:[7,7],  status:"todo",  pct:0,   ms:"M3" },
+    { id:"WP2.4", ip:"IP2", title:"Full training on the existing dataset (5-fold CV)",           owner:"ML", w:[9,9],   status:"todo",  pct:0,   ms:"M4", note:"5-fold CV, mean +/- std. The architecture decision is made HERE (D8)." },
+    { id:"WP2.5", ip:"IP2", title:"Retraining & re-evaluation on the expanded dataset",        owner:"ML", w:[10,11], status:"todo",  pct:0,   ms:"M5" },
 
-    { id:"WP2.1", ip:"IP2", title:"Labelling of the incoming batch (same protocol)",              owner:"EK", w:[9,10],  status:"todo",  pct:0,   ms:"M4", note:"Same protocol as WP1.1, frozen beforehand, or old and new data are not comparable." },
-    { id:"WP2.2", ip:"IP2", title:"Preprocessing & augmentation of the new batch",                    owner:"EK", w:[10,11], status:"todo",  pct:0,   ms:"M5" },
-
-    { id:"WP3.0", ip:"IP3", title:"[+] Foundation-model baseline (Cellpose-SAM, zero-shot)",owner:"ML", w:[5,5],   status:"todo",  pct:0,   ms:"M3", note:"Ours. Costs about a day and can beat a trained U-Net at n~70; running it late would mean training for weeks against an unknown bar." },
-    { id:"WP3.1", ip:"IP3", title:"Training pipeline setup & first run",             owner:"ML", w:[5,5],   status:"todo",  pct:0,   ms:"M3" },
-    { id:"WP3.2", ip:"IP3", title:"Pilot training & architecture validation",    owner:"ML", w:[6,6],   status:"todo",  pct:0,   ms:"M3", note:"The chart names DS-UNet here (track A2). Our architecture is our own (D8/D13); this row is the pilot-validation slot, not a commitment to theirs." },
-    { id:"WP3.3", ip:"IP3", title:"Class-balance, resolution & hyperparameter tuning",owner:"ML", w:[7,7],  status:"todo",  pct:0,   ms:"M3" },
-    { id:"WP3.4", ip:"IP3", title:"Full training on the existing dataset (5-fold CV)",           owner:"ML", w:[9,9],   status:"todo",  pct:0,   ms:"M4", note:"5-fold CV, mean +/- std. The architecture decision is made HERE (D8)." },
-    { id:"WP3.5", ip:"IP3", title:"Retraining & re-evaluation on the expanded dataset",        owner:"ML", w:[10,11], status:"todo",  pct:0,   ms:"M5" },
+    { id:"WP3.1", ip:"IP3", title:"Labelling of the incoming batch (same protocol)",              owner:"EK", w:[9,10],  status:"todo",  pct:0,   ms:"M4", note:"Same protocol as WP1.1, frozen beforehand, or old and new data are not comparable." },
+    { id:"WP3.2", ip:"IP3", title:"Preprocessing & augmentation of the new batch",                    owner:"EK", w:[10,11], status:"todo",  pct:0,   ms:"M5" },
 
     { id:"WP4.1", ip:"IP4", title:"Instance separation (post-processing)", owner:"ML", w:[9,10],  status:"todo",  pct:0,   ms:"M4" },
     { id:"WP4.2", ip:"IP4", title:"Morphometric feature extraction (skeleton \u2192 graph)",owner:"ML", w:[11,12], status:"todo", pct:0,   ms:"M5" },
@@ -172,7 +172,7 @@ window.PC12_DATA = {
       fallback:"Slides generated from the wiki markdown" },
 
     { w:4, topic:"Data, labels & labelling agreement",  ms:"M2", speaker:"BM",
-      demo:"Filled data card (70 images) + labelling protocol + labelling agreement score + before/after preprocessing + new-data status",
+      demo:"Filled data card (91 images) + labelling protocol + labelling agreement score + before/after preprocessing + new-data status",
       claim:"Our labels are consistent enough to train on — and the number that proves it is also the ceiling on any DSC we can honestly report.",
       fallback:"Protocol + agreement measured on 5 images" },
 
@@ -188,7 +188,7 @@ window.PC12_DATA = {
       note:"Morphometry was moved OUT of this week: the chart schedules feature extraction (WP4.2) at W11-W12 and Bland-Altman evaluation (WP4.3) at W12. Promising measurements here would promise work that has not started." },
 
     { w:11, topic:"Expanded data, features & explainability", ms:"M5", speaker:"ML",
-      demo:"Results including the new data (WP3.5 retrain on the expanded set) · first feature-extraction output (WP4.2, mid-package) · XAI overlays showing where the model looks",
+      demo:"Results including the new data (WP2.5 retrain on the expanded set) · first feature-extraction output (WP4.2, mid-package) · XAI overlays showing where the model looks",
       claim:"More data measurably moved the numbers, and we can already extract neurite geometry from the masks and show what the model attends to.",
       fallback:"Expanded-data comparison table + XAI overlays; feature extraction on 3 images",
       note:"Systematic error analysis was moved OUT of this week: WP4.3 (metrics + error analysis, incl. Bland-Altman) is scheduled at W12. The failure taxonomy belongs to the W13 slot, where WP4.4 closes the improvement loop." },
@@ -255,6 +255,8 @@ window.PC12_DATA = {
     { w:3, text:"IntelliCell readability pass: 12 px type floor (body 14 px), buttons 36/32 px, icon buttons 36 px, switches 46x28, icons +2 px; truncation-free layouts (NTI legend, metric cards, colormap chips, chart axes with compact ticks, responsive top bar), rectangle-tested cell badges (0 overlaps). Verified with a DOM audit (app/web/scripts/ui-audit.js) on 19 UI states x 2 themes x 1280/1440/1920: 0 tiny-text, overflow, small-target or off-centre findings; image area 70.3% at 1920x1080." },
     { w:3, text:"Model research round 2 (llm-wiki/19-MODEL-IMPROVEMENT-RESEARCH.html): 9 local-LLM literature scouts + 3 Sonnet verifiers, 131 sources (130 resolved, 0 fabricated). Recommends replacing the TÜSEB Swin trunk with an SSL-adapted DINOv2/v3 teacher distilled into an nnU-Net ResEnc/MedNeXt CPU student, geometry heads (SDF + junctions), a pre-registered topology-loss A/B, scribble labels + FM-teacher semi-supervision, a monotone EBM/GAM NTI with conformal intervals, and an offline citation-checked RAG explainer (licence-audited corpus). Proposal, not yet an ADR." },
     { w:3, text:"Dashboard primary colour changed from blue to green (8-step ramp, 500 = #1a7f53, 4.99:1 on white). Success/done moved from green to teal (#14899a) so finished work no longer reads as selected or in progress. Primary is now read from --pri-500 in app.js, so styles.css is its single source. Cache-buster v=74." },
+    { w:4, text:"D18: WP1.3 (labelling agreement) removed from the plan. WP2 and WP3 renumbered to follow the order the work actually ran: model development is now WP2 (WP2.0-WP2.5), incoming-data labelling is WP3 (WP3.1-WP3.2). For these two packages the task ids no longer match the course chart rows. Cache-buster v=75." },
+    { w:4, text:"Existing dataset count corrected from ~70 to 91 images (WP1 description, WP1.1, WP2.0 note, W4 data card)." },
   ],
 
 };
